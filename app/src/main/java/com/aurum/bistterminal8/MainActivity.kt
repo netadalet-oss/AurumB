@@ -205,13 +205,25 @@ class MainActivity : AppCompatActivity() {
             }.setNegativeButton(android.R.string.cancel, null).show()
     }
 
-    fun postNotification(id: String, title: String, text: String, extra: String): String {
-        val channel = "aurum_pipeline"
+    fun postNotification(title: String, body: String, tag: String, channel: String): String {
+        if (android.os.Build.VERSION.SDK_INT >= 33 &&
+            androidx.core.content.ContextCompat.checkSelfPermission(
+                this, android.Manifest.permission.POST_NOTIFICATIONS
+            ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) return "ERR:NOTIFICATION_PERMISSION"
+
         val nm = getSystemService(NotificationManager::class.java)
-        nm.createNotificationChannel(NotificationChannel(channel, "Aurum", NotificationManager.IMPORTANCE_DEFAULT))
-        nm.notify(id.hashCode(), NotificationCompat.Builder(this, channel)
-            .setSmallIcon(android.R.drawable.stat_notify_more).setContentTitle(title)
-            .setContentText(text).setAutoCancel(true).build())
+        nm.createNotificationChannel(
+            NotificationChannel(channel, "Aurum Bildirimleri", NotificationManager.IMPORTANCE_DEFAULT)
+        )
+        val notification = NotificationCompat.Builder(this, channel)
+            .setSmallIcon(android.R.drawable.stat_notify_more)
+            .setContentTitle(title.ifBlank { "Aurum BIST Rev 20" })
+            .setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setAutoCancel(true)
+            .build()
+        nm.notify(if (tag.isBlank()) body.hashCode() else tag.hashCode(), notification)
         return "OK"
     }
 
