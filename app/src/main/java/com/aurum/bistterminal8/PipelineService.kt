@@ -9,6 +9,8 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
 import android.os.IBinder
+import android.webkit.JsPromptResult
+import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -50,6 +52,31 @@ class PipelineService : Service() {
             settings.allowFileAccess = false
             settings.allowContentAccess = false
             settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
+            webChromeClient = object : WebChromeClient() {
+                override fun onJsPrompt(
+                    view: WebView?,
+                    url: String?,
+                    message: String?,
+                    defaultValue: String?,
+                    result: JsPromptResult?
+                ): Boolean {
+                    if (message == "aurum://complete") {
+                        val detail = defaultValue.orEmpty()
+                        val failed = detail.contains("fail", ignoreCase = true) ||
+                            detail.contains("error", ignoreCase = true)
+                        SchedulerLedger.complete(
+                            this@PipelineService,
+                            jobToken,
+                            if (failed) "FAILED" else "COMPLETED",
+                            if (failed) detail else ""
+                        )
+                        result?.confirm("OK")
+                        stopSelf(startId)
+                        return true
+                    }
+                    return super.onJsPrompt(view, url, message, defaultValue, result)
+                }
+            }
             webViewClient = object : WebViewClient() {
                 override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest) =
                     loader.shouldInterceptRequest(request.url)
