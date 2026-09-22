@@ -107,7 +107,21 @@ class MainActivity : AppCompatActivity() {
                 "ACCEPTED"
             }
             "folder_status" -> currentFolderUri()?.toString().orEmpty()
-            "folder_clear" -> { exportFolder = null; "OK" }
+            "folder_clear" -> {
+                exportFolder?.let { uri ->
+                    runCatching {
+                        contentResolver.releasePersistableUriPermission(
+                            uri,
+                            android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                                android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                        )
+                    }
+                }
+                exportFolder = null
+                getSharedPreferences("aurum_export_folder", MODE_PRIVATE)
+                    .edit().remove("uri").apply()
+                "OK"
+            }
             "export" -> exportBytes(
                 uri.getQueryParameter("name").orEmpty(),
                 uri.getQueryParameter("mime") ?: "application/octet-stream",
