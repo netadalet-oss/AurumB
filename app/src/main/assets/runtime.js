@@ -5710,3 +5710,30 @@ try{AurumUpdateAPI.state.r224={version:'REV20.24-PRIORITIZED-SUBSTANTIVE-NEWS',a
 
 /* REV20.25 user-requested reliability refinements */
 try{AurumUpdateAPI.state.r225={version:'REV20.25-RELIABILITY-FILL-NEWS',activatedAt:nowISO(),features:['SIX_TOTAL_FETCHES_95_95_95_90_80_70','DERIVED_SNAPSHOT_MIN_70','PRESERVE_PREVIOUS_DERIVED_TIMESTAMPS','DATA_WORKERS_56_PROVIDER_LIMITS_PRESERVED','NEWS_VISIBLE_URL','EXTERNAL_SOURCE_SAFE_BACK_NAVIGATION']}}catch{}
+
+/* ===== REV20.26 — USER RELIABILITY CONTRACT ===== */
+(function installR226ReliabilityContract(){
+ if(globalThis.__AURUM_REV226_RELIABILITY)return;globalThis.__AURUM_REV226_RELIABILITY=true;
+ const MARKET_REFRESH_MS=30*60*1000,MARKET_LAST_KEY='aurum.r226.market.refresh.at',targets=[95,95,90,80,70];
+ function fillStatus(){const sum=typeof dataSummary==='function'?dataSummary(state.records):{};const fill=Number(sum?.fillPct||0);return {fill,derived:fill>=70}}
+ const oldMeta=globalThis.dataMetaMarkup||dataMetaMarkup;
+ globalThis.dataMetaMarkup=dataMetaMarkup=function r226DataMetaMarkup(){
+   let h=oldMeta(),st=fillStatus(),msg=st.fill>=95?'Yüksek doluluk hedefi sağlandı; ek çekim gerekmiyor.':st.fill>=70?'Doluluk hedefi için eksikler kademeli yeniden denenir: %95 → %95 → %90 → %80 → %70.':'Veriler tabloya yazılır; %70 altındaysa Kn, K_Tarihsel, S ve AL/SAT önceki geçerli snapshot ve zaman damgalarını korur.';
+   return h+'<div class="r226-fill-note"><small>'+html(msg)+'</small></div>';
+ };
+ async function refreshMarket(reason){
+   if(document.hidden&&reason==='TIMER')return false;if(globalThis.__aurumR226MarketRefreshing)return false;globalThis.__aurumR226MarketRefreshing=true;
+   try{const d=await globalThis.refreshMarketIndicators?.();localStorage.setItem(MARKET_LAST_KEY,String(Date.now()));const host=document.getElementById('aurumDataMarketStrip');if(host&&typeof globalThis.marketIndicatorsMarkup==='function')host.outerHTML=globalThis.marketIndicatorsMarkup();return !!d}catch{return false}finally{globalThis.__aurumR226MarketRefreshing=false}
+ }
+ function due(){const t=Number(localStorage.getItem(MARKET_LAST_KEY)||0);return !t||Date.now()-t>=MARKET_REFRESH_MS}
+ function refreshIfDue(reason){if(due())queueMicrotask(()=>refreshMarket(reason))}
+ setInterval(()=>refreshMarket('TIMER'),MARKET_REFRESH_MS);
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshIfDue('VISIBLE')},{passive:true});
+ window.addEventListener('focus',()=>refreshIfDue('FOCUS'),{passive:true});window.addEventListener('pageshow',()=>refreshIfDue('PAGESHOW'),{passive:true});queueMicrotask(()=>refreshMarket('APP_OPEN'));
+ globalThis.openAurumSourceUrl=function(raw,ev){try{ev?.preventDefault?.();ev?.stopPropagation?.();const u=new URL(String(raw||''));if(u.protocol!=='https:')return false;const qp=new URLSearchParams({cmd:'open_url',url:u.href}),ans=window.prompt('aurum://native?'+qp.toString(),'')||'';if(ans==='OPENED')return false;location.href=u.href;return false}catch{return false}};
+ document.addEventListener('click',ev=>{const a=ev.target?.closest?.('.r207-news-link a,.r207-news-card h3 a');if(a?.href)openAurumSourceUrl(a.href,ev)},true);
+ async function persistSafety(){try{const st=fillStatus(),kn=(await dbGet('meta','knSnapshot'))?.value||null,hist=(await dbGet('meta','historicalSnapshot'))?.value||null,sel=(await dbGet('meta','selectionSnapshot'))?.value||null,at=nowISO();await dbPut('meta',{key:'r226DerivedSafety',value:{at,fillPct:st.fill,minFillPct:70,derivedUpdateAllowed:st.derived,preservedWhenBelow70:!st.derived,knAt:kn?.at||kn?.transferredAt||null,historicalAt:hist?.at||hist?.transferredAt||null,selectionAt:sel?.at||sel?.transferredAt||null,targets},updatedAt:at})}catch{}}
+ const baseManualData=runManualData;runManualData=async function r226ManualData(){const ok=await baseManualData.apply(this,arguments);await persistSafety();try{await refreshMarket('DATA_COMMAND')}catch{}return ok};globalThis.runDataRefresh=mode=>runManualData(mode);
+ try{globalThis.AurumRuntime=Object.freeze({...globalThis.AurumRuntime,manualData:runManualData})}catch{}
+ queueMicrotask(async()=>{try{state.settings.targetMinFillPct=95;state.settings.marketFreshMinutes=30;state.settings.concurrency=Math.max(60,Number(state.settings.concurrency||60));state.settings.maxGlobalConcurrency=Math.max(60,Number(state.settings.maxGlobalConcurrency||60));await saveSettings();await persistSafety();AurumUpdateAPI.state.r226={version:'REV20.26-USER-RELIABILITY-CONTRACT',activatedAt:nowISO(),features:['SIX_TOTAL_FETCHES_THRESHOLDS_95_95_95_90_80_70','DERIVED_FREEZE_BELOW_70','PRESERVE_DERIVED_TIMESTAMPS','MARKET_AUTO_30_MIN','MARKET_REFRESH_APP_OPEN_FOCUS_DATA_COMMAND','MULTI_SOURCE_DIRECT_PERCENT_ARROWS','NEWS_VISIBLE_URL_NATIVE_OPEN_BACK','SLIGHT_SAFE_THROUGHPUT_INCREASE']}}catch{}});
+})();
