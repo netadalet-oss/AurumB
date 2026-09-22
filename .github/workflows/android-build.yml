@@ -12,6 +12,14 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      - name: Validate JavaScript syntax
+        run: |
+          node --check app/src/main/assets/core.js
+          node --check app/src/main/assets/features.js
+          node --check app/src/main/assets/runtime.js
+          node --check app/src/main/assets/offline-first.js
+          node --check app/src/main/assets/rev20-customization.js
+
       - name: Assemble debug APK
         run: gradle --no-daemon :app:assembleDebug --stacktrace
       - name: Upload APK
