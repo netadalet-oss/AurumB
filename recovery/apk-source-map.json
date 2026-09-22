@@ -1,0 +1,100 @@
+{
+  "package": "com.aurum.bistterminal8",
+  "assets": [
+    {
+      "apk_path": "assets/aurum-icon.svg",
+      "source_path": "app/src/main/assets/aurum-icon.svg",
+      "bytes": 1772,
+      "sha256": "d91912feaf53d20ba0a718b75781b40d25fc16314647b4740492c70ad7cc3121",
+      "provenance": "EXACT_APK"
+    },
+    {
+      "apk_path": "assets/core.js",
+      "source_path": "app/src/main/assets/core.js",
+      "bytes": 301627,
+      "sha256": "e1c55ed27fb3f905ea5807a33eb9e958acd16061e4d7faeb2c337a5d1b24f325",
+      "provenance": "EXACT_APK"
+    },
+    {
+      "apk_path": "assets/features.js",
+      "source_path": "app/src/main/assets/features.js",
+      "bytes": 62873,
+      "sha256": "73975ab3184fd93aac5334c9158b175825a06e56bb6320697da8be21a5ba982e",
+      "provenance": "EXACT_APK"
+    },
+    {
+      "apk_path": "assets/index.html",
+      "source_path": "app/src/main/assets/index.html",
+      "bytes": 3249,
+      "sha256": "2b0336de0aa1b43e397827016c7c4d3d122ab5ecaf5643d4f8bdbe52bd01864b",
+      "provenance": "EXACT_APK"
+    },
+    {
+      "apk_path": "assets/manifest.webmanifest",
+      "source_path": "app/src/main/assets/manifest.webmanifest",
+      "bytes": 222,
+      "sha256": "d4815ec60cfb1b429d83c75d7e61fbfcf5620a3467f3006db541dedd4264c0e6",
+      "provenance": "EXACT_APK"
+    },
+    {
+      "apk_path": "assets/native-bridge.js",
+      "source_path": "app/src/main/assets/native-bridge.js",
+      "bytes": 872,
+      "sha256": "4f76faaf808c96a131cdbbb6af4cc6dc1e75ecc43777843bfa555b0fbe53462f",
+      "provenance": "EXACT_APK"
+    },
+    {
+      "apk_path": "assets/native-market-http.js",
+      "source_path": "app/src/main/assets/native-market-http.js",
+      "bytes": 3079,
+      "sha256": "cea7f4c20d973208f25bf0f309ce3de6ebe9a435e7d22fd95a0fcff44ce91c72",
+      "provenance": "EXACT_APK"
+    },
+    {
+      "apk_path": "assets/native-secure-ai.js",
+      "source_path": "app/src/main/assets/native-secure-ai.js",
+      "bytes": 1988,
+      "sha256": "6cd51671d63eb3b99eb297d5150aa5e578764c5724e548f84476987e54a0e7ff",
+      "provenance": "EXACT_APK"
+    },
+    {
+      "apk_path": "assets/offline-first.js",
+      "source_path": "app/src/main/assets/offline-first.js",
+      "bytes": 5794,
+      "sha256": "2d21920f9314db67d8b4ae98cbbc72345015693f3082358ba1a5f6f05e005b6c",
+      "provenance": "EXACT_APK"
+    },
+    {
+      "apk_path": "assets/rev20-customization.js",
+      "source_path": "app/src/main/assets/rev20-customization.js",
+      "bytes": 22793,
+      "sha256": "24e723703af59bf4cb6f831f307b46d208935317d430c4a666c9418abdbd6b5e",
+      "provenance": "EXACT_APK"
+    },
+    {
+      "apk_path": "assets/runtime.js",
+      "source_path": "app/src/main/assets/runtime.js",
+      "bytes": 741406,
+      "sha256": "46a7a9f721c7c66f5acd33f31e9c5fbf50400ee2fd7ab9675e15cb295a17ace2",
+      "provenance": "EXACT_APK"
+    },
+    {
+      "apk_path": "assets/styles.css",
+      "source_path": "app/src/main/assets/styles.css",
+      "bytes": 115690,
+      "sha256": "1c6ff7c946c6d21302cd11f6d0552a32fad7fd3232ceb0c5fe1bdf81d8875bd2",
+      "provenance": "EXACT_APK"
+    }
+  ],
+  "native_source_filenames": [
+    "AurumScheduler.kt",
+    "BootReceiver.kt",
+    "MainActivity.kt",
+    "NativeMarketHttp.kt",
+    "NativeOpenAI.kt",
+    "PipelineService.kt",
+    "SchedulerLedger.kt",
+    "SecureSecretStore.kt",
+    "TriggerReceiver.kt"
+  ]
+}
