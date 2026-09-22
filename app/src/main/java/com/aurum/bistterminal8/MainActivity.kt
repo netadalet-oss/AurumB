@@ -97,7 +97,12 @@ class MainActivity : AppCompatActivity() {
             }
             "openai_request" -> {
                 val id = uri.getQueryParameter("requestId").orEmpty()
-                NativeOpenAI.request(this, id, uri.getQueryParameter("path").orEmpty(), body
+                NativeOpenAI.request(
+                    this,
+                    id,
+                    uri.getQueryParameter("path").orEmpty(),
+                    uri.getQueryParameter("method") ?: "GET",
+                    body
                 ) { payload -> resolveJs("window.AurumNativeAI.resolve", id, payload) }
                 "ACCEPTED"
             }
