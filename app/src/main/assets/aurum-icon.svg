@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Aurum BIST Analiz logosu">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#010F49"/>
+      <stop offset="0.55" stop-color="#01083B"/>
+      <stop offset="1" stop-color="#000526"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#9a691e"/>
+      <stop offset="0.48" stop-color="#d4af37"/>
+      <stop offset="1" stop-color="#f3d36f"/>
+    </linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="8" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect x="18" y="18" width="476" height="476" rx="116" fill="url(#bg)"/>
+  <rect x="33" y="33" width="446" height="446" rx="102" fill="none" stroke="#d4af37" stroke-opacity=".42" stroke-width="4"/>
+  <path d="M126 358L238 132c7-14 27-14 34 0l112 226" fill="none" stroke="url(#gold)" stroke-width="38" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M183 286h146" fill="none" stroke="url(#gold)" stroke-width="30" stroke-linecap="round"/>
+  <path d="M309 230l53-54 31 31" fill="none" stroke="#f3d36f" stroke-width="19" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)"/>
+  <path d="M362 176v64" fill="none" stroke="#f3d36f" stroke-width="19" stroke-linecap="round"/>
+  <g fill="url(#gold)" opacity=".92">
+    <rect x="129" y="368" width="28" height="42" rx="10"/>
+    <rect x="173" y="345" width="28" height="65" rx="10"/>
+    <rect x="217" y="319" width="28" height="91" rx="10"/>
+    <rect x="261" y="292" width="28" height="118" rx="10"/>
+  </g>
+</svg>
