@@ -4984,7 +4984,7 @@ try{AurumUpdateAPI.state.cleanREV20={version:'REV20.0-CLEAN',activatedAt:new Dat
   globalThis.marketIndicatorsMarkup=markup;try{marketIndicatorsMarkup=markup}catch{}
   // Prevent old computed market cache from flashing before first direct refresh.
   try{if(state.marketIndicators?.source!=='REV20.4_DIRECT_PROVIDER_VALUES')state.marketIndicators=null}catch{}
-  queueMicrotask(()=>refresh().then(()=>{try{if(state.page==='data'||state.page==='market')renderCurrentPagePreservingView?.()}catch{}}).catch(()=>{}));
+  /* Startup refresh intentionally disabled: market refresh is manual, scheduled/data-command driven, or the independent 30-minute timer. */
 })();
 
 
@@ -5118,7 +5118,7 @@ try{AurumUpdateAPI.state.cleanREV20={version:'REV20.0-CLEAN',activatedAt:new Dat
   globalThis.marketIndicatorsMarkup=markup;try{marketIndicatorsMarkup=markup}catch{}
   globalThis.refreshAurumDataMarketStrip=async function refreshAurumDataMarketStripR209(ev){const btn=ev?.currentTarget||document.querySelector('.aurum-r209-market-refresh');if(btn?.dataset.busy==='1')return false;try{if(btn){btn.dataset.busy='1';btn.disabled=true;}await refresh();const host=document.getElementById('aurumDataMarketStrip');if(host)host.outerHTML=markup();globalThis.showAurumNotice?.('Piyasa bilgileri yenilendi','success',1400);return true}catch(e){globalThis.showAurumNotice?.('Piyasa bilgileri yenilenemedi: '+(e?.message||e),'error',2600);return false}finally{const b=document.querySelector('.aurum-r209-market-refresh');if(b){delete b.dataset.busy;b.disabled=false;}}};
   try{if(state.marketIndicators?.source!=='REV20.5_DIRECT_PROVIDER_VALUES')state.marketIndicators=null}catch{}
-  queueMicrotask(()=>refresh().then(()=>{try{if(state.page==='data'||state.page==='market')renderCurrentPagePreservingView?.()}catch{}}).catch(()=>{}));
+  /* Startup refresh intentionally disabled: market refresh is manual, scheduled/data-command driven, or the independent 30-minute timer. */
 })();
 
 
@@ -5729,4 +5729,15 @@ try{AurumUpdateAPI.state.r225={version:'REV20.25-RELIABILITY-FILL-NEWS',activate
  const baseManualData=runManualData;runManualData=async function r226ManualData(){const ok=await baseManualData.apply(this,arguments);await persistSafety();try{await refreshMarket('DATA_COMMAND')}catch{}return ok};globalThis.runDataRefresh=mode=>runManualData(mode);
  try{globalThis.AurumRuntime=Object.freeze({...globalThis.AurumRuntime,manualData:runManualData})}catch{}
  queueMicrotask(async()=>{try{state.settings.targetMinFillPct=95;state.settings.marketFreshMinutes=30;state.settings.concurrency=Math.max(60,Number(state.settings.concurrency||60));state.settings.maxGlobalConcurrency=Math.max(60,Number(state.settings.maxGlobalConcurrency||60));await saveSettings();await persistSafety();AurumUpdateAPI.state.r226={version:'REV20.26-USER-RELIABILITY-CONTRACT',activatedAt:nowISO(),features:['SIX_TOTAL_FETCHES_THRESHOLDS_95_95_95_90_80_70','DERIVED_FREEZE_BELOW_70','PRESERVE_DERIVED_TIMESTAMPS','MARKET_AUTO_30_MIN','NO_STARTUP_FOREGROUND_NETWORK_DATA_FETCH','MULTI_SOURCE_DIRECT_PERCENT_ARROWS','NEWS_VISIBLE_URL_NATIVE_OPEN_BACK','SLIGHT_SAFE_THROUGHPUT_INCREASE']}}catch{}});
+})();
+
+/* ===== REV20.27 — NAVIGATION/LIFECYCLE SAFETY ===== */
+(function installR227NavigationSafety(){
+ if(globalThis.__AURUM_REV227_NAV_SAFETY)return;globalThis.__AURUM_REV227_NAV_SAFETY=true;
+ /* Navigation is UI-only. It must never synchronously launch network/data work. */
+ const baseGo=globalThis.goPage||goPage;
+ if(typeof baseGo==='function'){
+   globalThis.goPage=goPage=function r227GoPage(page){return baseGo.call(this,page)};
+ }
+ try{AurumUpdateAPI.state.r227={version:'REV20.27-NAV-LIFECYCLE-SAFETY',activatedAt:nowISO(),features:['NO_MARKET_FETCH_ON_APP_START','NO_DATA_FETCH_ON_BOOT','NO_DATA_FETCH_ON_NETWORK_RESTORE','NO_DATA_FETCH_ON_FOREGROUND','MARKET_TIMER_30_MIN_PRESERVED','MANUAL_AND_DEFINED_SCHEDULES_PRESERVED','TAB_NAVIGATION_UI_ONLY']}}catch{}
 })();
