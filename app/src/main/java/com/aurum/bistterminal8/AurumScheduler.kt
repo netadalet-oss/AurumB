@@ -75,7 +75,7 @@ object AurumScheduler {
     fun pending(context: Context, time: String, epoch: Long): PendingIntent {
         val intent = Intent(context, TriggerReceiver::class.java)
             .setAction(ACTION_SLOT)
-            .putExtra("slot", time)
+            .putExtra("slotTime", time)
             .putExtra("epoch", epoch)
         return PendingIntent.getBroadcast(
             context, time.hashCode(), intent,
