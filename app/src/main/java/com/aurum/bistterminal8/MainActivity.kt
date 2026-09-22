@@ -131,19 +131,34 @@ class MainActivity : AppCompatActivity() {
 
     fun currentFolderUri(): Uri? = exportFolder
 
-    fun exportBytes(name: String, mime: String, data: String, a: String, b: String): String {
-        if (b != "custom") return "ERR:ANDROID_10_REQUIRED"
-        val folder = currentFolderUri() ?: return "ERR:NO_FOLDER"
+    fun exportBytes(name: String, mime: String, data: String, encoding: String, target: String): String {
         return runCatching {
-            val target = android.provider.DocumentsContract.createDocument(contentResolver, folder, mime, name)
-                ?: return "ERR:WRITE_FAILED"
-            contentResolver.openOutputStream(target)?.use { out ->
-                if (a.equals("base64", ignoreCase = true)) {
+            val outUri = if (target == "custom") {
+                val tree = currentFolderUri() ?: return "ERR:NO_FOLDER"
+                val docId = android.provider.DocumentsContract.getTreeDocumentId(tree)
+                val parent = android.provider.DocumentsContract.buildDocumentUriUsingTree(tree, docId)
+                android.provider.DocumentsContract.createDocument(contentResolver, parent, mime, name)
+                    ?: return "ERR:WRITE_FAILED"
+            } else {
+                if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q) {
+                    return "ERR:ANDROID_10_REQUIRED"
+                }
+                val values = android.content.ContentValues().apply {
+                    put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, name.ifBlank { "Aurum" })
+                    put(android.provider.MediaStore.MediaColumns.MIME_TYPE, mime)
+                    put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS + "/Aurum")
+                }
+                contentResolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                    ?: return "ERR:WRITE_FAILED"
+            }
+
+            contentResolver.openOutputStream(outUri)?.use { out ->
+                if (encoding.equals("base64", ignoreCase = true)) {
                     out.write(android.util.Base64.decode(data, android.util.Base64.DEFAULT))
                 } else {
-                    OutputStreamWriter(out, Charsets.UTF_8).use { writer -> writer.write(data) }
+                    out.write(data.toByteArray(Charsets.UTF_8))
                 }
-            }
+            } ?: return "ERR:WRITE_FAILED"
             "OK"
         }.getOrDefault("ERR:WRITE_FAILED")
     }
