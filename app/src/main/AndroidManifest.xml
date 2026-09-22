@@ -3,7 +3,7 @@
      Values below are decoded from the supplied APK AndroidManifest.xml.
      AndroidX generated/provider entries are intentionally left to dependencies. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.aurum.rev20.smartfastx.debug">
+>
 
     <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="35" />
 
