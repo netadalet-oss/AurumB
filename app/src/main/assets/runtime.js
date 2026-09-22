@@ -5791,3 +5791,47 @@ try{AurumUpdateAPI.state.r225={version:'REV20.25-RELIABILITY-FILL-NEWS',activate
  globalThis.refreshAurumDataMarketStrip=async function(ev){const btn=ev?.currentTarget||document.querySelector('.aurum-r209-market-refresh');if(btn?.dataset.busy==='1')return false;try{if(btn){btn.dataset.busy='1';btn.disabled=true}await refresh();const h=document.getElementById('aurumDataMarketStrip');if(h)h.outerHTML=markup();return true}catch(e){globalThis.showAurumNotice?.('Piyasa bilgileri yenilenemedi: '+(e?.message||e),'error',2600);return false}finally{const b=document.querySelector('.aurum-r209-market-refresh');if(b){delete b.dataset.busy;b.disabled=false}}};
  try{AurumUpdateAPI.state.r230={version:'REV20.30-COMPLETE-MARKET-PREV-CLOSE',activatedAt:nowISO(),features:['ALL_SIX_MARKET_FIELDS','PREVIOUS_TRADING_CLOSE_PERCENT','DUAL_API_HOST_FALLBACK','OPEN_SOURCE_FALLBACK','MANUAL_AND_30_MIN_REFRESH_ONLY','NO_LIFECYCLE_AUTOSTART']}}catch{}
 })();
+
+
+/* ===== REV20.31 — PROVIDER-PUBLISHED MARKET PERCENTAGES ONLY ===== */
+(function installR231ProviderPublishedMarketPercent(){
+ if(globalThis.__AURUM_R231_PROVIDER_PCT)return;globalThis.__AURUM_R231_PROVIDER_PCT=true;
+ const KEY='marketIndicatorsR231', KEYS=['XU100','USDTRY','EURTRY','EURUSD','GRAMTRY','GOLDUSD'];
+ const LABELS={XU100:'BIST 100',USDTRY:'USD/TRY',EURTRY:'EUR/TRY',EURUSD:'EUR/USD',GRAMTRY:'Gram Altın',GOLDUSD:'Altın Ons'};
+ const numTR=s=>{s=String(s??'').trim().replace(/\s/g,'').replace(/%/g,'');if(!s)return null;const comma=s.lastIndexOf(','),dot=s.lastIndexOf('.');if(comma>dot)s=s.replace(/\./g,'').replace(',','.');else if(dot>comma&&comma>=0)s=s.replace(/,/g,'');const n=Number(s.replace(/^\+/,'').replace('−','-'));return Number.isFinite(n)?n:null};
+ const escRe=s=>s.replace(/[.*+?^$()|[\]\\{}]/g,'\\$&');
+ function pairFromText(text,label){
+   const clean=String(text||'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim();
+   const re=new RegExp(escRe(label)+'\\s*[:\\-]?\\s*([-+−]?\\d[\\d.]*,?\\d*)\\s*(?:%?\\s*)?([-+−]?\\d[\\d.]*,\\d+)\\s*%?','i'),m=clean.match(re);
+   if(!m)return null;const value=numTR(m[1]),pct=numTR(m[2]);return value!=null&&pct!=null?{value,changePct:pct}:null;
+ }
+ async function bigpara(){
+   const url='https://sm.bigpara.com/piyasalar/';
+   const r=await fetchWithTimeout(url,{headers:{Accept:'text/html,application/xhtml+xml'},cache:'no-store',__provider:'BIGPARA'},'Piyasa doğrudan yüzde');
+   if(!r.ok)throw new Error('Bigpara HTTP '+r.status);
+   const body=await r.text(),doc=new DOMParser().parseFromString(body,'text/html');
+   const candidates=[...doc.querySelectorAll('tr,li,.row,[class*="market"],[class*="piyasa"],[class*="table"]')].map(n=>n.textContent||'');candidates.push(doc.body?.innerText||doc.body?.textContent||'');
+   const defs={XU100:['BIST 100'],USDTRY:['DOLAR','USD / TRY','USD/TRY'],EURTRY:['EURO','EUR / TRY','EUR/TRY'],EURUSD:['EUR / USD','EUR/USD'],GRAMTRY:['ALTIN'],GOLDUSD:['ALTIN (ONS/$)','ALTIN ONS','ONS ALTIN']},fields={};
+   for(const [k,labels] of Object.entries(defs)){outer:for(const t of candidates){if(k==='GRAMTRY'&&/ONS/.test(t.toLocaleUpperCase('tr-TR')))continue;for(const label of labels){const p=pairFromText(t,label);if(p){fields[k]={...p,source:'BIGPARA_DIRECT_PUBLISHED',providerAt:nowISO(),at:nowISO(),direct:true,identityVerified:true,percentOrigin:'PROVIDER_PUBLISHED',url};break outer}}}}
+   return fields;
+ }
+ async function yahooQuote(){
+   const symbols={XU100:'XU100.IS',USDTRY:'TRY=X',EURTRY:'EURTRY=X',EURUSD:'EURUSD=X',GOLDUSD:'GC=F'},out={};
+   for(const host of ['query1.finance.yahoo.com','query2.finance.yahoo.com']){try{const url='https://'+host+'/v7/finance/quote?symbols='+encodeURIComponent(Object.values(symbols).join(','));const r=await fetchWithTimeout(url,{headers:{Accept:'application/json'},cache:'no-store',__provider:'YAHOO'},'Piyasa doğrudan quote');if(!r.ok)continue;const o=await responseJSON(r),rows=o?.quoteResponse?.result||[];for(const [k,sym] of Object.entries(symbols)){const q=rows.find(x=>x?.symbol===sym),v=Number(q?.regularMarketPrice),p=Number(q?.regularMarketChangePercent);if(Number.isFinite(v)&&Number.isFinite(p))out[k]={value:v,changePct:p,previousClose:Number.isFinite(Number(q?.regularMarketPreviousClose))?Number(q.regularMarketPreviousClose):null,source:host.startsWith('query1')?'YAHOO_Q1_DIRECT_QUOTE':'YAHOO_Q2_DIRECT_QUOTE',providerAt:q?.regularMarketTime?new Date(Number(q.regularMarketTime)*1000).toISOString():nowISO(),at:q?.regularMarketTime?new Date(Number(q.regularMarketTime)*1000).toISOString():nowISO(),direct:true,identityVerified:true,percentOrigin:'PROVIDER_PUBLISHED',url}}if(Object.keys(out).length)return out}catch{}}
+   return out;
+ }
+ function cached(){return state.marketIndicators?.source==='REV20.31_PROVIDER_PUBLISHED_PERCENT'?state.marketIndicators:readLocal(KEY,null)}
+ async function refresh(){
+   const errors=[];let fields={};try{fields=await bigpara()}catch(e){errors.push(String(e?.message||e))}
+   if(KEYS.some(k=>!fields[k])){try{const y=await yahooQuote();for(const k of KEYS)if(!fields[k]&&y[k])fields[k]=y[k]}catch(e){errors.push(String(e?.message||e))}}
+   const old=cached()?.fields||{};for(const k of KEYS)if(!fields[k]&&old[k])fields[k]={...old[k],stale:true};
+   const values={};for(const k of KEYS){const n=Number(fields[k]?.value);values[k]=Number.isFinite(n)?n:null}
+   const payload={at:nowISO(),updatedAt:nowISO(),source:'REV20.31_PROVIDER_PUBLISHED_PERCENT',percentRule:'PROVIDER_PUBLISHED_ONLY_NO_APP_CALCULATION',fields,values,errors:errors.slice(0,12)};
+   state.marketIndicators=payload;writeLocal(KEY,payload);writeLocal('marketIndicatorsR40',payload);try{await dbPut('meta',{key:KEY,value:payload,updatedAt:nowISO()})}catch{}return payload;
+ }
+ function fnum(v,key){const n=Number(v);if(!Number.isFinite(n))return '—';const d=key==='XU100'?2:key==='GRAMTRY'||key==='GOLDUSD'?2:4;return n.toLocaleString('tr-TR',{minimumFractionDigits:d,maximumFractionDigits:d,useGrouping:true})}
+ function markup(){const m=cached()||{},f=m.fields||{};return '<div class="aurum-r209-market-wrap" id="aurumDataMarketStrip"><button type="button" class="aurum-r209-market-refresh" title="Piyasa bilgilerini yenile" aria-label="Piyasa bilgilerini yenile" onclick="refreshAurumDataMarketStrip(event)"><span aria-hidden="true">↻</span></button><div class="aurum-r205-market">'+KEYS.map(k=>{const x=f[k]||{},c=x.stale?null:Number(x.changePct),valid=Number.isFinite(c),cls=!valid?'flat':c>0?'up':c<0?'down':'flat',arrow=!valid?'':c>0?'↑':c<0?'↓':'·',pct=!valid?(x.stale?'eski':'—'):(c>0?'+':'')+c.toLocaleString('tr-TR',{minimumFractionDigits:2,maximumFractionDigits:2})+'%';return '<div class="aurum-r205-market-card" title="'+html((x.source||'')+' · Yüzde: kaynaktan doğrudan')+'"><span class="aurum-r205-market-label">'+LABELS[k]+'</span><strong class="aurum-r205-market-value">'+fnum(x.value,k)+'</strong><span class="aurum-r205-market-pct '+cls+'">'+(arrow?'<i class="aurum-market-dir" aria-hidden="true">'+arrow+'</i>':'')+pct+'</span></div>'}).join('')+'</div></div>'}
+ globalThis.cachedMarketIndicators=cached;globalThis.refreshMarketIndicators=refresh;globalThis.marketIndicatorsMarkup=markup;try{refreshMarketIndicators=refresh;marketIndicatorsMarkup=markup}catch{}
+ globalThis.refreshAurumDataMarketStrip=async function(ev){const btn=ev?.currentTarget||document.querySelector('.aurum-r209-market-refresh');if(btn?.dataset.busy==='1')return false;try{if(btn){btn.dataset.busy='1';btn.disabled=true}await refresh();const h=document.getElementById('aurumDataMarketStrip');if(h)h.outerHTML=markup();return true}catch(e){globalThis.showAurumNotice?.('Piyasa bilgileri yenilenemedi: '+(e?.message||e),'error',2600);return false}finally{const b=document.querySelector('.aurum-r209-market-refresh');if(b){delete b.dataset.busy;b.disabled=false}}};
+ try{AurumUpdateAPI.state.r231={version:'REV20.31-PROVIDER-PUBLISHED-PERCENT',activatedAt:nowISO(),features:['NO_PERCENT_CALCULATION_IN_APP','PRICE_AND_PERCENT_FROM_PROVIDER','BIGPARA_DIRECT_PRIMARY','YAHOO_DIRECT_QUOTE_FALLBACK','ALL_SIX_REQUIRED_WHEN_SOURCE_AVAILABLE','DIRECTION_ARROW_FROM_PUBLISHED_PERCENT','MANUAL_AND_30_MIN_REFRESH_ONLY','NO_LIFECYCLE_AUTOSTART']}}catch{}
+})();
