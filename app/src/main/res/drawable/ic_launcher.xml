@@ -1,17 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Launcher mark uses the same geometry as assets/aurum-icon.svg shown at the top-left of Genel Bakış. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="48dp" android:height="48dp"
     android:viewportWidth="512" android:viewportHeight="512">
-  <path android:pathData="M134,18H378A116,116 0,0 1,494 134V378A116,116 0,0 1,378 494H134A116,116 0,0 1,18 378V134A116,116 0,0 1,134 18Z">
-    <aapt:attr name="android:fillColor"><gradient android:startX="18" android:startY="18" android:endX="494" android:endY="494" android:type="linear"><item android:offset="0" android:color="#FF010F49"/><item android:offset="0.55" android:color="#FF01083B"/><item android:offset="1" android:color="#FF000526"/></gradient></aapt:attr>
-  </path>
-  <path android:pathData="M135,33H377A102,102 0,0 1,479 135V377A102,102 0,0 1,377 479H135A102,102 0,0 1,33 377V135A102,102 0,0 1,135 33Z" android:fillColor="@android:color/transparent" android:strokeColor="#6BD4AF37" android:strokeWidth="4"/>
-  <path android:pathData="M126,358 L238,132 C245,118 265,118 272,132 L384,358" android:fillColor="@android:color/transparent" android:strokeColor="#FFD4AF37" android:strokeWidth="38" android:strokeLineCap="round" android:strokeLineJoin="round"/>
-  <path android:pathData="M183,286 L329,286" android:fillColor="@android:color/transparent" android:strokeColor="#FFF3D36F" android:strokeWidth="30" android:strokeLineCap="round"/>
-  <path android:pathData="M309,230 L362,176 L393,207 M362,176 L362,240" android:fillColor="@android:color/transparent" android:strokeColor="#FFF3D36F" android:strokeWidth="19" android:strokeLineCap="round" android:strokeLineJoin="round"/>
-  <path android:pathData="M139,368H147A10,10 0,0 1,157 378V400A10,10 0,0 1,147 410H139A10,10 0,0 1,129 400V378A10,10 0,0 1,139 368Z" android:fillColor="#FFD4AF37"/>
-  <path android:pathData="M183,345H191A10,10 0,0 1,201 355V400A10,10 0,0 1,191 410H183A10,10 0,0 1,173 400V355A10,10 0,0 1,183 345Z" android:fillColor="#FFD4AF37"/>
-  <path android:pathData="M227,319H235A10,10 0,0 1,245 329V400A10,10 0,0 1,235 410H227A10,10 0,0 1,217 400V329A10,10 0,0 1,227 319Z" android:fillColor="#FFD4AF37"/>
-  <path android:pathData="M271,292H279A10,10 0,0 1,289 302V400A10,10 0,0 1,279 410H271A10,10 0,0 1,261 400V302A10,10 0,0 1,271 292Z" android:fillColor="#FFD4AF37"/>
+    <path android:fillColor="#01083B" android:pathData="M18,18h476v476h-476z"/>
+    <path android:fillColor="@android:color/transparent" android:strokeColor="#D4AF37"
+        android:strokeAlpha="0.42" android:strokeWidth="4"
+        android:pathData="M33,33h446v446h-446z"/>
+    <path android:fillColor="@android:color/transparent" android:strokeColor="#D4AF37"
+        android:strokeWidth="38" android:strokeLineCap="round" android:strokeLineJoin="round"
+        android:pathData="M126,358 L238,132 C245,118 265,118 272,132 L384,358"/>
+    <path android:fillColor="@android:color/transparent" android:strokeColor="#D4AF37"
+        android:strokeWidth="30" android:strokeLineCap="round"
+        android:pathData="M183,286 L329,286"/>
+    <path android:fillColor="@android:color/transparent" android:strokeColor="#F3D36F"
+        android:strokeWidth="19" android:strokeLineCap="round" android:strokeLineJoin="round"
+        android:pathData="M309,230 L362,176 L393,207 M362,176 L362,240"/>
+    <path android:fillColor="#D4AF37" android:pathData="M129,368h28v42h-28z"/>
+    <path android:fillColor="#D4AF37" android:pathData="M173,345h28v65h-28z"/>
+    <path android:fillColor="#D4AF37" android:pathData="M217,319h28v91h-28z"/>
+    <path android:fillColor="#D4AF37" android:pathData="M261,292h28v118h-28z"/>
 </vector>
