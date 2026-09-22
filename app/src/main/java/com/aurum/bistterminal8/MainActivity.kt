@@ -159,7 +159,7 @@ class MainActivity : AppCompatActivity() {
                 if (target == null || target.scheme != "https") "ERR:MISSING_URL"
                 else {
                     runCatching {
-                        startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, target))
+                        startActivity(android.content.Intent(this, BrowserActivity::class.java).putExtra("url", target.toString()))
                     }.fold(onSuccess = { "OPENED" }, onFailure = { "ERR:OPEN_URL" })
                 }
             }
