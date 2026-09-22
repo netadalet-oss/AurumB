@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- RECONSTRUCTED_FROM_APK_ASSET: Android drawable derived from APK-exact aurum-icon.svg geometry/colors. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="512"
+    android:viewportHeight="512">
+    <path android:fillColor="#01083B" android:pathData="M0,0h512v512h-512z"/>
+    <path android:fillColor="#D4AF37" android:pathData="M256,72L424,416H352L316,336H196L160,416H88L256,72zM224,272H288L256,200z"/>
+</vector>
