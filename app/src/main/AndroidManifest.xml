@@ -31,6 +31,7 @@
             </intent-filter>
         </activity>
 
+        <activity android:name=".BrowserActivity" android:exported="false" />
         <service
             android:name="com.aurum.bistterminal8.PipelineService"
             android:exported="false"
