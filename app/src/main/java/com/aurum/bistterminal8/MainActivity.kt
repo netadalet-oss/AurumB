@@ -83,7 +83,11 @@ class MainActivity : AppCompatActivity() {
         if (uri.scheme != "aurum" || uri.host != "native") return ""
         return when (uri.getQueryParameter("cmd").orEmpty()) {
             "secret_status" -> if (SecureSecretStore.configured(this)) "1" else "0"
-            "secret_set" -> { SecureSecretStore.put(this, body.trim()); "OK" }
+            "secret_set" -> {
+                val secret = body.trim()
+                if (secret.isBlank()) "ERR:INVALID_SECRET"
+                else { SecureSecretStore.put(this, secret); "OK" }
+            }
             "secret_delete" -> { SecureSecretStore.delete(this); "OK" }
             "secret_input" -> { runOnUiThread { openSecretEditor() }; "OPENED" }
             "http_cancel" -> { NativeMarketHttp.cancel(uri.getQueryParameter("requestId").orEmpty()); "OK" }
@@ -105,6 +109,7 @@ class MainActivity : AppCompatActivity() {
                 ) { payload -> resolveJs("window.AurumNativeAI.resolve", id, payload) }
                 "ACCEPTED"
             }
+            "folder_pick" -> { runOnUiThread { folderPicker.launch(null) }; "PICKING" }
             "folder_status" -> currentFolderUri()?.toString().orEmpty()
             "folder_clear" -> {
                 exportFolder?.let { uri ->
@@ -128,8 +133,12 @@ class MainActivity : AppCompatActivity() {
                 uri.getQueryParameter("encoding").orEmpty(),
                 uri.getQueryParameter("target").orEmpty()
             )
-            "notification" -> postNotification(uri.getQueryParameter("id").orEmpty(),
-                uri.getQueryParameter("title").orEmpty(), uri.getQueryParameter("text").orEmpty(), body)
+            "notification" -> postNotification(
+                uri.getQueryParameter("title").orEmpty(),
+                uri.getQueryParameter("body").orEmpty(),
+                uri.getQueryParameter("tag").orEmpty(),
+                uri.getQueryParameter("channel").orEmpty().ifBlank { "aurum_pipeline" }
+            )
             "schedule" -> {
                 val enabled = uri.getQueryParameter("enabled") != "0"
                 val times = uri.getQueryParameter("times").orEmpty()
