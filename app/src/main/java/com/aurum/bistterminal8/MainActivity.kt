@@ -79,8 +79,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun handleNative(message: String, body: String): String {
-        val uri = runCatching { Uri.parse(message) }.getOrNull() ?: return ""
-        if (uri.scheme != "aurum" || uri.host != "native") return ""
+        if (!message.startsWith("aurum://native?")) return "ERR:INVALID_NATIVE_URI"
+        val uri = runCatching { Uri.parse(message) }.getOrNull() ?: return "ERR:INVALID_NATIVE_URI"
         return when (uri.getQueryParameter("cmd").orEmpty()) {
             "secret_status" -> if (SecureSecretStore.configured(this)) "1" else "0"
             "secret_set" -> {
@@ -90,24 +90,34 @@ class MainActivity : AppCompatActivity() {
             }
             "secret_delete" -> { SecureSecretStore.delete(this); "OK" }
             "secret_input" -> { runOnUiThread { openSecretEditor() }; "OPENED" }
-            "http_cancel" -> { NativeMarketHttp.cancel(uri.getQueryParameter("requestId").orEmpty()); "OK" }
+            "http_cancel" -> {
+                val id = uri.getQueryParameter("requestId").orEmpty()
+                if (id.isBlank()) "ERR:MISSING_REQUEST_ID"
+                else { NativeMarketHttp.cancel(id); "OK" }
+            }
             "http_request" -> {
                 val id = uri.getQueryParameter("requestId").orEmpty()
-                NativeMarketHttp.request(this, id, uri.getQueryParameter("method") ?: "GET",
-                    uri.getQueryParameter("url").orEmpty(), body,
-                    uri.getQueryParameter("timeout")?.toIntOrNull() ?: 15000
-                ) { payload -> resolveJs("window.AurumNativeHTTP.resolve", id, payload) }
-                "ACCEPTED"
+                val url = uri.getQueryParameter("url").orEmpty()
+                if (id.isBlank()) "ERR:MISSING_REQUEST_ID"
+                else if (url.isBlank()) "ERR:MISSING_URL"
+                else {
+                    NativeMarketHttp.request(this, id, uri.getQueryParameter("method") ?: "GET",
+                        url, body, (uri.getQueryParameter("timeout")?.toIntOrNull() ?: 15000).coerceIn(1000, 120000)
+                    ) { payload -> resolveJs("window.AurumNativeHTTP&&window.AurumNativeHTTP.resolve", id, payload) }
+                    "ACCEPTED"
+                }
             }
             "openai_request" -> {
                 val id = uri.getQueryParameter("requestId").orEmpty()
-                NativeOpenAI.request(
-                    this,
-                    uri.getQueryParameter("path").orEmpty(),
-                    uri.getQueryParameter("method") ?: "GET",
-                    body
-                ) { payload -> resolveJs("window.AurumNativeAI.resolve", id, payload) }
-                "ACCEPTED"
+                val path = uri.getQueryParameter("path").orEmpty()
+                if (id.isBlank()) "ERR:MISSING_REQUEST_ID"
+                else if (path.isBlank()) "ERR:MISSING_PATH"
+                else {
+                    NativeOpenAI.request(
+                        this, path, uri.getQueryParameter("method") ?: "GET", body
+                    ) { payload -> resolveJs("window.AurumNativeAI&&window.AurumNativeAI.resolve", id, payload) }
+                    "ACCEPTED"
+                }
             }
             "folder_pick" -> { runOnUiThread { folderPicker.launch(null) }; "PICKING" }
             "folder_status" -> currentFolderUri()?.toString().orEmpty()
@@ -148,7 +158,7 @@ class MainActivity : AppCompatActivity() {
                 } else if (AurumScheduler.install(this, enabled, times)) "OK"
                 else "ERR:INVALID_SCHEDULE"
             }
-            else -> ""
+            else -> "ERR:UNSUPPORTED_NATIVE_COMMAND"
         }
     }
 
