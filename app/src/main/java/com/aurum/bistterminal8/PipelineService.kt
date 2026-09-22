@@ -57,9 +57,7 @@ class PipelineService : Service() {
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                     val uri = request.url
                     if (uri.scheme == "aurum" && uri.host == "complete") {
-                        val status = uri.getQueryParameter("status") ?: "COMPLETED"
-                        val error = uri.getQueryParameter("error").orEmpty()
-                        SchedulerLedger.complete(this@PipelineService, jobToken, status, error)
+                        SchedulerLedger.complete(this@PipelineService, jobToken, "COMPLETED", "")
                         stopSelf(startId)
                         return true
                     }
@@ -72,7 +70,6 @@ class PipelineService : Service() {
     }
 
     override fun onDestroy() {
-        stopForeground(STOP_FOREGROUND_REMOVE)
         webView?.apply {
             stopLoading()
             loadUrl("about:blank")
