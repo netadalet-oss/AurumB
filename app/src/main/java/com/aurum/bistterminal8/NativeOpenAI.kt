@@ -15,6 +15,7 @@ object NativeOpenAI {
         context: Context,
         id: String,
         endpoint: String,
+        method: String,
         body: String,
         callback: (String) -> Unit
     ) {
@@ -27,14 +28,16 @@ object NativeOpenAI {
                 val path = endpoint.trim().removePrefix("/")
                 val url = URL("https://api.openai.com/$path")
                 connection = (url.openConnection() as HttpURLConnection).apply {
-                    requestMethod = "POST"
+                    requestMethod = method.ifBlank { "GET" }.uppercase()
                     connectTimeout = 30_000
                     readTimeout = 120_000
                     useCaches = false
-                    doOutput = true
                     setRequestProperty("Authorization", "Bearer $apiKey")
                     setRequestProperty("Content-Type", "application/json")
-                    outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
+                    if (body.isNotEmpty() && requestMethod !in setOf("GET", "HEAD")) {
+                        doOutput = true
+                        outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
+                    }
                 }
 
                 val status = connection.responseCode
