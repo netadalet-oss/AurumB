@@ -27,11 +27,12 @@ object AurumScheduler {
 
     fun install(context: Context, enabled: Boolean, times: List<String>): Boolean {
         val clean = times.map(String::trim).filter(::valid).distinct()
+        val previous = configuredTimes(context)
+        cancelTimes(context, previous)
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putBoolean("enabled", enabled)
             .putString("times", clean.joinToString(","))
             .apply()
-        cancelKnown(context)
         if (!enabled) return true
         val now = Instant.now()
         clean.forEach { scheduleNextForTime(context, it, now) }
@@ -61,9 +62,11 @@ object AurumScheduler {
         }
     }
 
-    fun cancelKnown(context: Context) {
+    fun cancelKnown(context: Context) = cancelTimes(context, configuredTimes(context))
+
+    private fun cancelTimes(context: Context, times: List<String>) {
         val alarm = context.getSystemService(AlarmManager::class.java)
-        configuredTimes(context).forEach { time ->
+        times.forEach { time ->
             val intent = Intent(context, TriggerReceiver::class.java).setAction(ACTION_SLOT)
             PendingIntent.getBroadcast(
                 context, time.hashCode(), intent,
