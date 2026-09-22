@@ -85,16 +85,20 @@ class MainActivity : AppCompatActivity() {
             }
             "folder_status" -> currentFolderUri()?.toString().orEmpty()
             "folder_clear" -> { exportFolder = null; "OK" }
-            "export" -> exportBytes(uri.getQueryParameter("name").orEmpty(),
-                uri.getQueryParameter("mime") ?: "application/octet-stream", body, "", "")
+            "export" -> exportBytes(
+                uri.getQueryParameter("name").orEmpty(),
+                uri.getQueryParameter("mime") ?: "application/octet-stream",
+                body,
+                uri.getQueryParameter("encoding").orEmpty(),
+                uri.getQueryParameter("target").orEmpty()
+            )
             "notify" -> postNotification(uri.getQueryParameter("id").orEmpty(),
                 uri.getQueryParameter("title").orEmpty(), uri.getQueryParameter("text").orEmpty(), body)
             "schedule" -> {
-                val o = runCatching { JSONObject(body) }.getOrElse { JSONObject() }
-                val a = o.optJSONArray("times")
-                val times = mutableListOf<String>()
-                if (a != null) for (i in 0 until a.length()) times.add(a.optString(i))
-                if (AurumScheduler.install(this, o.optBoolean("enabled", true), times)) "OK" else "ERROR"
+                val enabled = uri.getQueryParameter("enabled") != "0"
+                val times = uri.getQueryParameter("times").orEmpty()
+                    .split(',').map(String::trim).filter(String::isNotEmpty)
+                if (AurumScheduler.install(this, enabled, times)) "OK" else "ERROR"
             }
             else -> ""
         }
@@ -110,15 +114,20 @@ class MainActivity : AppCompatActivity() {
     fun currentFolderUri(): Uri? = exportFolder
 
     fun exportBytes(name: String, mime: String, data: String, a: String, b: String): String {
-        val folder = currentFolderUri() ?: return "NO_FOLDER"
+        if (b != "custom") return "ERR:ANDROID_10_REQUIRED"
+        val folder = currentFolderUri() ?: return "ERR:NO_FOLDER"
         return runCatching {
             val target = android.provider.DocumentsContract.createDocument(contentResolver, folder, mime, name)
-                ?: return "ERROR"
-            contentResolver.openOutputStream(target)?.use {
-                OutputStreamWriter(it, Charsets.UTF_8).use { writer -> writer.write(data) }
+                ?: return "ERR:WRITE_FAILED"
+            contentResolver.openOutputStream(target)?.use { out ->
+                if (a.equals("base64", ignoreCase = true)) {
+                    out.write(android.util.Base64.decode(data, android.util.Base64.DEFAULT))
+                } else {
+                    OutputStreamWriter(out, Charsets.UTF_8).use { writer -> writer.write(data) }
+                }
             }
-            target.toString()
-        }.getOrDefault("ERROR")
+            "OK"
+        }.getOrDefault("ERR:WRITE_FAILED")
     }
 
     fun openSecretEditor() {
