@@ -1,8 +1,7 @@
 package com.aurum.bistterminal8
 
 // RECONSTRUCTED_FROM_DEX
-// DEX proves the request surface, api.openai.com and asynchronous worker.
-// API credentials are obtained from SecureSecretStore, never from WebView storage.
+// OpenAI host, path policy, method/body behavior and response envelope are DEX-proven.
 
 import android.content.Context
 import org.json.JSONObject
@@ -13,7 +12,7 @@ import kotlin.concurrent.thread
 object NativeOpenAI {
     fun request(
         context: Context,
-        endpoint: String,
+        path: String,
         method: String,
         body: String,
         callback: (String) -> Unit
@@ -21,39 +20,44 @@ object NativeOpenAI {
         thread(name = "AurumOpenAI") {
             var connection: HttpURLConnection? = null
             try {
+                require(path.startsWith("/") && !path.contains(".."))
                 val apiKey = SecureSecretStore.get(context)
-                require(apiKey.isNotBlank()) { "OPENAI_API_KEY_NOT_CONFIGURED" }
-
-                val path = endpoint.trim().removePrefix("/")
-                val url = URL("https://api.openai.com/$path")
+                if (apiKey.isBlank()) throw IllegalStateException("OpenAI API anahtarı kayıtlı değil")
+                val verb = method.uppercase()
+                val url = URL("https", "api.openai.com", path)
                 connection = (url.openConnection() as HttpURLConnection).apply {
-                    requestMethod = method.ifBlank { "GET" }.uppercase()
+                    instanceFollowRedirects = false
                     connectTimeout = 30_000
                     readTimeout = 120_000
-                    useCaches = false
+                    requestMethod = verb
+                    setRequestProperty("Accept", "application/json")
                     setRequestProperty("Authorization", "Bearer $apiKey")
-                    setRequestProperty("Content-Type", "application/json")
-                    if (body.isNotEmpty() && requestMethod !in setOf("GET", "HEAD")) {
+                    if (verb != "GET" && verb != "HEAD") {
                         doOutput = true
+                        setRequestProperty("Content-Type", "application/json")
                         outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
                     }
                 }
-
                 val status = connection.responseCode
-                val stream = if (status in 200..399) connection.inputStream else connection.errorStream
+                if (status in 300..399) throw IllegalStateException("OpenAI redirect reddedildi")
+                val stream = if (status in 200..299) connection.inputStream else connection.errorStream
                 val responseBody = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
                 callback(
                     JSONObject()
-                        .put("ok", status in 200..299)
                         .put("status", status)
+                        .put("ok", status in 200..299)
+                        .put("requestId", connection.getHeaderField("x-request-id"))
+                        .put("path", path)
+                        .put("method", verb)
                         .put("body", responseBody)
                         .toString()
                 )
             } catch (t: Throwable) {
                 callback(
                     JSONObject()
+                        .put("status", 0)
                         .put("ok", false)
-                        .put("error", t.message ?: t.javaClass.simpleName)
+                        .put("error", t.message ?: "Native OpenAI hatası")
                         .toString()
                 )
             } finally {
