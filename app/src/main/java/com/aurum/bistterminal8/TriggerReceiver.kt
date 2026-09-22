@@ -14,6 +14,7 @@ class TriggerReceiver : BroadcastReceiver() {
         val epoch = intent.getLongExtra("epoch", 0L).takeIf { it > 0L }
             ?: System.currentTimeMillis()
         val jobToken = SchedulerLedger.begin(context, epoch, slotTime)
+        if (jobToken.isBlank()) return
 
         val service = Intent(context, PipelineService::class.java)
             .putExtra("epoch", epoch)
