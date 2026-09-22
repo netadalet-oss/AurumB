@@ -5649,7 +5649,8 @@ try{AurumUpdateAPI.state.cleanREV20={version:'REV20.0-CLEAN',activatedAt:new Dat
      yinelenen haber blokları burada ayrıca render edilmez; aynı açık/kurumsal kaynaklar
      birleşik portalın toplama zincirinde yer alır. */
   globalThis.marketPage=function marketPageR222Unified(){
-    setTimeout(async()=>{try{await globalThis.refreshMarketIndicators?.();const strip=document.getElementById('aurumDataMarketStrip');if(strip&&typeof globalThis.marketIndicatorsMarkup==='function')strip.outerHTML=globalThis.marketIndicatorsMarkup()}catch{}try{await globalThis.refreshAurumFinancePortal?.(false)}catch{}},0);
+    /* Opening/navigating to the market tab is presentation-only. It must not start network work.
+       Refresh occurs only via the explicit Piyasayı Yenile command, scheduled jobs, or the independent 30-minute indicator timer. */
     return `<div class="actions r222-market-actions"><button class="ghost-btn" type="button" onclick="goPage('overview')">← Genel Bakışa Dön</button><button class="gold-btn" type="button" onclick="Promise.allSettled([refreshMarketIndicators(),refreshAurumFinancePortal(true)]).then(()=>{try{renderCurrentPagePreservingView()}catch{}})">Piyasayı Yenile</button></div><div class="section-head r222-market-head"><div class="section-title"><h2>Piyasa Özeti</h2></div><small>Doğrudan piyasa verisi · kaynaklı haber akışı</small></div>${typeof globalThis.marketIndicatorsMarkup==='function'?globalThis.marketIndicatorsMarkup():''}<section class="r207-portal-wrap r222-unified-portal"><div id="aurumFinancePortal"><div class="card notice"><b>Birleştirilmiş finans portalı hazırlanıyor…</b><p class="muted">Piyasa, ekonomi, şirket ve küresel kaynaklar eşzamanlı taranıyor.</p></div></div></section>`;
   };
 
