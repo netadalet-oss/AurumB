@@ -58,11 +58,6 @@ class MainActivity : AppCompatActivity() {
             .getString("uri", null)?.let(Uri::parse)
         webView = WebView(this)
         setContentView(webView)
-        if (android.os.Build.VERSION.SDK_INT >= 33 &&
-            checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED
-        ) {
-            requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 2020)
-        }
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
         webView.addJavascriptInterface(NativeBridge(), "AurumNativeBridge")
@@ -104,7 +99,6 @@ class MainActivity : AppCompatActivity() {
                 val id = uri.getQueryParameter("requestId").orEmpty()
                 NativeOpenAI.request(
                     this,
-                    id,
                     uri.getQueryParameter("path").orEmpty(),
                     uri.getQueryParameter("method") ?: "GET",
                     body
@@ -134,7 +128,7 @@ class MainActivity : AppCompatActivity() {
                 uri.getQueryParameter("encoding").orEmpty(),
                 uri.getQueryParameter("target").orEmpty()
             )
-            "notify" -> postNotification(uri.getQueryParameter("id").orEmpty(),
+            "notification" -> postNotification(uri.getQueryParameter("id").orEmpty(),
                 uri.getQueryParameter("title").orEmpty(), uri.getQueryParameter("text").orEmpty(), body)
             "schedule" -> {
                 val enabled = uri.getQueryParameter("enabled") != "0"
