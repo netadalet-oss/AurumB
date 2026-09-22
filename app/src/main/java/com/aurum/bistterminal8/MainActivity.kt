@@ -14,7 +14,7 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.EditText
-import androidx.activity.OnBackPressedCallback
+import androidx.activity.OnBackPressedCallback\nimport androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.NotificationCompat
 import androidx.webkit.WebViewAssetLoader
@@ -23,7 +23,7 @@ import java.io.OutputStreamWriter
 
 class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
-    private var exportFolder: Uri? = null
+    private var exportFolder: Uri? = null\n\n    private val folderPicker = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->\n        if (uri != null) {\n            runCatching {\n                contentResolver.takePersistableUriPermission(\n                    uri,\n                    android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION\n                )\n            }\n            exportFolder = uri\n            getSharedPreferences("aurum_export_folder", MODE_PRIVATE).edit()\n                .putString("uri", uri.toString()).apply()\n            if (::webView.isInitialized) webView.evaluateJavascript("window.refreshExportFolderStatus?.()", null)\n        }\n    }
 
     private val assetLoader by lazy {
         WebViewAssetLoader.Builder()
@@ -38,7 +38,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        webView = WebView(this)
+        exportFolder = getSharedPreferences("aurum_export_folder", MODE_PRIVATE)\n            .getString("uri", null)?.let(Uri::parse)\n        webView = WebView(this)
         setContentView(webView)
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
