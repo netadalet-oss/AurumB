@@ -1,0 +1,18 @@
+classes3.dex -> com.aurum.bistterminal8
+
+AurumScheduler.kt -> com/aurum/bistterminal8/AurumScheduler
+BootReceiver.kt -> com/aurum/bistterminal8/BootReceiver
+MainActivity.kt -> com/aurum/bistterminal8/MainActivity
+NativeMarketHttp.kt -> com/aurum/bistterminal8/NativeMarketHttp
+NativeOpenAI.kt -> com/aurum/bistterminal8/NativeOpenAI
+PipelineService.kt -> com/aurum/bistterminal8/PipelineService
+SchedulerLedger.kt -> com/aurum/bistterminal8/SchedulerLedger
+SecureSecretStore.kt -> com/aurum/bistterminal8/SecureSecretStore
+TriggerReceiver.kt -> com/aurum/bistterminal8/TriggerReceiver
+
+Additional DEX evidence:
+MainActivity$NativeBridge
+MainActivity$onCreate$...
+PipelineService$onStartCommand$...
+NativeMarketHttp$$ExternalSyntheticLambda...
+NativeOpenAI$$ExternalSyntheticLambda...
