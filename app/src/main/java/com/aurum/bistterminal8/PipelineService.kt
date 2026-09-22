@@ -63,6 +63,17 @@ class PipelineService : Service() {
                         stopSelf(startId)
                         return true
                     }
+                    if (uri.scheme == "bistopt" && uri.host == "sync-finished") {
+                        val ok = uri.getQueryParameter("ok") == "1"
+                        SchedulerLedger.complete(
+                            this@PipelineService,
+                            jobToken,
+                            if (ok) "COMPLETED" else "FAILED",
+                            if (ok) "" else "BACKGROUND_SYNC_FAILED"
+                        )
+                        stopSelf(startId)
+                        return true
+                    }
                     return uri.scheme != "https" || uri.host != "appassets.androidplatform.net"
                 }
             }
