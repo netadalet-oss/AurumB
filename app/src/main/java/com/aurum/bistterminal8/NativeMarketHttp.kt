@@ -45,40 +45,65 @@ object NativeMarketHttp {
         thread(name = "AurumMarketHttp-$id") {
             var connection: HttpURLConnection? = null
             try {
-                val url = URL(rawUrl)
-                require(allowed(url)) { "URL_NOT_ALLOWED" }
+                val verb = method.uppercase()
+                require(verb == "GET" || verb == "HEAD") { "Yalnız GET/HEAD desteklenir" }
                 val envelope = runCatching { JSONObject(body) }.getOrElse { JSONObject() }
                 val headers = envelope.optJSONObject("headers") ?: JSONObject()
+                var url = URL(rawUrl)
+                require(allowed(url)) { "İzin verilmeyen veri sağlayıcısı" }
 
-                connection = (url.openConnection() as HttpURLConnection).apply {
-                    requestMethod = method.uppercase()
-                    connectTimeout = timeoutMs
-                    readTimeout = timeoutMs
-                    useCaches = false
-                    for (key in headers.keys()) {
-                        setRequestProperty(key, headers.optString(key))
+                var redirects = 0
+                while (true) {
+                    connection = (url.openConnection() as HttpURLConnection).apply {
+                        instanceFollowRedirects = false
+                        requestMethod = verb
+                        connectTimeout = timeoutMs
+                        readTimeout = timeoutMs
+                        useCaches = false
+                        setRequestProperty("Accept", "*/*")
+                        setRequestProperty("User-Agent", "AurumB-REV20/4 Android")
+                        for (key in headers.keys()) {
+                            if (key.equals("Accept", true) ||
+                                key.equals("Referer", true) ||
+                                key.equals("X-Requested-With", true)
+                            ) setRequestProperty(key, headers.optString(key))
+                        }
                     }
+                    active[id] = connection
+                    val status = connection.responseCode
+                    if (status in 300..399) {
+                        val location = connection.getHeaderField("Location")
+                            ?: throw IllegalStateException("HTTP $status yönlendirmesi konumsuz")
+                        if (++redirects > 5) throw IllegalStateException("Çok fazla HTTP yönlendirmesi")
+                        val next = URL(url, location)
+                        if (!allowed(next)) throw IllegalStateException("Yönlendirme izin verilmeyen hosta gidiyor")
+                        connection.disconnect()
+                        url = next
+                        continue
+                    }
+
+                    val stream = if (status in 200..299) connection.inputStream else connection.errorStream
+                    val responseBody = if (verb == "HEAD") "" else
+                        stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
+                    val responseHeaders = JSONObject()
+                    fun header(name: String) {
+                        connection.getHeaderField(name)?.let { responseHeaders.put(name.lowercase(), it) }
+                    }
+                    header("Content-Type"); header("Retry-After"); header("Date")
+                    callback(JSONObject()
+                        .put("ok", status in 200..299)
+                        .put("status", status)
+                        .put("url", url.toString())
+                        .put("headers", responseHeaders)
+                        .put("body", responseBody)
+                        .toString())
+                    break
                 }
-                active[id] = connection
-                val status = connection.responseCode
-                val stream = if (status in 200..399) connection.inputStream else connection.errorStream
-                val responseBody = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
-                val responseHeaders = JSONObject()
-                connection.headerFields.filterKeys { it != null }.forEach { (k, v) ->
-                    responseHeaders.put(k, v.joinToString(", "))
-                }
-                callback(JSONObject()
-                    .put("ok", status in 200..299)
-                    .put("status", status)
-                    .put("url", url.toString())
-                    .put("headers", responseHeaders)
-                    .put("body", responseBody)
-                    .toString())
             } catch (t: Throwable) {
                 callback(JSONObject()
                     .put("ok", false)
                     .put("status", 0)
-                    .put("error", t.message ?: t.javaClass.simpleName)
+                    .put("error", t.message ?: "Native veri isteği başarısız")
                     .toString())
             } finally {
                 active.remove(id)
