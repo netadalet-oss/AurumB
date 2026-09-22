@@ -5709,11 +5709,11 @@ try{AurumUpdateAPI.state.r225={version:'REV20.25-RELIABILITY-FILL-NEWS',activate
 /* ===== REV20.26 — USER RELIABILITY CONTRACT ===== */
 (function installR226ReliabilityContract(){
  if(globalThis.__AURUM_REV226_RELIABILITY)return;globalThis.__AURUM_REV226_RELIABILITY=true;
- const MARKET_REFRESH_MS=30*60*1000,MARKET_LAST_KEY='aurum.r226.market.refresh.at',targets=[95,95,90,80,70];
+ const MARKET_REFRESH_MS=30*60*1000,MARKET_LAST_KEY='aurum.r226.market.refresh.at',targets=[95,95,95,90,80,70];
  function fillStatus(){const sum=typeof dataSummary==='function'?dataSummary(state.records):{};const fill=Number(sum?.fillPct||0);return {fill,derived:fill>=70}}
  const oldMeta=globalThis.dataMetaMarkup||dataMetaMarkup;
  globalThis.dataMetaMarkup=dataMetaMarkup=function r226DataMetaMarkup(){
-   let h=oldMeta(),st=fillStatus(),msg=st.fill>=95?'Yüksek doluluk hedefi sağlandı; ek çekim gerekmiyor.':st.fill>=70?'Doluluk hedefi için eksikler kademeli yeniden denenir: %95 → %95 → %90 → %80 → %70.':'Veriler tabloya yazılır; %70 altındaysa Kn, K_Tarihsel, S ve AL/SAT önceki geçerli snapshot ve zaman damgalarını korur.';
+   let h=oldMeta(),st=fillStatus(),msg=st.fill>=95?'Yüksek doluluk hedefi sağlandı; ek çekim gerekmiyor.':st.fill>=70?'Doluluk hedefi için eksikler kademeli yeniden denenir: %95 → %95 → %95 → %90 → %80 → %70.':'Veriler tabloya yazılır; %70 altındaysa Kn, K_Tarihsel, S ve AL/SAT önceki geçerli snapshot ve zaman damgalarını korur.';
    return h+'<div class="r226-fill-note"><small>'+html(msg)+'</small></div>';
  };
  async function refreshMarket(reason){
