@@ -9,6 +9,7 @@ import android.app.NotificationManager
 import android.net.Uri
 import android.os.Bundle
 import android.webkit.JavascriptInterface
+import android.webkit.JsPromptResult
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
@@ -54,23 +55,48 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        AurumScheduler.rearm(this)
+        WebView.setWebContentsDebuggingEnabled((applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0)
         exportFolder = getSharedPreferences("aurum_export_folder", MODE_PRIVATE)
             .getString("uri", null)?.let(Uri::parse)
         webView = WebView(this)
         setContentView(webView)
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
+        webView.settings.databaseEnabled = true
+        webView.settings.allowFileAccess = false
+        webView.settings.allowContentAccess = false
+        webView.settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
+        webView.isFocusable = true
+        webView.isFocusableInTouchMode = true
+        webView.descendantFocusability = android.view.ViewGroup.FOCUS_AFTER_DESCENDANTS
         webView.addJavascriptInterface(NativeBridge(), "AurumNativeBridge")
+        webView.webChromeClient = object : WebChromeClient() {
+            override fun onJsPrompt(
+                view: WebView?, url: String?, message: String?, defaultValue: String?, result: JsPromptResult?
+            ): Boolean {
+                if (message?.startsWith("aurum://native?") == true) {
+                    result?.confirm(handleNative(message, defaultValue.orEmpty()))
+                    return true
+                }
+                return super.onJsPrompt(view, url, message, defaultValue, result)
+            }
+        }
         webView.webViewClient = object : WebViewClient() {
             override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?) =
                 request?.url?.let(assetLoader::shouldInterceptRequest)
+
+            override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+                val uri = request.url
+                return uri.scheme != "https" || uri.host != "appassets.androidplatform.net"
+            }
         }
-        webView.webChromeClient = WebChromeClient()
         if (savedInstanceState == null) {
             webView.loadUrl("https://appassets.androidplatform.net/assets/index.html")
         } else {
             webView.restoreState(savedInstanceState)
         }
+        webView.requestFocus()
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 if (webView.canGoBack()) webView.goBack() else finish()
