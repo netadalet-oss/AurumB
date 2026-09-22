@@ -14,7 +14,7 @@ object SchedulerLedger {
         val previous = prefs.getString(token, null)
         if (previous != null) {
             val status = runCatching { JSONObject(previous).optString("status") }.getOrDefault("")
-            if (status in setOf("RUNNING", "COMPLETED")) return ""
+            if (status in setOf("RUNNING", "COMPLETED")) return token
         }
         val record = JSONObject()
             .put("eventId", token)
