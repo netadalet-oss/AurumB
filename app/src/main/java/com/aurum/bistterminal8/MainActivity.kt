@@ -116,7 +116,10 @@ class MainActivity : AppCompatActivity() {
                 val enabled = uri.getQueryParameter("enabled") != "0"
                 val times = uri.getQueryParameter("times").orEmpty()
                     .split(',').map(String::trim).filter(String::isNotEmpty)
-                if (AurumScheduler.install(this, enabled, times)) "OK" else "ERROR"
+                if (enabled && (times.isEmpty() || times.any { !AurumScheduler.valid(it) })) {
+                    "ERR:INVALID_SCHEDULE"
+                } else if (AurumScheduler.install(this, enabled, times)) "OK"
+                else "ERR:INVALID_SCHEDULE"
             }
             else -> ""
         }
