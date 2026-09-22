@@ -5726,3 +5726,68 @@ try{AurumUpdateAPI.state.r225={version:'REV20.25-RELIABILITY-FILL-NEWS',activate
   'FOREGROUND_WORKERS_MAX_6','RESCUE_WORKERS_MAX_4','EVENT_LOOP_YIELD_EACH_SYMBOL'
  ]}}catch{}
 })();
+
+
+/* ===== REV20.30 — COMPLETE MARKET STRIP / PREVIOUS-CLOSE PERCENT ===== */
+(function installR230CompleteMarketStrip(){
+ if(globalThis.__AURUM_R230_MARKET)return;globalThis.__AURUM_R230_MARKET=true;
+ const KEY='marketIndicatorsR230', KEYS=['XU100','USDTRY','EURTRY','EURUSD','GRAMTRY','GOLDUSD'];
+ const MAP={XU100:'XU100.IS',USDTRY:'TRY=X',EURTRY:'EURTRY=X',EURUSD:'EURUSD=X',GOLDUSD:'GC=F'};
+ const priorRefresh=globalThis.refreshMarketIndicators;
+ const num=v=>{const n=Number(v);return Number.isFinite(n)?n:null};
+ function previousTradingClose(meta,ts,closes,lastIndex){
+   let p=num(meta?.chartPreviousClose??meta?.previousClose);
+   if(p!=null&&p!==0)return p;
+   for(let i=lastIndex-1;i>=0;i--){const c=num(closes?.[i]);if(c!=null&&c!==0&&Number(ts?.[i])<Number(ts?.[lastIndex]))return c}
+   return null;
+ }
+ async function chart(key,symbol,host){
+   const url='https://'+host+'/v8/finance/chart/'+encodeURIComponent(symbol)+'?interval=1d&range=10d&includePrePost=false&events=div%2Csplits';
+   const r=await fetchWithTimeout(url,{headers:{Accept:'application/json'},cache:'no-store',__provider:'YAHOO'},'Piyasa '+key);
+   if(!r.ok)throw new Error(key+' '+host+' HTTP '+r.status);
+   const o=await responseJSON(r),z=o?.chart?.result?.[0],m=z?.meta||{},ts=z?.timestamp||[],cs=z?.indicators?.quote?.[0]?.close||[];
+   let i=cs.length-1;while(i>=0&&num(cs[i])==null)i--;
+   const value=num(m.regularMarketPrice)??(i>=0?num(cs[i]):null), atMs=num(m.regularMarketTime)!=null?Number(m.regularMarketTime)*1000:(i>=0?Number(ts[i])*1000:NaN);
+   const prev=previousTradingClose(m,ts,cs,i);
+   if(value==null||!Number.isFinite(atMs))throw new Error(key+' veri yok');
+   return {value,previousClose:prev,changePct:prev!=null&&prev!==0?(value/prev-1)*100:null,source:host.startsWith('query1')?'YAHOO_Q1_CHART':'YAHOO_Q2_CHART',providerAt:new Date(atMs).toISOString(),at:new Date(atMs).toISOString(),direct:true,identityVerified:true,url};
+ }
+ async function one(key,symbol){
+   let last;for(const host of ['query1.finance.yahoo.com','query2.finance.yahoo.com']){try{return await chart(key,symbol,host)}catch(e){last=e}}
+   throw last||new Error(key+' kaynak yok');
+ }
+ function cached(){return state.marketIndicators?.source==='REV20.30_PREVIOUS_CLOSE'?state.marketIndicators:readLocal(KEY,null)}
+ async function refresh(){
+   const base=await Promise.allSettled(Object.entries(MAP).map(async([k,s])=>[k,await one(k,s)]));
+   const fields={},errors=[];
+   for(const r of base){if(r.status==='fulfilled')fields[r.value[0]]=r.value[1];else errors.push(String(r.reason?.message||r.reason))}
+   /* Keep the established direct/open-source providers as independent fallbacks. */
+   if(typeof priorRefresh==='function'){
+     try{const p=await priorRefresh(),pf=p?.fields||{};for(const k of KEYS)if(!fields[k]&&pf[k]&&!pf[k].stale)fields[k]=pf[k]}catch(e){errors.push(String(e?.message||e))}
+   }
+   if(!fields.EURTRY&&fields.EURUSD&&fields.USDTRY){
+     const a=fields.EURUSD,b=fields.USDTRY,v=num(a.value)*num(b.value),pc=num(a.previousClose)*num(b.previousClose);
+     if(Number.isFinite(v))fields.EURTRY={value:v,previousClose:Number.isFinite(pc)?pc:null,changePct:Number.isFinite(pc)&&pc!==0?(v/pc-1)*100:null,source:'API_CROSS_EURUSD_USDTRY',providerAt:a.providerAt||b.providerAt,at:a.at||b.at,direct:false,identityVerified:true};
+   }
+   /* Prefer a directly published gram quote from the existing open sources; otherwise use API ounce + FX closes consistently. */
+   if(!fields.GRAMTRY&&fields.GOLDUSD&&fields.USDTRY){
+     const a=fields.GOLDUSD,b=fields.USDTRY,v=num(a.value)*num(b.value)/31.1034768,pc=num(a.previousClose)*num(b.previousClose)/31.1034768;
+     if(Number.isFinite(v))fields.GRAMTRY={value:v,previousClose:Number.isFinite(pc)?pc:null,changePct:Number.isFinite(pc)&&pc!==0?(v/pc-1)*100:null,source:'API_GOLDUSD_X_USDTRY',providerAt:a.providerAt||b.providerAt,at:a.at||b.at,direct:false,identityVerified:true};
+   }
+   const old=cached()?.fields||{};
+   for(const k of KEYS)if(!fields[k]&&old[k])fields[k]={...old[k],stale:true};
+   const payload={at:nowISO(),updatedAt:nowISO(),source:'REV20.30_PREVIOUS_CLOSE',previousCloseRule:'LAST_MARKET_TRADING_CLOSE',fields,values:Object.fromEntries(KEYS.map(k=>[k,num(fields[k]?.value)])),errors:errors.slice(0,12)};
+   state.marketIndicators=payload;writeLocal(KEY,payload);writeLocal('marketIndicatorsR40',payload);
+   try{await dbPut('meta',{key:KEY,value:payload,updatedAt:nowISO()})}catch{}
+   return payload;
+ }
+ function fnum(v,key){if(num(v)==null)return '—';const d=key==='XU100'?0:key==='GRAMTRY'||key==='GOLDUSD'?2:4;return Number(v).toLocaleString('tr-TR',{minimumFractionDigits:d,maximumFractionDigits:d,useGrouping:true})}
+ function markup(){
+   const m=cached()||{},f=m.fields||{},labs={XU100:'BIST 100',USDTRY:'USD/TRY',EURTRY:'EUR/TRY',EURUSD:'EUR/USD',GRAMTRY:'Gram Altın',GOLDUSD:'Altın Ons'};
+   return '<div class="aurum-r209-market-wrap" id="aurumDataMarketStrip"><button type="button" class="aurum-r209-market-refresh" title="Piyasa bilgilerini yenile" aria-label="Piyasa bilgilerini yenile" onclick="refreshAurumDataMarketStrip(event)"><span aria-hidden="true">↻</span></button><div class="aurum-r205-market">'+KEYS.map(k=>{const x=f[k]||{},c=x.stale?null:num(x.changePct),cls=c==null?'flat':c>0?'up':c<0?'down':'flat',arrow=c==null?'':c>0?'↑':c<0?'↓':'·',pct=c==null?(x.stale?'eski':'—'):(c>0?'+':'')+c.toLocaleString('tr-TR',{minimumFractionDigits:2,maximumFractionDigits:2})+'%';return '<div class="aurum-r205-market-card" title="'+html((x.source||'')+(x.previousClose!=null?' · Önceki kapanış: '+fnum(x.previousClose,k):''))+'"><span class="aurum-r205-market-label">'+labs[k]+'</span><strong class="aurum-r205-market-value">'+fnum(x.value,k)+'</strong><span class="aurum-r205-market-pct '+cls+'">'+(arrow?'<i class="aurum-market-dir" aria-hidden="true">'+arrow+'</i>':'')+pct+'</span></div>'}).join('')+'</div></div>';
+ }
+ globalThis.cachedMarketIndicators=cached;globalThis.refreshMarketIndicators=refresh;globalThis.marketIndicatorsMarkup=markup;
+ try{refreshMarketIndicators=refresh;marketIndicatorsMarkup=markup}catch{}
+ globalThis.refreshAurumDataMarketStrip=async function(ev){const btn=ev?.currentTarget||document.querySelector('.aurum-r209-market-refresh');if(btn?.dataset.busy==='1')return false;try{if(btn){btn.dataset.busy='1';btn.disabled=true}await refresh();const h=document.getElementById('aurumDataMarketStrip');if(h)h.outerHTML=markup();return true}catch(e){globalThis.showAurumNotice?.('Piyasa bilgileri yenilenemedi: '+(e?.message||e),'error',2600);return false}finally{const b=document.querySelector('.aurum-r209-market-refresh');if(b){delete b.dataset.busy;b.disabled=false}}};
+ try{AurumUpdateAPI.state.r230={version:'REV20.30-COMPLETE-MARKET-PREV-CLOSE',activatedAt:nowISO(),features:['ALL_SIX_MARKET_FIELDS','PREVIOUS_TRADING_CLOSE_PERCENT','DUAL_API_HOST_FALLBACK','OPEN_SOURCE_FALLBACK','MANUAL_AND_30_MIN_REFRESH_ONLY','NO_LIFECYCLE_AUTOSTART']}}catch{}
+})();
