@@ -1,0 +1,899 @@
+:root{
+  --bg:#000526;--bg2:#01083B;--night:#010F49;--night2:#01134F;--navy:#061434;--parliament:#081A40;--parliament2:#0B2451;
+  --panel:rgba(3,10,34,.975);--panel2:rgba(4,14,42,.94);--line:rgba(212,175,55,.22);--line2:rgba(255,255,255,.075);
+  --gold:#d4af37;--gold2:#f3d36f;--gold3:#a87922;--text:#f5f7fb;--muted:#9cabc1;--green:#35d49a;--red:#ff727c;
+  --amber:#f0bd58;--blue:#67adff;--shadow:0 20px 70px rgba(0,0,0,.55);--soft-shadow:0 12px 34px rgba(0,0,0,.30)
+}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:
+  radial-gradient(circle at 12% -10%,rgba(10,39,105,.28) 0,rgba(1,15,73,.30) 22%,transparent 48%),
+  linear-gradient(155deg,#000526 0,#01083B 38%,#010F49 72%,#000526 100%);color:var(--text);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+body{padding:env(safe-area-inset-top) 0 calc(86px + env(safe-area-inset-bottom));background-attachment:fixed}button,input,select,textarea{font:inherit}.glass{background:linear-gradient(145deg,rgba(3,10,34,.98),rgba(0,2,12,.985));border:1px solid var(--line2);box-shadow:var(--shadow);backdrop-filter:blur(18px)}
+.topbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-width:0 0 1px;border-bottom-color:rgba(212,175,55,.18);background:linear-gradient(112deg,rgba(1,8,59,.99),rgba(0,5,38,.99))}.brand-block{min-width:0}.eyebrow{font-size:10px;letter-spacing:.19em;color:var(--gold2);font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}h1{font-size:23px;margin:3px 0 0;letter-spacing:-.02em}.top-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.badge{padding:6px 9px;border-radius:999px;font-size:11px;font-weight:850;letter-spacing:.04em;display:inline-flex;align-items:center}.badge.ok{color:#b9ffdf;background:rgba(53,212,154,.12);border:1px solid rgba(53,212,154,.34)}.badge.warn{color:#ffe3a6;background:rgba(240,189,88,.12);border:1px solid rgba(240,189,88,.34)}.badge.bad{color:#ffc5c9;background:rgba(255,114,124,.11);border:1px solid rgba(255,114,124,.32)}
+.gold-btn{border:1px solid rgba(243,211,111,.58);background:linear-gradient(135deg,#a97822 0,#d4af37 52%,#f3d36f 100%);color:#10131a;font-weight:900;border-radius:11px;padding:9px 12px;box-shadow:0 8px 24px rgba(212,175,55,.18)}.gold-btn:active{transform:translateY(1px)}.ghost-btn{border:1px solid rgba(212,175,55,.18);background:rgba(255,255,255,.035);color:var(--text);border-radius:10px;padding:9px 12px}.ghost-btn:hover,.ghost-btn:active{border-color:rgba(212,175,55,.44);background:rgba(212,175,55,.08)}.danger-btn{border:1px solid rgba(255,114,124,.35);background:rgba(255,114,124,.09);color:#ffc7cb;border-radius:10px;padding:9px 12px}
+#content{padding:15px;max-width:1480px;margin:auto}.grid{display:grid;gap:12px}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.card{background:linear-gradient(145deg,var(--panel),rgba(1,4,15,.985));border:1px solid var(--line2);border-radius:16px;padding:15px;box-shadow:var(--soft-shadow)}.card.gold-edge{border-color:rgba(212,175,55,.32);box-shadow:0 14px 40px rgba(0,0,0,.32),inset 0 1px 0 rgba(243,211,111,.05)}.metric .label{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.085em}.metric .value{font-size:24px;font-weight:900;margin-top:8px}.metric .sub{font-size:12px;color:var(--muted);margin-top:5px;line-height:1.35}.green{color:var(--green)}.red{color:var(--red)}.gold{color:var(--gold2)}.muted{color:var(--muted)}
+.section-head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;margin:20px 2px 9px}.section-head h2{font-size:17px;margin:0}.section-head small{color:var(--muted);text-align:right}.section-title{display:flex;align-items:center;gap:8px}.section-title:before{content:"";width:3px;height:17px;border-radius:4px;background:linear-gradient(var(--gold2),var(--gold3))}
+.quick-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.quick-card{appearance:none;text-align:left;color:var(--text);padding:15px;border-radius:15px;border:1px solid rgba(212,175,55,.20);background:linear-gradient(145deg,rgba(5,15,43,.90),rgba(2,7,24,.97));box-shadow:var(--soft-shadow)}.quick-card strong{display:block;font-size:16px}.quick-card small{display:block;color:var(--muted);margin-top:5px;line-height:1.35}.quick-card .quick-icon{display:inline-flex;width:30px;height:30px;border-radius:9px;align-items:center;justify-content:center;margin-bottom:9px;background:rgba(212,175,55,.12);color:var(--gold2);font-weight:900}.quick-card:active{border-color:rgba(243,211,111,.55);background:linear-gradient(145deg,rgba(3,27,95,.91),rgba(1,15,73,.98))}
+.table-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:9px}.search-input{flex:1;min-width:180px;border:1px solid rgba(212,175,55,.20);background:rgba(0,2,12,.92);color:var(--text);border-radius:10px;padding:10px 12px;outline:none}.search-input:focus{border-color:rgba(243,211,111,.55);box-shadow:0 0 0 3px rgba(212,175,55,.06)}
+.table-wrap{overflow:auto;border-radius:14px;border:1px solid var(--line2);max-height:72vh}table{width:100%;border-collapse:collapse;min-width:790px;background:rgba(2,7,24,.88)}th,td{padding:11px 10px;text-align:left;border-bottom:1px solid rgba(255,255,255,.052);font-size:13px;white-space:nowrap}th{position:sticky;top:0;background:#071738;color:#c4cfde;font-size:11px;text-transform:uppercase;letter-spacing:.055em;z-index:2;border-bottom-color:rgba(212,175,55,.18)}tr:last-child td{border-bottom:0}tbody tr:active,tbody tr:hover{background:rgba(212,175,55,.055)}td small{display:block;color:var(--muted);margin-top:3px}.rank{display:inline-flex;width:24px;height:24px;align-items:center;justify-content:center;border-radius:7px;background:rgba(212,175,55,.11);color:var(--gold2);font-weight:900}.symbol{font-weight:950;letter-spacing:.035em}.scorebar{width:84px;height:7px;background:rgba(255,255,255,.07);border-radius:9px;overflow:hidden;display:inline-block;vertical-align:middle;margin-right:6px}.scorebar i{display:block;height:100%;background:linear-gradient(90deg,#8a611d,#d4af37,#f3d36f);border-radius:inherit}.pill{display:inline-flex;padding:4px 7px;border-radius:99px;background:rgba(38,91,181,.13);color:#cce5ff;border:1px solid rgba(66,125,220,.22);font-size:11px}.pill.risk-low{background:rgba(53,212,154,.09);color:#b5f8d8}.pill.risk-mid{background:rgba(240,189,88,.10);color:#ffe1a4}.pill.risk-high{background:rgba(255,114,124,.09);color:#ffc5ca}
+.chart{height:190px;position:relative;display:flex;align-items:flex-end;gap:4px;padding:14px 4px 25px}.bar{flex:1;min-width:5px;border-radius:5px 5px 1px 1px;background:linear-gradient(180deg,rgba(243,211,111,.97),rgba(126,85,22,.42));position:relative}.bar span{position:absolute;bottom:-20px;left:50%;transform:translateX(-50%);font-size:9px;color:var(--muted)}
+.list{display:grid;gap:8px}.list-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;border-radius:12px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.05)}.list-row strong{font-size:14px}.list-row small{display:block;color:var(--muted);margin-top:3px;line-height:1.4}.progress{height:7px;background:rgba(255,255,255,.065);border-radius:8px;overflow:hidden;margin-top:7px}.progress i{display:block;height:100%;background:linear-gradient(90deg,#7d5719,#d4af37,#f3d36f)}
+.form-grid{display:grid;gap:12px}.field label{font-size:12px;color:var(--muted);display:block;margin-bottom:6px}.field input,.field select,.field textarea{width:100%;border:1px solid rgba(212,175,55,.17);background:rgba(1,7,18,.82);color:var(--text);border-radius:10px;padding:11px;outline:none}.field textarea{min-height:100px;resize:vertical}.actions{display:flex;gap:8px;flex-wrap:wrap}.notice{border-left:3px solid var(--gold);padding:11px 13px;background:rgba(212,175,55,.055);color:#dbe3ee;border-radius:0 10px 10px 0;font-size:13px;line-height:1.55}.error-list{font-size:13px;line-height:1.6}.error-list li{margin:7px 0;color:#d5dee8}
+.bottom-nav{position:fixed;left:7px;right:7px;bottom:calc(7px + env(safe-area-inset-bottom));height:70px;display:grid;grid-template-columns:repeat(7,1fr);z-index:30;border-radius:19px;padding:5px;border-color:rgba(212,175,55,.14)}.bottom-nav button{border:0;background:transparent;color:#77879d;border-radius:13px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:3px 1px}.bottom-nav button span{font-size:18px}.bottom-nav button small{font-size:9px;white-space:nowrap}.bottom-nav button.active{background:linear-gradient(145deg,rgba(4,31,104,.58),rgba(212,175,55,.095));color:var(--gold2);box-shadow:inset 0 0 0 1px rgba(212,175,55,.17)}
+dialog{width:min(94vw,780px);max-height:90vh;overflow:auto;border:1px solid rgba(212,175,55,.28);border-radius:18px;background:#030A22;color:var(--text);box-shadow:0 35px 110px #000;padding:20px}dialog::backdrop{background:rgba(0,0,0,.76);backdrop-filter:blur(4px)}.dialog-close{float:right;background:transparent;border:0;color:#fff;font-size:29px}.detail-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}.detail-cell{padding:11px;background:rgba(255,255,255,.032);border:1px solid rgba(255,255,255,.04);border-radius:10px}.detail-cell small{display:block;color:var(--muted);font-size:11px}.detail-cell strong{display:block;margin-top:5px}.tabs{display:flex;gap:7px;overflow:auto;padding-bottom:8px}.tabs button{white-space:nowrap}.tabs button.active{border-color:var(--gold);color:var(--gold2);background:rgba(212,175,55,.09)}
+.behavior-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.behavior-stat{padding:11px;border-radius:11px;background:rgba(5,15,43,.58);border:1px solid rgba(212,175,55,.10)}.behavior-stat small{display:block;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.06em}.behavior-stat b{display:block;margin-top:5px;font-size:17px}.pattern-chip{display:inline-flex;margin:2px;padding:4px 7px;border-radius:99px;background:rgba(212,175,55,.09);border:1px solid rgba(212,175,55,.18);color:#f2d790;font-size:11px}.learning-trend{display:flex;align-items:flex-end;height:120px;gap:5px;padding-top:10px}.learning-trend i{flex:1;min-width:7px;border-radius:5px 5px 1px 1px;background:linear-gradient(180deg,var(--gold2),#805918);opacity:.92}.learning-up{color:var(--green)}.learning-down{color:var(--red)}.validation-ok{color:var(--green)}.validation-bad{color:var(--red)}.target-prob{font-weight:950;color:var(--gold2)}.context-chip{display:inline-flex;padding:3px 7px;border-radius:999px;background:rgba(4,27,96,.20);border:1px solid rgba(67,126,214,.20);color:#c8e2ff;font-size:11px}.card:hover{border-color:rgba(212,175,55,.16)}button:disabled{opacity:.55;cursor:not-allowed}.badge+button{min-width:105px}.metric .value{word-break:break-word}
+@media(min-width:720px){.metrics{grid-template-columns:repeat(4,1fr)}.two-col{grid-template-columns:1.2fr .8fr}.three-col{grid-template-columns:repeat(3,1fr)}.quick-grid{grid-template-columns:repeat(4,1fr)}.behavior-grid{grid-template-columns:repeat(4,1fr)}.form-grid{grid-template-columns:repeat(2,1fr)}#content{padding:22px}.bottom-nav{left:50%;right:auto;transform:translateX(-50%);width:760px}.topbar{padding:18px 28px}}
+@media(max-width:560px){.top-actions .badge{display:none}.gold-btn{font-size:11px;padding:9px}.card{padding:13px}.metric .value{font-size:21px}.eyebrow{max-width:205px}.bottom-nav button small{font-size:9.5px}.quick-card{padding:13px}.detail-grid{grid-template-columns:1fr 1fr}}
+.dna-score{color:var(--gold2);text-shadow:0 0 18px rgba(212,175,55,.18)}
+.trait-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:8px 0 14px}.trait-card{padding:10px;border-radius:11px;background:linear-gradient(145deg,rgba(3,24,91,.58),rgba(1,8,59,.94));border:1px solid rgba(212,175,55,.12)}.trait-card small{display:block;color:var(--muted);font-size:10px;text-transform:uppercase}.trait-card b{display:block;font-size:12px;margin-top:4px}.trait-card span{display:block;color:var(--gold2);font-size:14px;font-weight:850;margin-top:5px}.trait-chip{display:inline-flex;margin:2px;padding:5px 8px;border-radius:999px;background:rgba(4,31,104,.44);border:1px solid rgba(212,175,55,.20);color:#f3dc98;font-size:11px}.trait-group{border:1px solid rgba(212,175,55,.12);border-radius:12px;background:rgba(1,8,59,.76);margin:8px 0;padding:10px}.trait-group summary{cursor:pointer;color:var(--gold2);font-weight:800;font-size:13px}.trait-group[open] summary{margin-bottom:10px}
+@media(min-width:720px){.trait-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+
+.ai-finding{padding:11px 12px;margin:8px 0;border-radius:12px;background:rgba(3,27,95,.36);border:1px solid rgba(212,175,55,.14)}
+.ai-finding p{margin:6px 0;color:var(--muted);line-height:1.45}.ai-finding small{color:var(--gold2)}
+.weight-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin:12px 0}.weight-grid>div{padding:8px;border-radius:10px;background:rgba(1,8,59,.82);border:1px solid rgba(212,175,55,.12);text-align:center}.weight-grid small{display:block;color:var(--muted)}.weight-grid b{display:block;margin-top:3px;color:var(--gold2)}
+.error-text{color:#ffc5c9;background:rgba(255,114,124,.08);border:1px solid rgba(255,114,124,.25);padding:10px;border-radius:10px}
+@media(max-width:560px){.weight-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.bottom-nav button span{font-size:16px}.bottom-nav button small{font-size:9.133px}}
+
+
+/* Aurum brand lockup and unobtrusive completion notices */
+.brand-lockup{display:flex;align-items:center;gap:10px;min-width:0}
+.brand-mark{width:38px;height:38px;flex:0 0 38px;border-radius:12px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.34),0 0 0 1px rgba(243,211,111,.16)}
+.brand-mark img{display:block;width:100%;height:100%;object-fit:cover}
+.brand-name{color:var(--gold2);font-weight:900}.terminal-label{color:#b6c2d3;font-weight:700}
+.aurum-toast-host{position:fixed;left:50%;bottom:calc(86px + env(safe-area-inset-bottom));z-index:45;max-width:calc(100vw - 34px);min-height:27px;padding:6px 12px;display:flex;align-items:center;justify-content:center;gap:7px;border:1px solid rgba(243,211,111,.34);border-radius:999px;background:linear-gradient(135deg,rgba(0,6,42,.97),rgba(1,15,73,.95));box-shadow:0 12px 34px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,255,255,.035);backdrop-filter:blur(14px);color:var(--gold2);font-size:11px;font-weight:650;letter-spacing:.055em;line-height:1.25;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none;opacity:0;transform:translate(-50%,8px) scale(.98);transition:opacity .18s ease,transform .22s ease}
+.aurum-toast-host::before{content:"";width:13px;height:1px;flex:0 0 13px;background:linear-gradient(90deg,transparent,var(--gold2));box-shadow:0 0 8px rgba(243,211,111,.36)}
+.aurum-toast-host.show{opacity:1;transform:translate(-50%,0) scale(1)}
+.aurum-toast-host[data-type="error"]{color:#f5cf77;border-color:rgba(240,189,88,.48)}
+@media(max-width:560px){.brand-lockup{gap:8px}.brand-mark{width:34px;height:34px;flex-basis:34px;border-radius:10px}.terminal-label{display:none}.aurum-toast-host{max-width:calc(100vw - 24px);font-size:10.5px;padding:6px 10px}}
+.api-key-module{position:relative;overflow:hidden}.api-key-module:before{content:"";position:absolute;inset:0 auto 0 0;width:3px;background:linear-gradient(180deg,var(--gold2),transparent)}.api-key-input-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center}.compact-btn{min-width:76px;padding:10px 12px}.api-key-status{margin:10px 0 0;font-size:12px}@media(max-width:560px){.api-key-input-row{grid-template-columns:1fr}.compact-btn{width:100%}}
+
+/* Operation monitor and general settings */
+.operation-center{border-color:rgba(67,126,214,.20)}
+.operation-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:10px}.operation-stats span{padding:8px 9px;border-radius:9px;background:rgba(255,255,255,.03);color:var(--muted);font-size:11px;text-align:center}
+.provider-switch{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:10px}.provider-switch select{min-width:0;border:1px solid rgba(212,175,55,.17);background:rgba(1,7,18,.82);color:var(--text);border-radius:10px;padding:10px}
+.general-settings-module{border-color:rgba(212,175,55,.28)}
+@media(min-width:720px){.operation-stats{grid-template-columns:repeat(4,minmax(0,1fr))}}
+
+/* Clean runtime: fixed, non-shifting operation/meta regions. */
+.aurum-fixed-operation{min-height:92px;contain:layout paint;overflow:hidden}
+.aurum-runtime-line{min-height:22px;line-height:22px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px;color:var(--muted)}
+.aurum-fixed-actions{min-height:78px;contain:layout paint}
+.aurum-data-meta{min-height:48px;margin:8px 0 12px;padding:7px 2px;border-top:1px solid rgba(212,175,55,.12);border-bottom:1px solid rgba(212,175,55,.08);contain:layout paint;overflow:hidden}
+.aurum-data-stamp,.aurum-data-summary{min-height:18px;line-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px;color:var(--muted)}
+.aurum-data-stamp{color:var(--gold-2, #d9c27a)}
+.aurum-stable-table{min-height:320px;overflow-anchor:none}
+.aurum-stable-table table{table-layout:fixed;min-width:1320px}
+.aurum-stable-table th,.aurum-stable-table td{height:48px;max-height:48px;overflow:hidden;text-overflow:ellipsis}
+#content{overflow-anchor:none}
+html{scroll-behavior:auto}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+
+/* Table-scoped operation monitor and aligned timestamp/status cards. */
+.aurum-fixed-actions{min-height:0;contain:layout paint}
+.aurum-compact-actions{padding:11px 12px;margin-bottom:8px}
+.aurum-compact-actions .actions{gap:7px}
+.aurum-operation-strip{position:relative;height:46px;min-height:46px;max-height:46px;display:flex;align-items:center;gap:8px;padding:5px 6px 5px 12px;margin:7px 0 11px;border:1px solid rgba(243,211,111,.20);border-radius:14px;background:radial-gradient(circle at 15% 0,rgba(4,27,96,.20),transparent 44%),linear-gradient(145deg,rgba(1,15,73,.98),rgba(1,8,59,.94));box-shadow:0 10px 28px rgba(0,0,0,.20),inset 0 1px 0 rgba(255,255,255,.035),inset 0 -1px 0 rgba(0,0,0,.18);contain:layout paint;overflow:hidden}
+.aurum-operation-strip::after{content:"";position:absolute;left:12px;right:50px;bottom:5px;height:1px;background:linear-gradient(90deg,transparent,rgba(243,211,111,.11),transparent);pointer-events:none}
+.aurum-operation-copy{min-width:0;flex:1;display:grid;grid-template-rows:24px 4px;gap:3px;align-content:center;overflow:hidden}
+.aurum-operation-caption{min-width:0;display:flex;align-items:center;gap:7px;white-space:nowrap;overflow:hidden}
+.aurum-operation-indicator{width:6px;height:6px;flex:0 0 6px;border-radius:50%;background:#65758b;box-shadow:0 0 0 3px rgba(101,117,139,.08)}
+.aurum-operation-strip[data-active="true"] .aurum-operation-indicator{background:var(--gold2);box-shadow:0 0 0 3px rgba(243,211,111,.09),0 0 9px rgba(243,211,111,.22)}
+.aurum-operation-strip[data-paused="true"] .aurum-operation-indicator{background:var(--amber)}
+.aurum-operation-caption>small{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;color:#a9b7ca;font-size:11px;line-height:18px;font-variant-numeric:tabular-nums}
+.aurum-operation-caption>[data-aurum-operation-mode]{flex:0 0 auto;padding:2px 5px;border-radius:999px;border:1px solid rgba(212,175,55,.16);background:rgba(212,175,55,.055);color:#bfae76;font-size:9.5px;font-weight:800;letter-spacing:.045em}
+.aurum-operation-caption>[data-aurum-operation-percent]{flex:0 0 auto;min-width:30px;text-align:right;color:var(--gold2);font-size:11.5px;font-weight:850;font-variant-numeric:tabular-nums}
+.aurum-progress-track{height:4px;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.018);border-radius:999px;overflow:hidden}.aurum-progress-track i{display:block;height:100%;width:0;background:linear-gradient(90deg,#8a611d 0,#d4af37 62%,#f3d36f 100%);box-shadow:0 0 7px rgba(212,175,55,.14);border-radius:inherit;transition:none!important;animation:none!important}
+.aurum-pause-toggle{width:34px;height:34px;min-width:34px;min-height:34px;padding:0;border-radius:11px;border:1px solid rgba(243,211,111,.25);background:linear-gradient(145deg,rgba(212,175,55,.105),rgba(2,20,81,.76));color:var(--gold2);display:grid;place-items:center;box-shadow:inset 0 1px 0 rgba(255,255,255,.035),0 5px 14px rgba(0,0,0,.18)}.aurum-pause-toggle:disabled{opacity:.28;filter:saturate(.65)}.aurum-pause-toggle::before{content:"";display:block}.aurum-pause-toggle[data-control-state="pause"]::before{width:3px;height:13px;border-radius:1px;background:currentColor;box-shadow:6px 0 0 currentColor;transform:translateX(-3px)}.aurum-pause-toggle[data-control-state="play"]::before{width:0;height:0;border-top:6.5px solid transparent;border-bottom:6.5px solid transparent;border-left:10px solid currentColor;transform:translateX(1px)}
+.aurum-brief-notice{line-height:1.4}
+.aurum-criterion-brief{display:grid;gap:5px;line-height:1.35}.aurum-criterion-brief>small{color:var(--muted);font-size:11px}.aurum-criterion-brief>div{font-size:11.5px;color:#cbd5e2}
+.aurum-time-card{min-height:66px;margin:7px 0 8px;padding:7px 10px;border:1px solid rgba(212,175,55,.13);border-radius:11px;background:linear-gradient(145deg,rgba(3,10,34,.90),rgba(5,15,43,.72));display:grid;grid-template-rows:repeat(3,17px);gap:1px;contain:layout paint;overflow:hidden}
+.aurum-time-row{display:grid;grid-template-columns:minmax(150px,1fr) auto;gap:12px;align-items:center;min-height:17px;border-bottom:1px solid rgba(255,255,255,.025)}.aurum-time-row:last-child{border-bottom:0}.aurum-time-row span{color:#7e8da1;font-size:10px;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.aurum-time-row b{color:#d9c27a;font-size:10.5px;font-weight:680;font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right}
+.aurum-data-status-card{min-height:44px;margin:0 0 12px;padding:7px 10px;border:1px solid rgba(103,173,255,.10);border-radius:10px;background:rgba(4,13,38,.80);display:grid;grid-template-rows:15px 15px;gap:1px;contain:layout paint;overflow:hidden}.aurum-data-status-card>div{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#91a0b3;font-size:10.5px;line-height:15px}.aurum-data-status-card>div:first-child{color:#bac6d5}
+.table-wrap{overflow-anchor:none}.table-wrap>.aurum-time-card{display:none}
+@media(min-width:720px){.aurum-time-card{padding-left:12px;padding-right:12px}.aurum-time-row{grid-template-columns:240px 1fr}.aurum-time-row b{text-align:left}}
+@media(max-width:560px){.aurum-operation-caption>[data-aurum-operation-mode]{display:none}.aurum-time-row{grid-template-columns:minmax(128px,1fr) auto;gap:7px}.aurum-time-row span{font-size:9.2px}.aurum-time-row b{font-size:9.7px}.aurum-data-status-card>div{font-size:9.6px}}
+
+/* Unified Aurum compact-modern visual system — single final theme layer. */
+:root{
+  --ref-bg:#00030E;--ref-bg-deep:#000106;--ref-panel:#030A22;--ref-panel-2:#04102C;--ref-panel-3:#071738;
+  --ref-line:rgba(174,190,208,.145);--ref-line-gold:rgba(222,191,89,.22);--ref-gold:#dfbf59;--ref-gold-strong:#f0d56d;
+  --ref-text:#f3f5f8;--ref-muted:#94a2b5;--ref-soft:#718097;--ref-radius:16px;
+}
+html,body{background:radial-gradient(circle at 16% -8%,rgba(8,23,58,.16),transparent 31%),radial-gradient(circle at 90% 22%,rgba(5,16,43,.11),transparent 34%),linear-gradient(180deg,#00030E 0,#000106 56%,#00040F 100%);color:var(--ref-text)}
+body{padding-bottom:calc(84px + env(safe-area-inset-bottom))}
+#content{padding:13px 15px 16px;max-width:1480px}
+.glass{background:linear-gradient(145deg,rgba(3,10,34,.985),rgba(0,3,15,.995));border-color:var(--ref-line);box-shadow:0 14px 38px rgba(0,0,0,.28);backdrop-filter:blur(16px)}
+.topbar{min-height:84px;padding:12px 16px;gap:12px;background:linear-gradient(112deg,rgba(2,7,25,.998),rgba(0,2,12,.999));border-bottom:1px solid rgba(225,194,96,.13);box-shadow:0 8px 26px rgba(0,0,0,.16)}
+.brand-lockup{gap:10px}.brand-mark{width:42px;height:42px;flex-basis:42px;border-radius:13px;box-shadow:0 7px 18px rgba(0,0,0,.30),0 0 0 1px rgba(226,196,95,.16)}
+.eyebrow{font-size:9.5px;letter-spacing:.20em;color:var(--ref-gold-strong);font-weight:850}.brand-name{color:var(--ref-gold-strong)}
+h1{font-size:24px;line-height:1.07;margin-top:3px;font-weight:820;letter-spacing:-.02em}.top-actions{gap:7px;max-width:44%}
+.gold-btn,.ghost-btn,.danger-btn{min-height:38px;border-radius:12px;padding:8px 12px;box-shadow:none;transition:none!important;font-size:12.5px;line-height:1.1}
+.gold-btn{border:1px solid rgba(244,213,108,.48);background:linear-gradient(135deg,#9a7423,#cfa941 55%,#ead066);color:#11151b}.ghost-btn{border-color:rgba(208,182,92,.19);background:rgba(255,255,255,.026)}.danger-btn{border-color:rgba(239,112,124,.30);background:rgba(239,112,124,.075)}
+.badge{padding:5px 7px;font-size:9.5px}.badge.warn{background:rgba(130,101,31,.18);border-color:rgba(226,196,95,.25);color:#ead474}.badge.ok{background:rgba(31,111,86,.15)}.badge.bad{background:rgba(121,47,61,.15)}
+.card{border-radius:var(--ref-radius);border:1px solid var(--ref-line);padding:13px 14px;background:linear-gradient(145deg,rgba(4,13,38,.97),rgba(2,7,24,.99));box-shadow:0 11px 30px rgba(0,0,0,.20),inset 0 1px 0 rgba(255,255,255,.015)}
+.card.gold-edge{border-color:var(--ref-line-gold);box-shadow:0 11px 30px rgba(0,0,0,.21),inset 0 1px 0 rgba(240,213,110,.03)}
+.grid{gap:10px}.metrics,.two-col{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.metric{min-height:86px;display:flex;flex-direction:column;justify-content:center}.metric .label{color:var(--ref-muted);font-size:10px;letter-spacing:.09em}.metric .value{font-size:22px;line-height:1.05;margin-top:6px;font-weight:850}.metric .sub{font-size:11px;color:var(--ref-muted);line-height:1.3;margin-top:5px}
+.section-head{margin:18px 2px 8px;align-items:center;gap:8px}.section-head h2{font-size:17.5px;line-height:1.15}.section-head small{font-size:11.5px;color:var(--ref-muted);max-width:48%;line-height:1.2}.section-title{gap:8px}.section-title:before{width:3px;height:19px;border-radius:99px;background:linear-gradient(180deg,#f2d66e,#ae7c25)}
+.quick-grid{gap:10px}.quick-card{min-height:116px;padding:13px 13px;border-radius:16px;border:1px solid rgba(210,183,92,.20);background:linear-gradient(145deg,rgba(6,17,48,.95),rgba(3,9,29,.99));box-shadow:0 10px 26px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.016);display:flex;flex-direction:column;justify-content:flex-start}
+.quick-card .quick-icon{width:34px;height:34px;border-radius:10px;margin-bottom:9px;background:linear-gradient(145deg,rgba(10,24,57,.72),rgba(5,16,43,.82));color:var(--ref-gold-strong);font-size:17px}
+.quick-card strong{font-size:16px;line-height:1.12;font-weight:820}.quick-card small{font-size:11.8px;line-height:1.32;color:var(--ref-muted);margin-top:6px}.quick-card:active{background:linear-gradient(145deg,rgba(8,21,55,.98),rgba(3,9,29,.995));border-color:rgba(238,209,105,.34)}
+.list{gap:7px}.list-row{padding:10px 11px;border-radius:12px;background:linear-gradient(145deg,rgba(4,13,38,.82),rgba(1,5,18,.94));border:1px solid rgba(168,185,204,.085)}.list-row strong{font-size:13.5px}.list-row small{font-size:11px;color:var(--ref-muted);line-height:1.3}
+.notice,.error-text{border-radius:13px;background:linear-gradient(145deg,rgba(4,13,38,.86),rgba(1,5,18,.97));border:1px solid var(--ref-line);border-left:3px solid var(--ref-gold);padding:10px 12px;line-height:1.38;font-size:12px}
+.tabs{gap:8px;padding:1px 0 8px}.tabs .ghost-btn{min-width:88px;border-radius:12px;padding:8px 11px}.tabs .active{border-color:rgba(235,206,103,.58);background:linear-gradient(145deg,rgba(109,84,27,.20),rgba(2,18,80,.92));color:var(--ref-gold-strong)}
+.table-tools{gap:7px;margin:8px 0}.search-input,.field input,.field select,.field textarea,.provider-switch select{border-radius:12px;border:1px solid rgba(202,177,91,.18);background:rgba(0,2,12,.96);color:var(--ref-text);padding:9px 11px}.field label{font-size:11px;color:var(--ref-muted);margin-bottom:5px}.field small{font-size:10.5px;color:var(--ref-muted);line-height:1.3}.form-grid{gap:10px}
+.table-wrap{border-radius:15px;border:1px solid var(--ref-line);background:rgba(1,5,18,.95);box-shadow:0 10px 28px rgba(0,0,0,.16)}
+table{background:transparent}th{background:#071738;color:#bcc7d5;border-bottom-color:rgba(226,196,95,.18);font-size:10.5px}th,td{padding:10px 9px;border-bottom-color:rgba(160,180,201,.072);font-size:12px}tbody tr:hover,tbody tr:active{background:rgba(226,196,95,.038)}
+.rank{background:rgba(226,196,95,.10);color:var(--ref-gold-strong);border-radius:8px}.pill{border-radius:999px}.progress,.scorebar{background:rgba(122,146,174,.11)}.progress i,.scorebar i{background:linear-gradient(90deg,#ad8128,#d8b548,#f0d36c)}
+.behavior-stat,.trait-card,.weight-grid>div,.detail-cell{border-radius:12px;background:linear-gradient(145deg,rgba(6,17,48,.82),rgba(3,9,29,.94));border:1px solid rgba(177,193,210,.09)}
+.behavior-stat,.trait-card{padding:9px}.behavior-stat b{font-size:15px}.trait-card span{font-size:13px}
+/* The action row owns a fixed footprint. While a job is active the monitor overlays the same footprint, so no layout shift occurs. */
+.aurum-action-zone{position:relative;min-height:50px;margin:0 0 9px;contain:layout paint;overflow:visible}
+.aurum-fixed-actions{min-height:50px;background:linear-gradient(145deg,rgba(4,13,38,.96),rgba(1,5,18,.995));border-color:var(--ref-line);padding:6px 7px;margin:0}
+.aurum-compact-actions .actions{display:flex;flex-wrap:nowrap;gap:6px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}.aurum-compact-actions .actions::-webkit-scrollbar{display:none}.aurum-compact-actions .actions>button{flex:0 0 auto}
+.aurum-operation-strip{display:none;position:absolute;inset:0;height:auto;min-height:50px;max-height:none;margin:0;padding:6px 7px 6px 11px;gap:9px;border-radius:15px;border:1px solid rgba(187,199,214,.14);background:linear-gradient(145deg,rgba(5,14,40,.997),rgba(1,5,18,.999));box-shadow:0 9px 24px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.018);overflow:hidden;z-index:2;contain:layout paint}
+.aurum-operation-strip[data-busy="true"]{display:flex}.aurum-operation-strip::after{display:none}.aurum-operation-copy{min-width:0;flex:1;display:grid;grid-template-rows:23px 4px;gap:4px;align-content:center;overflow:hidden}.aurum-operation-caption{gap:7px}.aurum-operation-indicator{width:6px;height:6px;flex-basis:6px;background:#53667d}.aurum-operation-strip[data-active="true"] .aurum-operation-indicator{background:var(--ref-gold-strong);box-shadow:0 0 0 3px rgba(241,212,108,.065)}
+.aurum-operation-caption>small{font-size:11.5px;color:#d6dde7;font-weight:620;letter-spacing:0}.aurum-operation-caption>[data-aurum-operation-count]{flex:0 0 auto;color:var(--ref-muted);font-size:10px;font-variant-numeric:tabular-nums}.aurum-operation-caption>[data-aurum-operation-percent]{min-width:30px;color:var(--ref-gold-strong);font-size:12.5px;font-weight:850;text-align:right}
+.aurum-progress-track{height:4px;border:0;background:rgba(106,133,163,.11)}.aurum-progress-track i{background:linear-gradient(90deg,#a97c25,#d9b646,#f1d56e);box-shadow:none;transition:none!important;animation:none!important}
+.aurum-pause-toggle{width:36px;height:36px;min-width:36px;min-height:36px;border-radius:11px;border:1px solid rgba(229,201,105,.24);background:linear-gradient(145deg,rgba(28,36,49,.54),rgba(5,16,43,.90));color:var(--ref-gold-strong);box-shadow:none}.aurum-pause-toggle:disabled{opacity:.22}
+.aurum-time-card{min-height:64px;margin:7px 0 7px;padding:6px 10px;border-radius:13px;border:1px solid rgba(185,197,212,.11);background:linear-gradient(145deg,rgba(4,13,38,.92),rgba(1,5,18,.985));grid-template-rows:repeat(3,17px);gap:1px}.aurum-time-row{min-height:17px;grid-template-columns:minmax(154px,1fr) auto;border-bottom-color:rgba(177,194,211,.045)}.aurum-time-row span{font-size:9.6px;color:#7f8ea3}.aurum-time-row b{font-size:10px;color:#d8c16a}
+.aurum-data-status-card{min-height:42px;padding:6px 10px;margin-bottom:9px;border-radius:12px;border:1px solid rgba(176,191,208,.10);background:linear-gradient(145deg,rgba(5,14,40,.86),rgba(2,7,24,.97));grid-template-rows:14px 14px;gap:2px}.aurum-data-status-card>div{font-size:9.8px;line-height:14px;color:#93a2b6}.aurum-data-status-card>div:first-child{color:#bec8d4}
+.bottom-nav{left:10px;right:10px;bottom:calc(8px + env(safe-area-inset-bottom));height:72px;padding:5px;border-radius:22px;background:linear-gradient(145deg,rgba(4,13,38,.99),rgba(1,4,15,.998));border:1px solid rgba(181,194,210,.14);box-shadow:0 14px 38px rgba(0,0,0,.32)}
+.bottom-nav button{border-radius:16px;gap:2px;color:#73849b}.bottom-nav button span{font-size:18px}.bottom-nav button small{font-size:9.5px}.bottom-nav button.active{background:linear-gradient(145deg,rgba(8,21,55,.72),rgba(5,14,40,.60));color:var(--ref-gold-strong);box-shadow:inset 0 0 0 1px rgba(230,202,105,.20),0 6px 18px rgba(0,0,0,.14)}
+dialog{border-radius:18px;background:#030A22;border-color:var(--ref-line-gold);padding:15px}.aurum-toast-host{bottom:calc(91px + env(safe-area-inset-bottom));background:linear-gradient(145deg,rgba(4,13,38,.99),rgba(1,5,18,.995));border-color:rgba(226,196,95,.22)}
+@media(max-width:720px){
+  #content{padding:11px 12px 14px}.topbar{min-height:80px;padding:11px 13px}.brand-lockup{gap:9px}.brand-mark{width:39px;height:39px;flex-basis:39px;border-radius:12px}.eyebrow{font-size:9px}h1{font-size:22px}.top-actions{max-width:41%}.top-actions .badge{display:none}.top-actions .gold-btn{max-width:130px;min-height:38px;padding:8px 11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .quick-grid,.metrics,.two-col{gap:9px}.quick-card{min-height:108px;padding:12px}.quick-card .quick-icon{width:31px;height:31px;margin-bottom:8px}.quick-card strong{font-size:15px}.quick-card small{font-size:11.2px}.card{padding:12px 13px;border-radius:15px}.metric{min-height:82px}.metric .value{font-size:21px}.section-head{margin-top:16px}.section-head h2{font-size:16.5px}.section-head small{font-size:11px}.section-title:before{height:18px}
+  .aurum-operation-caption>small{font-size:11px}.aurum-operation-caption>[data-aurum-operation-count]{font-size:9.5px}.aurum-operation-caption>[data-aurum-operation-percent]{font-size:12px}.aurum-time-row{grid-template-columns:minmax(126px,1fr) auto;gap:7px}.aurum-time-row span{font-size:9.1px}.aurum-time-row b{font-size:9.5px}.aurum-data-status-card>div{font-size:9.2px}
+  .bottom-nav{height:70px;left:8px;right:8px;border-radius:20px}.bottom-nav button{border-radius:15px}.bottom-nav button span{font-size:17px}.bottom-nav button small{font-size:9px}
+}
+@media(max-width:420px){
+  #content{padding-left:10px;padding-right:10px}.topbar{padding-left:10px;padding-right:10px}.brand-mark{width:37px;height:37px;flex-basis:37px}.eyebrow{font-size:9.6px}h1{font-size:21px}.top-actions{max-width:39%}.top-actions .gold-btn{max-width:112px;font-size:11.5px}
+  .quick-grid,.metrics{gap:8px}.quick-card{min-height:102px;padding:11px}.quick-card strong{font-size:14.5px}.quick-card small{font-size:10.7px}.metric{min-height:78px}.metric .value{font-size:20px}.section-head small{max-width:43%}
+  .aurum-pause-toggle{width:34px;height:34px;min-width:34px;min-height:34px}.aurum-operation-caption>[data-aurum-operation-count]{display:none}
+}
+@media(max-width:900px){.quick-grid,.metrics,.behavior-grid,.two-col{grid-template-columns:repeat(2,minmax(0,1fr))}.bottom-nav{left:8px;right:8px;width:auto;transform:none}}
+
+/* V_141225 full schema restoration: preserve all original columns without altering the current card/gold theme. */
+.aurum-v141225-head{margin-top:14px}.aurum-v141225-head small{max-width:none}
+.aurum-v141225-tools{align-items:stretch}.aurum-v141225-tools select{flex:0 1 330px;min-width:220px}.aurum-v141225-tools input{flex:1 1 220px}
+.aurum-v141225{max-height:68vh;overscroll-behavior:contain}.aurum-v141225 table{width:max-content;min-width:100%}.aurum-v141225 th,.aurum-v141225 td{min-width:104px;max-width:190px}.aurum-v141225 th{white-space:normal;line-height:1.2}.aurum-v141225 td{vertical-align:top}.aurum-v141225 th:first-child,.aurum-v141225 td:first-child{position:sticky;left:0;z-index:3;min-width:92px;max-width:150px;background:linear-gradient(145deg,rgba(6,17,48,.995),rgba(3,9,29,.995));box-shadow:1px 0 0 rgba(212,175,55,.12)}.aurum-v141225 th:first-child{z-index:4;background:#071738}.aurum-symbol-link{border:0;background:transparent;padding:0;color:var(--gold2);font:inherit;font-weight:900;cursor:pointer;text-decoration:none}.aurum-symbol-link+small{max-width:130px;overflow:hidden;text-overflow:ellipsis}
+@media(max-width:720px){.aurum-v141225-tools select{flex-basis:100%;min-width:100%}.aurum-v141225 th,.aurum-v141225 td{min-width:96px;padding:9px 8px;font-size:11.5px}.aurum-v141225 th{font-size:10px}.aurum-v141225 th:first-child,.aurum-v141225 td:first-child{min-width:82px}}
+
+
+/* Rich stock card: one canonical card for every clickable symbol. */
+.aurum-stock-card{display:grid;gap:10px}.stock-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:2px 1px 5px}.stock-card-head h2{font-size:26px;margin:2px 0 0;color:var(--gold2);letter-spacing:.025em}.stock-card-head small{display:block;color:var(--muted);margin-top:2px;font-size:12px}.stock-time-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;padding:9px;border:1px solid rgba(212,175,55,.17);border-radius:13px;background:linear-gradient(145deg,rgba(5,14,40,.94),rgba(1,5,18,.985))}.stock-time-grid>div{min-width:0;padding:6px 7px;border-radius:9px;background:rgba(255,255,255,.018)}.stock-time-grid small{display:block;color:#8190a5;font-size:9.7px;text-transform:uppercase;letter-spacing:.055em}.stock-time-grid b{display:block;margin-top:3px;font-size:11.5px;color:#e0c867;overflow-wrap:anywhere}.stock-key-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.stock-compact{padding:10px 11px;margin:0}.stock-character-line{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:7px}.stock-character-line b{font-size:15px;color:var(--gold2)}.stock-character-line span{font-size:11.5px;color:var(--muted)}.trait-row{display:flex;flex-wrap:wrap;gap:5px;margin-top:5px}.aurum-stock-card h3{font-size:14px;margin:6px 2px 0;color:#e7ebf2}.aurum-stock-card .list-row{padding:8px 9px}.aurum-stock-card .list-row>span:last-child{font-size:10px;color:var(--muted);text-align:right}.aurum-stock-card p{margin:7px 0 0;font-size:12px;line-height:1.4;color:#d4dce7}
+@media(max-width:560px){.stock-time-grid,.stock-key-grid{grid-template-columns:1fr 1fr}.stock-time-grid{gap:5px;padding:7px}.stock-time-grid>div{padding:5px}.stock-time-grid b{font-size:10.6px}.stock-card-head h2{font-size:23px}.aurum-stock-card .detail-cell{padding:8px}.aurum-stock-card .detail-cell strong{font-size:12.5px}}
+
+
+/* v112 data integrity UI: stable sticky table header + compact drill-down */
+.aurum-v141225 thead{position:sticky;top:0;z-index:20}
+.aurum-v141225 thead th{position:sticky;top:0;z-index:21;background:#071738}
+.aurum-v141225 tbody td:first-child{z-index:4}
+.aurum-v141225 thead th:first-child{position:sticky;top:0;left:0;z-index:24;background:#071738;box-shadow:1px 1px 0 rgba(212,175,55,.16)}
+.aurum-inline-stat{display:inline;border:0;padding:0;margin:0;background:transparent;color:var(--gold2);font:inherit;font-weight:800;text-decoration:underline;text-decoration-color:rgba(243,211,111,.42);text-underline-offset:2px;cursor:pointer}
+.aurum-inline-stat:active{opacity:.72}
+.aurum-missing-list{min-width:min(720px,86vw)}
+.aurum-missing-list .list{display:grid;gap:7px;margin-top:12px}
+.aurum-missing-row{display:grid;grid-template-columns:minmax(92px,.7fr) minmax(150px,1.3fr);gap:12px;align-items:center;padding:10px 12px;border:1px solid rgba(212,175,55,.12);border-radius:12px;background:rgba(7,23,56,.72)}
+.aurum-missing-row>div:last-child{text-align:right}.aurum-missing-row small{display:block;color:var(--muted);margin-top:2px}
+@media(max-width:640px){.aurum-missing-list{min-width:0}.aurum-missing-row{grid-template-columns:1fr}.aurum-missing-row>div:last-child{text-align:left}}
+
+
+/* v114 built-in scheduler diagnostics */
+.aurum-scheduler-module{display:grid;gap:12px}
+.aurum-scheduler-summary{padding:9px 10px;border:1px solid rgba(223,191,89,.22);border-radius:12px;background:rgba(1,8,59,.22)}
+.aurum-scheduler-grid{display:grid;gap:8px}
+.aurum-scheduler-row{display:grid;grid-template-columns:minmax(108px,.7fr) minmax(180px,1fr) minmax(210px,1.2fr);gap:10px;align-items:center;padding:10px 11px;border:1px solid rgba(223,191,89,.16);border-radius:12px;background:rgba(4,16,44,.68)}
+.aurum-scheduler-row>div{display:grid;gap:3px;min-width:0}
+.aurum-scheduler-row small{font-size:10px;letter-spacing:.05em;text-transform:uppercase;opacity:.68}
+.aurum-scheduler-row b{font-size:12px;line-height:1.35;overflow-wrap:anywhere}
+.aurum-scheduler-time{display:flex!important;grid-template-columns:1fr auto!important;align-items:center;gap:7px!important}
+.aurum-scheduler-time strong{font-size:16px;color:var(--ref-gold-strong,#f0d56d)}
+.aurum-scheduler-row .badge{justify-self:start}
+@media(max-width:620px){.aurum-scheduler-row{grid-template-columns:1fr 1fr}.aurum-scheduler-row>div:last-child{grid-column:1/-1}.aurum-scheduler-time{grid-column:1/-1}}
+
+/* v115 · Ayarlar / otomatik zamanlayıcı açılır başlığı */
+.aurum-settings-details{padding:0;overflow:hidden}
+.aurum-settings-summary{list-style:none;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 15px;cursor:pointer;user-select:none}
+.aurum-settings-summary::-webkit-details-marker{display:none}
+.aurum-settings-summary>div{display:grid;gap:3px}
+.aurum-settings-summary strong{font-size:15px}
+.aurum-settings-summary small{font-size:11px;color:var(--muted)}
+.aurum-details-chevron{font-size:20px;color:var(--gold);transition:none}
+.aurum-settings-details[open] .aurum-details-chevron{transform:rotate(180deg)}
+.aurum-settings-details-body{border-top:1px solid var(--line);padding:12px 14px 14px}
+
+
+/* Kn + K_Tarihsel v117 — previous application table geometry, rebuilt as the sole implementation */
+.aurum-kn-v117 table{min-width:max-content;table-layout:auto}
+.aurum-kn-v117 th,.aurum-kn-v117 td{font-variant-numeric:tabular-nums;vertical-align:top}
+.aurum-kn-v117 th{position:sticky;top:0;z-index:4;background:#071738;white-space:normal;min-width:96px;max-width:180px}
+.aurum-kn-v117 th:first-child,.aurum-kn-v117 td:first-child{position:sticky;left:0;z-index:5;background:#071738;min-width:82px}
+.strict-history{max-height:74vh;overscroll-behavior:contain;scroll-behavior:auto}
+.strict-history table{table-layout:fixed;min-width:2860px;border-collapse:separate;border-spacing:0}
+.strict-history th,.strict-history td{vertical-align:top;padding:8px 9px;border-right:1px solid rgba(255,255,255,.08);border-bottom:1px solid rgba(255,255,255,.08)}
+.strict-history th{position:sticky;top:0;z-index:4;text-align:center;line-height:1.2;background:#071738}
+.strict-history th:nth-child(1),.strict-history td:nth-child(1){width:68px;min-width:68px;max-width:68px;position:sticky;left:0;z-index:3;background:#071738}
+.strict-history th:nth-child(2),.strict-history td:nth-child(2){width:104px;min-width:104px;max-width:104px;position:sticky;left:68px;z-index:3;background:#071738}
+.strict-history th:nth-child(n+3),.strict-history td:nth-child(n+3){width:188px;min-width:188px;max-width:188px}
+.strict-history th:nth-child(1),.strict-history th:nth-child(2){z-index:6}
+.kh-day{text-align:center}.kh-day>b{display:block;font-size:15px;color:var(--gold,#d6ad60)}.kh-day>small{display:block;margin-top:6px;font-size:10px;line-height:1.35;white-space:nowrap}
+.kh-trend,.kh-cell{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-variant-numeric:tabular-nums}.kh-trend{display:flex;flex-direction:column;gap:3px;font-size:11px;line-height:1.25;white-space:nowrap}.kh-cell{display:flex;flex-direction:column;gap:2px;font-size:10.5px;line-height:1.22}.kh-line{display:grid;grid-template-columns:48px minmax(0,1fr);gap:4px;align-items:baseline;white-space:nowrap}.kh-line b{letter-spacing:.15px}.kh-line em{font-style:normal;text-align:left}.kh-line.kh-real-hit{color:var(--green,#54d38a);font-weight:650}.kh-cell footer{display:flex;flex-direction:column;gap:2px;margin-top:7px;padding-top:6px;border-top:1px solid rgba(214,173,96,.28);font-size:10px;font-style:italic;white-space:nowrap}
+@media(max-width:600px){.strict-history{max-height:68vh}.strict-history table{min-width:2780px}.kh-line{grid-template-columns:45px minmax(0,1fr)}}
+
+
+/* v118 compact table-operation controls */
+.aurum-mini-ops{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:5px 0 10px;padding:0 2px}.aurum-mini-ops button{min-width:0;min-height:36px;padding:5px 3px;border:1px solid rgba(223,191,89,.22);border-radius:10px;background:rgba(3,10,34,.72);color:var(--muted);font-size:10px;line-height:1.05;display:flex;align-items:center;justify-content:center;gap:4px;white-space:nowrap}.aurum-mini-ops button i{font-style:normal;color:var(--gold);font-size:14px;line-height:1}.aurum-mini-ops button:active{border-color:var(--gold)}.aurum-source-policy{margin-top:4px;font-size:10px;color:var(--muted);line-height:1.3}@media(max-width:420px){.aurum-mini-ops{gap:4px}.aurum-mini-ops button{font-size:9px;padding:4px 1px;gap:2px}.aurum-mini-ops button i{font-size:13px}}
+
+/* R26 functional controls — compact extension of the original Aurum night-navy design. */
+.aurum-settings-details{margin:0 0 10px}
+.aurum-settings-details-body>.form-grid{gap:10px}
+.aurum-inner-details{margin-top:10px;border:1px solid rgba(212,175,55,.15);border-radius:12px;background:rgba(1,8,35,.56);overflow:hidden}
+.aurum-inner-details>summary{list-style:none;cursor:pointer;padding:11px 12px;font-size:12px;font-weight:800;color:#dce4ef;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.aurum-inner-details>summary::-webkit-details-marker{display:none}
+.aurum-inner-details>summary:after{content:'⌄';font-size:16px;color:var(--gold)}
+.aurum-inner-details[open]>summary:after{transform:rotate(180deg)}
+.aurum-inner-details[open]>summary{border-bottom:1px solid rgba(212,175,55,.12)}
+.aurum-inner-details>p,.aurum-inner-details>.actions{margin:10px 12px}
+.aurum-export-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;padding:10px 12px}
+.aurum-export-check{display:flex;align-items:center;gap:7px;min-height:32px;padding:7px 8px;border:1px solid rgba(255,255,255,.055);border-radius:9px;background:rgba(255,255,255,.018);font-size:11px;color:#dbe3ee}
+.aurum-export-check input{width:15px;height:15px;accent-color:var(--gold)}
+.aurum-export-folder-status.ready{color:var(--green)}
+.aurum-schedule-editor{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:10px 0}
+.aurum-schedule-slot{display:grid;grid-template-columns:1fr 92px;align-items:center;gap:7px;padding:8px 9px;border:1px solid rgba(255,255,255,.055);border-radius:10px;background:rgba(255,255,255,.018)}
+.aurum-schedule-slot label{display:flex;align-items:center;gap:7px;font-size:11px;color:#dbe3ee}
+.aurum-schedule-slot input[type=checkbox]{width:15px;height:15px;accent-color:var(--gold)}
+.aurum-schedule-slot input[type=time]{min-width:0;padding:8px 7px;font-size:11px}
+.api-key-input-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px;align-items:center}
+.aurum-settings-details-body .compact-btn{padding:7px 9px;font-size:11px}
+.aurum-settings-details-body .actions{margin-top:9px}
+.aurum-settings-details-body .field small{display:block;margin-top:4px;font-size:10px;line-height:1.35;color:var(--muted)}
+@media(max-width:620px){.aurum-export-grid,.aurum-schedule-editor{grid-template-columns:1fr}.aurum-schedule-slot{grid-template-columns:1fr 96px}.api-key-input-row{grid-template-columns:1fr}.aurum-settings-details{margin-bottom:9px}}
+.aurum-data-pager{display:flex;align-items:center;justify-content:center;gap:10px;margin:10px 0 4px}.aurum-data-pager small{min-width:120px;text-align:center;color:var(--muted);font-size:10px}.aurum-data-pager .compact-btn{min-width:42px}.aurum-gln-gdn-card{margin:7px 0 9px}
+
+/* Rebuilt canonical data controls */
+.aurum-search-row{display:flex;margin-bottom:8px}.aurum-search-row .search-input{width:100%}
+.aurum-data-info-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-size:13px;color:var(--muted,#98a2b3);margin-bottom:8px}
+.aurum-data-pager-balanced{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px}.aurum-data-pager-balanced .pager-left,.aurum-data-pager-balanced .pager-right{display:flex;gap:6px}.aurum-data-pager-balanced .pager-right{justify-content:flex-end}.aurum-data-pager-balanced>small{text-align:center}
+@media(max-width:560px){.aurum-data-pager-balanced{grid-template-columns:1fr;}.aurum-data-pager-balanced .pager-left,.aurum-data-pager-balanced .pager-right{justify-content:center}.aurum-data-pager-balanced>small{order:-1}}
+
+/* Canonical table presentation (moved out of runtime style injection) */
+.aurum-drive-table table{min-width:max-content}
+.aurum-drive-table th{white-space:normal;min-width:96px;max-width:180px}
+.aurum-drive-table th:first-child,.aurum-drive-table td:first-child{position:sticky;left:0;z-index:2;background:#07172d;min-width:82px}
+.aurum-drive-table td{vertical-align:top;white-space:normal;max-width:260px}
+.aurum-symbol-link{border:0;background:transparent;padding:0;color:#f1cf5a;cursor:pointer;font:inherit;font-weight:800;text-decoration:underline;text-underline-offset:3px}
+
+/* Typography request: exact +1pt (~1.333 CSS px) on the smallest table-top-card text only; geometry unchanged. */
+.aurum-time-card .aurum-time-row span{font-size:10.933px}
+.aurum-data-status-card>div{font-size:11.133px}
+.aurum-operation-caption>[data-aurum-operation-count]{font-size:10.833px}
+@media(max-width:560px){
+  .aurum-time-card .aurum-time-row span{font-size:10.433px}
+  .aurum-data-status-card>div{font-size:10.533px}
+  .aurum-operation-caption>[data-aurum-operation-count]{font-size:10.833px}
+}
+
+.aurum-global-operation{display:inline-flex;align-items:center;max-width:170px;padding:6px 9px;border:1px solid rgba(243,211,111,.18);border-radius:999px;background:rgba(3,18,63,.72);color:#e9d58b;font-size:11.5px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.aurum-market-indicators{display:flex;flex-wrap:wrap;align-items:center;gap:5px 13px;margin:7px 0;padding:8px 10px;border:1px solid rgba(243,211,111,.14);border-radius:12px;background:linear-gradient(145deg,rgba(5,17,54,.78),rgba(2,8,29,.82));font-size:11.5px;line-height:1.2;color:var(--muted)}
+.aurum-market-indicators span{white-space:nowrap}.aurum-market-indicators b{color:#eedc98;font-weight:780;margin-right:3px}
+.aurum-performance-lines{display:flex;flex-wrap:wrap;gap:6px 15px;align-items:center;margin:7px 2px 4px;font-size:11.5px;color:var(--muted)}.aurum-performance-lines b{color:#e9d58b;font-weight:760}
+.aurum-gln-gdn-card{display:flex;flex-direction:column;align-items:flex-start;gap:3px;margin:3px 0 9px;padding:8px 10px;border:1px solid rgba(243,211,111,.12);border-radius:12px;background:rgba(4,15,47,.56)}
+.aurum-gln-gdn-card>div{display:flex;align-items:flex-start;gap:7px;width:100%;font-size:11.5px;line-height:1.25}.aurum-gln-gdn-card b{flex:0 0 auto;color:#e9d58b}.aurum-gln-gdn-card span{text-align:left;white-space:normal;word-break:break-word}
+.strict-history table{min-width:2660px}.strict-history th{position:sticky;top:0;z-index:6}.strict-history th:nth-child(1),.strict-history td:nth-child(1){width:48px;min-width:48px;max-width:48px;position:static;left:auto}.strict-history th:nth-child(2),.strict-history td:nth-child(2){width:118px;min-width:118px;max-width:118px;position:static;left:auto}.strict-history thead th:nth-child(1),.strict-history thead th:nth-child(2){position:sticky;top:0;left:auto;z-index:6}.kh-day>b{font-size:12px;line-height:1.1}.kh-day>small{margin-top:3px;font-size:9.5px;line-height:1.2}.kh-trend{display:flex;flex-direction:column;gap:2px;font-size:10px;line-height:1.15}.kh-trend span{white-space:nowrap}.kh-trend footer{display:grid;gap:1px;margin-top:3px;padding-top:3px;border-top:1px solid rgba(255,255,255,.08)}.kh-trend footer small{font-size:9px;color:var(--muted);white-space:nowrap}
+.aurum-learning-chart svg{display:block;width:100%;height:auto;max-height:210px}.aurum-learning-chart .chart-grid line{stroke:rgba(170,189,217,.16);stroke-width:1;stroke-dasharray:3 5}.aurum-learning-chart .chart-line{stroke:#e7c85e;stroke-width:2;vector-effect:non-scaling-stroke}.aurum-learning-chart .chart-dot{fill:#f2d66e;stroke:#071738;stroke-width:1.4}.aurum-chart-note{margin:8px 0 0;font-size:11.5px;line-height:1.45;color:var(--muted)}.aurum-chart-note b{color:#e9d58b}
+/* Only oversized headings are normalized; prior +1pt smallest-text rules remain intact. */
+#content .section-head h2{font-size:16px;line-height:1.15}#content .card>h2{font-size:16px}#content .metric .value{font-size:clamp(18px,5vw,21px)}
+@media(max-width:560px){.aurum-global-operation{max-width:120px;font-size:11px}.aurum-market-indicators{gap:5px 10px;font-size:11px}.aurum-performance-lines{font-size:11px;gap:10px}.strict-history table{min-width:2550px}}
+
+.aurum-overview-metrics .metric .label{text-transform:none;letter-spacing:.035em;font-size:10.933px}
+.aurum-overview-metrics .metric .value{font-size:16px;line-height:1.15;margin-top:5px;font-weight:780;overflow-wrap:anywhere}
+.aurum-overview-metrics .metric .sub{font-size:11px}
+.aurum-overview-discipline .aurum-decision-label{font-size:13px;line-height:1.2;font-weight:780;text-transform:none;letter-spacing:0}
+.aurum-performance-lines,.aurum-gln-gdn-card>div{font-size:10.933px;font-weight:500}
+.aurum-performance-lines b,.aurum-gln-gdn-card b{font-weight:680}
+.aurum-market-indicators{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px 10px;font-size:10.933px;line-height:1.2;margin:6px 0;padding:7px 9px}
+.aurum-market-indicators span{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.aurum-kn-tabs{display:flex;flex-wrap:wrap;gap:5px}.aurum-kn-tabs .ghost-btn{min-height:30px;padding:5px 8px;border-radius:9px;font-size:10.5px;min-width:38px}
+#content .aurum-ai-impact,.aurum-ai-impact{font-size:11px}.aurum-impact-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.05)}.aurum-impact-row:last-child{border-bottom:0}.aurum-impact-row b{font-size:11.5px}.aurum-impact-row small{display:block;color:var(--muted);font-size:10px;line-height:1.35;margin-top:2px}.aurum-impact-row>div:last-child{text-align:right}.aurum-impact-row span{font-variant-numeric:tabular-nums;color:#e9d58b}
+#content .aurum-ai-impact~.section-head h2,#content .aurum-ai-impact h2{font-size:15px}
+@media(max-width:560px){.aurum-market-indicators{grid-template-columns:repeat(3,minmax(0,1fr));font-size:10.433px}.aurum-performance-lines,.aurum-gln-gdn-card>div{font-size:10.433px}.aurum-impact-row{grid-template-columns:1fr}.aurum-impact-row>div:last-child{text-align:left}}
+
+#content.page-learning .metric .value,#content.page-ai .metric .value{font-size:16px;line-height:1.15;font-weight:780;overflow-wrap:anywhere}
+#content.page-learning .metric .label,#content.page-ai .metric .label{text-transform:none;letter-spacing:.035em;font-size:10.933px}
+#content.page-learning .section-head h2,#content.page-ai .section-head h2{font-size:15px}
+#content.page-learning .tabs .ghost-btn,#content.page-ai .tabs .ghost-btn{font-size:11px;min-height:32px;padding:6px 9px}
+\n/* R74 mobile discipline symmetry/overflow fix: keep both cards side-by-side without horizontal spill. */
+.aurum-overview-discipline{grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;align-items:stretch;max-width:100%;overflow:hidden}
+.aurum-overview-discipline>.card{min-width:0;width:100%;max-width:100%;box-sizing:border-box;overflow:hidden}
+.aurum-overview-discipline>.card.list{align-content:start}
+.aurum-overview-discipline .list-row{min-width:0;max-width:100%;gap:6px;padding:8px 8px;box-sizing:border-box;overflow:hidden}
+.aurum-overview-discipline .list-row strong{min-width:0;max-width:72%;font-size:11px;line-height:1.12;overflow-wrap:anywhere;word-break:break-word}
+.aurum-overview-discipline .list-row>span{flex:0 0 auto;white-space:nowrap;font-size:11px}
+.aurum-overview-discipline .gold-edge p{font-size:12px;line-height:1.42;overflow-wrap:anywhere}
+.aurum-overview-discipline .gold-edge .ghost-btn{width:100%;max-width:100%;white-space:normal;font-size:11.5px;line-height:1.25;padding:9px 7px}
+@media(max-width:390px){.aurum-overview-discipline{gap:7px}.aurum-overview-discipline>.card{padding:10px 9px}.aurum-overview-discipline .list-row{padding:7px 6px;gap:4px}.aurum-overview-discipline .list-row strong,.aurum-overview-discipline .list-row>span{font-size:10px}}
+
+/* R19 BIST integrated refinements */
+.kh-trend-triple{min-width:150px}.kh-trend-triple span{font-variant-numeric:tabular-nums}.kh-line em{font-size:9.8px}.aurum-gln-gdn-card small{display:block;margin-top:3px;font-size:10px;color:var(--muted)}.aurum-vp-table th,.aurum-vp-table td{padding-left:6px!important;padding-right:6px!important}.aurum-vp-kv{font-size:calc(1em - 1px)}
+
+/* R27 — K_Tarihsel symmetric fixed-grid layout */
+.khv27-history{max-height:70vh;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable both-edges}
+.khv27-history table{table-layout:fixed!important;border-collapse:separate!important;border-spacing:0!important;min-width:3970px!important;width:3970px!important}
+.khv27-history col.khv27-day-col{width:72px!important}
+.khv27-history col.khv27-trend-col{width:220px!important}
+.khv27-history col.khv27-data-col{width:283px!important}
+.khv27-history th,.khv27-history td{box-sizing:border-box!important;overflow:hidden!important;border-right:1px solid rgba(255,255,255,.09)!important;border-bottom:1px solid rgba(255,255,255,.08)!important;vertical-align:top!important}
+.khv27-history th{height:76px!important;padding:12px 8px!important;text-align:center!important;white-space:normal!important;line-height:1.2!important;background:#0c2147!important}
+.khv27-history th small{display:block;margin-top:5px;font-size:10px!important;letter-spacing:.35px;color:#c4ccdb!important;white-space:nowrap!important}
+.khv27-history td{padding:0!important;background:rgba(4,10,22,.84)!important}
+.khv27-history tbody tr:nth-child(even)>td{background:rgba(8,18,38,.88)!important}
+.khv27-history .kh-day{padding:12px 6px!important;text-align:center!important;vertical-align:top!important}
+.khv27-history .kh-day>b{font-size:13px!important;line-height:1.1!important}
+.khv27-history .kh-day>small{font-size:9.5px!important;line-height:1.35!important;white-space:normal!important}
+
+.khv27-cell,.khv27-trend{width:100%;min-width:0;box-sizing:border-box;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-variant-numeric:tabular-nums;padding:8px 10px 9px}
+.khv27-subhead,.khv27-data-row{display:grid;grid-template-columns:58px 58px 66px 66px;column-gap:6px;align-items:center;width:100%;box-sizing:border-box}
+.khv27-subhead{height:25px;margin-bottom:4px;padding-bottom:4px;border-bottom:1px solid rgba(214,173,96,.18);font-size:9.5px;font-weight:800;color:#9ba8bd;text-align:right;letter-spacing:.3px}
+.khv27-subhead span:first-child{text-align:left}
+.khv27-data-row{height:23px;min-height:23px;font-size:11px;line-height:1;white-space:nowrap}
+.khv27-data-row>span{display:block;min-width:0;overflow:hidden;text-overflow:clip;text-align:right}
+.khv27-data-row .khv27-symbol{text-align:left;font-weight:750;letter-spacing:.15px;color:#edf1f8}
+.khv27-data-row.khv27-hit>span{color:var(--green,#54d38a);font-weight:750}
+.khv27-placeholder{opacity:.28}
+.khv27-cell footer,.khv27-trend footer{display:grid!important;grid-template-columns:1fr!important;gap:3px!important;min-height:42px;margin-top:7px!important;padding-top:7px!important;border-top:1px solid rgba(214,173,96,.28)!important;font-size:9.7px!important;font-style:italic;color:#c7cdda;white-space:nowrap!important;overflow:hidden!important}
+.khv27-cell footer span,.khv27-trend footer span{display:block;overflow:hidden;text-overflow:ellipsis}
+
+.khv27-trend{padding-left:12px;padding-right:12px}
+.khv27-trend-head,.khv27-trend-row{display:grid;grid-template-columns:42px 48px 52px 52px;column-gap:4px;align-items:center;width:100%;box-sizing:border-box}
+.khv27-trend-head{height:25px;margin-bottom:4px;padding-bottom:4px;border-bottom:1px solid rgba(214,173,96,.18);font-size:9.5px;font-weight:800;color:#9ba8bd;text-align:center}
+.khv27-trend-row{height:23px;min-height:23px;font-size:11px;white-space:nowrap;text-align:center}
+.khv27-trend-row b{text-align:left;color:#e9edf5}
+.khv27-error{display:flex;align-items:center;justify-content:center;min-height:520px;color:var(--muted);font-size:11px}
+
+@media(max-width:600px){
+  .khv27-history{max-height:69vh}
+  .khv27-history table{min-width:3970px!important;width:3970px!important}
+  .khv27-cell,.khv27-trend{padding-top:7px;padding-bottom:8px}
+}
+
+/* R29 — K_Tarihsel classic Reel | Kn return layout, symmetric and non-overflowing. */
+.khv29-history{max-height:70vh;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable both-edges}
+.khv29-history table{table-layout:fixed!important;border-collapse:separate!important;border-spacing:0!important;min-width:3620px!important;width:3620px!important}
+.khv29-history col.khv29-day-col{width:72px!important}.khv29-history col.khv29-trend-col{width:170px!important}.khv29-history col.khv29-reel-col{width:218px!important}.khv29-history col.khv29-kn-col{width:263px!important}
+.khv29-history th,.khv29-history td{box-sizing:border-box!important;overflow:hidden!important;border-right:1px solid rgba(255,255,255,.09)!important;border-bottom:1px solid rgba(255,255,255,.08)!important;vertical-align:top!important}
+.khv29-history th{height:66px!important;padding:10px 7px!important;text-align:center!important;white-space:normal!important;line-height:1.18!important;background:#0c2147!important}
+.khv29-history th small{display:block;margin-top:4px;font-size:9.6px!important;color:#c4ccdb!important;white-space:nowrap!important}.khv29-history td{padding:0!important;background:rgba(4,10,22,.84)!important}
+.khv29-cell,.khv29-trend{width:100%;min-width:0;overflow:hidden;font-variant-numeric:tabular-nums}.khv29-data-head,.khv29-data-row{display:grid;grid-template-columns:66px 76px 84px;column-gap:7px;align-items:center;box-sizing:border-box;padding:0 8px}.khv29-reel-head,.khv29-reel-row{display:grid;grid-template-columns:82px 92px;column-gap:9px;align-items:center;box-sizing:border-box;padding:0 10px}
+.khv29-data-head,.khv29-reel-head,.khv29-trend-head{height:25px;border-bottom:1px solid rgba(255,255,255,.10);font-size:9.6px;font-weight:800;color:#aeb9cb;text-align:right}.khv29-data-head span:first-child,.khv29-reel-head span:first-child,.khv29-trend-head span:first-child{text-align:left}
+.khv29-data-row,.khv29-reel-row{height:23px;font-size:11px;line-height:1;white-space:nowrap}.khv29-data-row span,.khv29-reel-row span{min-width:0;overflow:hidden;text-overflow:clip;text-align:right}.khv29-data-row .khv29-symbol,.khv29-reel-row .khv29-symbol{text-align:left;font-weight:760;color:#f2f4f8;letter-spacing:.1px}.khv29-hit .khv29-symbol,.khv29-hit span{color:#43c99a}.khv29-placeholder{opacity:.48}
+.khv29-cell footer,.khv29-trend footer{min-height:45px;border-top:1px solid rgba(255,255,255,.10);padding:7px 9px;display:flex;flex-direction:column;gap:3px;justify-content:center;box-sizing:border-box;color:#c8cfdb;font-size:9.8px;font-style:italic;white-space:nowrap;overflow:hidden}
+.khv29-trend-head,.khv29-trend-row{display:grid;grid-template-columns:58px 72px;column-gap:12px;align-items:center;padding:0 12px;box-sizing:border-box}.khv29-trend-row{height:25px;font-size:11px}.khv29-trend-row b{text-align:left}.khv29-trend-row span{text-align:right}.khv29-error{padding:12px;color:#e6a6a6;font-size:11px}.kh-r29-loading td{padding:18px!important;text-align:center;color:var(--muted)}
+@media(max-width:560px){.khv29-history table{min-width:3500px!important;width:3500px!important}.khv29-history col.khv29-kn-col{width:253px!important}.khv29-data-head,.khv29-data-row{grid-template-columns:62px 72px 80px;column-gap:6px;padding:0 7px}.khv29-data-row,.khv29-reel-row,.khv29-trend-row{font-size:10.6px}}
+
+/* R30 — R25 K_Tarihsel geometry */
+.kh30-history table{table-layout:fixed;min-width:2860px;border-collapse:separate;border-spacing:0}
+.kh30-history th,.kh30-history td{vertical-align:top;padding:10px 14px;border-right:1px solid rgba(255,255,255,.08);border-bottom:1px solid rgba(255,255,255,.08);overflow:hidden}
+.kh30-history th{background:#071738;text-align:center;line-height:1.25}
+.kh30-history th:nth-child(1),.kh30-history td:nth-child(1){width:72px;min-width:72px;max-width:72px}
+.kh30-history th:nth-child(2),.kh30-history td:nth-child(2){width:180px;min-width:180px;max-width:180px}
+.kh30-history th:nth-child(n+3),.kh30-history td:nth-child(n+3){width:205px;min-width:205px;max-width:205px}
+.kh30-trend,.kh30-cell{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-variant-numeric:tabular-nums}
+.kh30-trend-row{display:grid;grid-template-columns:42px 1fr;gap:8px;align-items:baseline;min-height:24px;font-size:13px;line-height:1.35;white-space:nowrap}
+.kh30-cell{display:flex;flex-direction:column;gap:3px;font-size:12.5px;line-height:1.35}
+.kh30-line{display:grid;grid-template-columns:62px minmax(0,1fr);gap:10px;align-items:baseline;min-height:21px;white-space:nowrap}
+.kh30-line b{overflow:hidden}.kh30-line span{text-align:left;white-space:nowrap}
+.kh30-hit{color:var(--green,#54d38a);font-weight:650}
+.kh30-cell footer{display:flex;flex-direction:column;gap:3px;margin-top:9px;padding-top:8px;border-top:1px solid rgba(214,173,96,.28);font-size:11px;font-style:italic;white-space:nowrap}
+.kh30-loading{text-align:center!important;padding:20px!important;color:var(--muted)}
+
+/* R31 — preserve original AurumB_2508 K_Tarihsel geometry/classes. */
+.r51-history .kh-trend,.r51-history .kh-cell{
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-variant-numeric:tabular-nums
+}
+.r51-history .kh-trend{
+  display:flex;flex-direction:column;gap:3px;font-size:11px;line-height:1.25;white-space:nowrap
+}
+.r51-history .kh-cell{
+  display:flex;flex-direction:column;gap:2px;font-size:10.5px;line-height:1.22
+}
+.r51-history .kh-line{
+  display:grid;grid-template-columns:48px minmax(0,1fr);gap:4px;align-items:baseline;white-space:nowrap
+}
+.r51-history .kh-line b{letter-spacing:.15px}
+.r51-history .kh-line em{font-style:normal;text-align:left}
+.r51-history .kh-line.kh-real-hit{color:var(--green,#54d38a);font-weight:650}
+.r51-history .kh-cell footer{
+  display:flex;flex-direction:column;gap:2px;margin-top:7px;padding-top:6px;
+  border-top:1px solid rgba(214,173,96,.28);font-size:10px;font-style:italic;white-space:nowrap
+}
+.r51-history .kh-day{text-align:center}
+.r51-history .kh-day>b{display:block;font-size:15px;color:var(--gold,#d6ad60)}
+.r51-history .kh-day>small{display:block;margin-top:6px;font-size:10px;line-height:1.35;white-space:nowrap}
+@media(max-width:600px){
+  .strict-history{max-height:68vh}
+  .strict-history table{min-width:2780px}
+  .r51-history .kh-line{grid-template-columns:45px minmax(0,1fr)}
+}
+
+/* R32 — exact compact geometry matching the approved classic K_Tarihsel view. */
+.r32-classic-history{max-height:68vh;overscroll-behavior:contain;scroll-behavior:auto}
+.r32-classic-history table{table-layout:fixed;min-width:2550px;border-collapse:separate;border-spacing:0}
+.r32-classic-history th,.r32-classic-history td{vertical-align:top;padding:8px 9px;border-right:1px solid rgba(255,255,255,.08);border-bottom:1px solid rgba(255,255,255,.08);overflow:hidden}
+.r32-classic-history th{position:sticky;top:0;z-index:6;text-align:center;line-height:1.2;background:#071738}
+.r32-classic-history th:nth-child(1),.r32-classic-history td:nth-child(1){width:48px;min-width:48px;max-width:48px;position:static;left:auto}
+.r32-classic-history th:nth-child(2),.r32-classic-history td:nth-child(2){width:118px;min-width:118px;max-width:118px;position:static;left:auto}
+.r32-classic-history th:nth-child(n+3),.r32-classic-history td:nth-child(n+3){width:188px;min-width:188px;max-width:188px}
+.r32-classic-history thead th:nth-child(1),.r32-classic-history thead th:nth-child(2){position:sticky;top:0;left:auto;z-index:6}
+.r32-classic-history .kh-day{text-align:center}.r32-classic-history .kh-day>b{display:block;font-size:12px;line-height:1.1;color:var(--gold,#d6ad60)}.r32-classic-history .kh-day>small{display:block;margin-top:3px;font-size:9.5px;line-height:1.2;white-space:nowrap}
+.r32-classic-history .kh-trend,.r32-classic-history .kh-cell{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-variant-numeric:tabular-nums}
+.r32-classic-history .kh-trend{display:flex;flex-direction:column;gap:2px;font-size:10px;line-height:1.15;white-space:nowrap}
+.r32-classic-history .kh-trend span{white-space:nowrap}.r32-classic-history .kh-trend footer{display:grid;gap:1px;margin-top:3px;padding-top:3px;border-top:1px solid rgba(255,255,255,.08)}.r32-classic-history .kh-trend footer small{font-size:9px;color:var(--muted);white-space:nowrap}
+.r32-classic-history .kh-cell{display:flex;flex-direction:column;gap:2px;font-size:10.5px;line-height:1.22}
+.r32-classic-history .kh-line{display:grid;grid-template-columns:48px minmax(0,1fr);gap:4px;align-items:baseline;white-space:nowrap}
+.r32-classic-history .kh-line b{letter-spacing:.15px}.r32-classic-history .kh-line em{font-style:normal;text-align:left}.r32-classic-history .kh-line.kh-real-hit{color:var(--green,#54d38a);font-weight:650}
+.r32-classic-history .kh-cell footer{display:flex;flex-direction:column;gap:2px;margin-top:7px;padding-top:6px;border-top:1px solid rgba(214,173,96,.28);font-size:10px;font-style:italic;white-space:nowrap}
+
+
+/* Requested compact typography only. No engine/layout/bridge/native changes. */
+
+/* GENERAL OVERVIEW — compact only non-exempt summary cards.
+   Exempt cards: Active selection, Target hit, Average daily, Median daily,
+   Virtual portfolio, Waiting and Buy/Sell. */
+#content.page-overview .aurum-overview-metrics>.metric:nth-child(3) .label,
+#content.page-overview .aurum-overview-metrics>.metric:nth-child(4) .label,
+#content.page-overview .aurum-overview-metrics>.metric:nth-child(5) .label,
+#content.page-overview .aurum-overview-metrics>.metric:nth-child(8) .label,
+#content.page-overview .aurum-overview-metrics>.metric:nth-child(9) .label{font-size:9.933px!important}
+#content.page-overview .aurum-overview-metrics>.metric:nth-child(3) .sub,
+#content.page-overview .aurum-overview-metrics>.metric:nth-child(4) .sub,
+#content.page-overview .aurum-overview-metrics>.metric:nth-child(5) .sub,
+#content.page-overview .aurum-overview-metrics>.metric:nth-child(8) .sub,
+#content.page-overview .aurum-overview-metrics>.metric:nth-child(9) .sub{font-size:10px!important}
+
+/* Number-only reduction requested for Active selection, Learning, Behavior, DNA, Data quality. */
+#content.page-overview .aurum-overview-metrics>.metric:nth-child(1) .value,
+#content.page-overview .aurum-overview-metrics>.metric:nth-child(3) .value,
+#content.page-overview .aurum-overview-metrics>.metric:nth-child(4) .value,
+#content.page-overview .aurum-overview-metrics>.metric:nth-child(5) .value,
+#content.page-overview .aurum-overview-metrics>.metric:nth-child(8) .value{font-size:15px!important}
+
+/* LEARNING + AI — only card typography one step smaller. */
+#content.page-learning .card .label,#content.page-ai .card .label{font-size:9.933px!important}
+#content.page-learning .card .value,#content.page-ai .card .value{font-size:15px!important}
+#content.page-learning .card .sub,#content.page-ai .card .sub{font-size:11px!important}
+#content.page-learning .card p,#content.page-ai .card p{font-size:12px!important}
+#content.page-learning .card small,#content.page-ai .card small{font-size:10px!important}
+#content.page-learning .card .list-row strong,#content.page-ai .card .list-row strong{font-size:13px!important}
+
+/* K_TARIHSEL — requested title and cell footnotes only. */
+#content.page-history .aurum-khist-daily-title{font-size:14px!important}
+#content.page-history .khv27-cell footer,
+#content.page-history .khv27-trend footer,
+#content.page-history .kh-cell footer,
+#content.page-history .kh-trend footer{font-size:7.7px!important;line-height:1.15!important}
+
+/* GLN/GDN — labels stay unchanged; only future stock/value strings shrink. */
+.aurum-gln-gdn-card>div>span{font-size:10.5px!important}
+
+
+/* Targeted overview typography adjustment only. */
+
+/* Hızlı Erişim: requested card titles -2px; small descriptions remain untouched. */
+#content.page-overview .quick-card[onclick*="'data'"] strong,
+#content.page-overview .quick-card[onclick*="'criteria'"] strong,
+#content.page-overview .quick-card[onclick*="'market'"] strong,
+#content.page-overview .quick-card[onclick*="'ai'"] strong,
+#content.page-overview .quick-card[onclick*="'settings'"] strong{font-size:14px!important}
+
+/* Sonuç ve Öğrenme Özeti title -2px; its small companion text remains untouched. */
+#content.page-overview .aurum-overview-summary-title{font-size:14px!important}
+
+/* Model card: title/value -2px; smallest sub text remains untouched. */
+#content.page-overview .aurum-overview-metrics>.metric:nth-child(9) .label{font-size:7.933px!important}
+#content.page-overview .aurum-overview-metrics>.metric:nth-child(9) .value{font-size:14px!important}
+
+
+/* AL/SAT execution update: strictly scoped table ergonomics. */
+.aurum-gln-gdn-card>div>span{font-size:9.5px!important}
+
+/* Veriler: natural horizontal scrolling; prevent snap/pagination gesture behavior. */
+#content.page-data .aurum-v141225{touch-action:pan-x pan-y!important;scroll-behavior:auto!important;overscroll-behavior-x:contain!important}
+
+/* Kn: the Hisse header stays fixed both vertically and horizontally. */
+#content.page-criteria .aurum-kn-v117 thead th:first-child{
+  position:sticky!important;top:0!important;left:0!important;z-index:40!important;background:#071738!important;
+}
+#content.page-criteria .aurum-kn-v117 tbody td:first-child{
+  position:sticky!important;left:0!important;z-index:12!important;background:#071738!important;
+}
+
+/* AurumB v13 scoped regression-safe refinements */
+#dataTable th{font-size:9.35px!important;line-height:1.16!important}
+#dataTable td{font-size:10.35px!important;line-height:1.2!important}
+#dataTable .aurum-symbol-link,#dataTable button{font-size:10.35px!important;line-height:1.15!important}
+
+#aurumSchedulerModule .aurum-schedule-editor-v13{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0}
+#aurumSchedulerModule .aurum-schedule-profile{min-width:0;padding:7px;border:1px solid rgba(212,175,55,.16);border-radius:10px;background:rgba(5,15,35,.5)}
+#aurumSchedulerModule .aurum-schedule-profile-head{display:flex;justify-content:space-between;gap:6px;align-items:center;margin-bottom:6px}
+#aurumSchedulerModule .aurum-schedule-profile-head b{font-size:10px;line-height:1.15}
+#aurumSchedulerModule .aurum-schedule-profile-head small{font-size:8px;color:var(--muted)}
+#aurumSchedulerModule .aurum-schedule-chips{display:flex;flex-wrap:wrap;gap:4px}
+#aurumSchedulerModule .aurum-schedule-chip{display:inline-flex;align-items:center;gap:3px;padding:3px 4px;border:1px solid rgba(212,175,55,.18);border-radius:7px;background:rgba(255,255,255,.035)}
+#aurumSchedulerModule .aurum-schedule-chip b{font-size:9px;color:var(--gold2);font-variant-numeric:tabular-nums}
+#aurumSchedulerModule .aurum-schedule-chip button{border:0;background:transparent;color:var(--muted);padding:1px 3px;min-width:20px;min-height:20px;font-size:12px}
+#aurumSchedulerModule .aurum-schedule-add{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px;margin-top:7px}
+#aurumSchedulerModule .aurum-schedule-add input{min-width:0}
+#aurumSchedulerModule .aurum-scheduler-report-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin:9px 0 5px}
+#aurumSchedulerModule .aurum-scheduler-report-head b{font-size:10px}
+#aurumSchedulerModule .aurum-scheduler-report-head small{font-size:7.5px;color:var(--muted);text-align:right}
+#aurumSchedulerModule .aurum-scheduler-report-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px}
+#aurumSchedulerModule .aurum-scheduler-report-row{display:grid;grid-template-columns:auto 1fr;grid-template-areas:'time status' 'time stamp';column-gap:5px;align-items:center;min-width:0;padding:4px 5px;border:1px solid rgba(255,255,255,.055);border-radius:7px;background:rgba(255,255,255,.025)}
+#aurumSchedulerModule .aurum-scheduler-report-time{grid-area:time;color:var(--gold2);font-size:9.5px;font-variant-numeric:tabular-nums}
+#aurumSchedulerModule .aurum-scheduler-report-row>span{grid-area:status;font-size:8px;font-weight:650;white-space:nowrap}
+#aurumSchedulerModule .aurum-scheduler-report-row>small{grid-area:stamp;font-size:6.8px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#aurumSchedulerModule .aurum-scheduler-report-row.success>span{color:var(--green)}
+#aurumSchedulerModule .aurum-scheduler-report-row.failure>span{color:var(--red)}
+#aurumSchedulerModule .aurum-scheduler-report-row.empty>span{color:var(--muted)}
+
+.aurum-qbs-head{margin-top:12px!important;align-items:flex-end!important;gap:6px!important}
+.aurum-qbs-head h2{font-size:11px!important;line-height:1.15!important;margin:0!important}
+.aurum-qbs-head>small{font-size:7.5px!important;line-height:1.15!important;color:var(--muted)!important;text-align:right!important}
+.aurum-qbs-grid{gap:7px!important;margin-top:5px!important;align-items:start!important}
+.aurum-qbs-grid>.card{padding:7px 8px!important;border-radius:10px!important;min-width:0!important;min-height:0!important}
+.aurum-qbs-grid>.card>b{display:block;font-size:9px;line-height:1.1;margin-bottom:3px}
+.aurum-qbs-grid .qbs-row{padding:5px 0;border-bottom:1px solid rgba(255,255,255,.055);min-width:0}
+.aurum-qbs-grid .qbs-row:last-child{border-bottom:0}
+.aurum-qbs-grid .qbs-row>.symbol{display:block;font-size:10px;line-height:1.1;margin-bottom:3px;color:var(--gold2)}
+.aurum-qbs-grid .qbs-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:3px;min-width:0}
+.aurum-qbs-grid .qbs-metrics span{display:flex;flex-direction:column;gap:1px;min-width:0}
+.aurum-qbs-grid .qbs-metrics small{font-size:6.8px;line-height:1;color:var(--muted)}
+.aurum-qbs-grid .qbs-metrics b{font-size:7.8px;line-height:1.12;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:clip;font-variant-numeric:tabular-nums}
+.aurum-qbs-grid .qbs-exit{display:block;margin-top:3px;font-size:6.8px;line-height:1.05;color:var(--muted)}
+@media(max-width:390px){#aurumSchedulerModule .aurum-schedule-editor-v13{grid-template-columns:1fr}.aurum-qbs-grid{grid-template-columns:1fr 1fr!important}.aurum-qbs-grid>.card{padding:6px!important}.aurum-qbs-grid .qbs-metrics{gap:2px}.aurum-qbs-grid .qbs-metrics b{font-size:7.2px}}
+
+
+/* AurumB settings compact typography + visible scheduler slot controls (scoped) */
+#content.page-settings .aurum-settings-details{margin-bottom:7px!important;border-radius:10px!important}
+#content.page-settings .aurum-settings-summary{padding:9px 11px!important;gap:8px!important}
+#content.page-settings .aurum-settings-summary>div{gap:2px!important}
+#content.page-settings .aurum-settings-summary strong{font-size:12px!important;line-height:1.18!important;font-weight:650!important;letter-spacing:.005em}
+#content.page-settings .aurum-settings-summary small{font-size:8.5px!important;line-height:1.2!important;color:var(--muted)!important}
+#content.page-settings .aurum-settings-details-body{padding:8px 10px 10px!important}
+#content.page-settings .aurum-settings-details-body label{font-size:9px!important;line-height:1.18!important}
+#content.page-settings .aurum-settings-details-body .field small,
+#content.page-settings .aurum-settings-details-body>small.muted{font-size:8px!important;line-height:1.25!important}
+#content.page-settings .aurum-settings-details-body input,
+#content.page-settings .aurum-settings-details-body select,
+#content.page-settings .aurum-settings-details-body textarea{font-size:10px!important;line-height:1.2!important}
+#content.page-settings .aurum-settings-details-body button{font-size:9.5px!important;line-height:1.15!important}
+#content.page-settings .aurum-settings-details-body .actions{gap:6px!important;margin-top:7px!important}
+
+#aurumSchedulerModule .aurum-schedule-profile{padding:6px!important;border-radius:9px!important}
+#aurumSchedulerModule .aurum-schedule-profile-head{margin-bottom:5px!important}
+#aurumSchedulerModule .aurum-schedule-profile-head b{font-size:9.5px!important;font-weight:650!important}
+#aurumSchedulerModule .aurum-schedule-profile-head small{font-size:7.5px!important}
+#aurumSchedulerModule .aurum-schedule-chips{gap:3px!important}
+#aurumSchedulerModule .aurum-schedule-chip{gap:2px!important;padding:2px 3px 2px 5px!important;border-radius:6px!important}
+#aurumSchedulerModule .aurum-schedule-chip b{font-size:8.5px!important;font-weight:650!important}
+#aurumSchedulerModule .aurum-schedule-chip .aurum-schedule-remove{display:inline-flex!important;align-items:center!important;justify-content:center!important;width:22px!important;height:22px!important;min-width:22px!important;min-height:22px!important;padding:0!important;border:1px solid rgba(255,255,255,.08)!important;border-radius:5px!important;background:rgba(255,255,255,.035)!important;color:var(--muted)!important;font-size:14px!important;line-height:1!important}
+#aurumSchedulerModule .aurum-schedule-add{grid-template-columns:minmax(92px,1fr) auto!important;gap:4px!important;margin-top:6px!important}
+#aurumSchedulerModule .aurum-schedule-add input{height:30px!important;min-height:30px!important;padding:4px 7px!important;font-size:10px!important}
+#aurumSchedulerModule .aurum-schedule-add .aurum-schedule-add-btn{height:30px!important;min-height:30px!important;padding:5px 9px!important;white-space:nowrap!important;font-size:9.5px!important}
+@media(max-width:390px){
+  #content.page-settings .aurum-settings-summary{padding:8px 9px!important}
+  #content.page-settings .aurum-settings-details-body{padding:7px 9px 9px!important}
+  #aurumSchedulerModule .aurum-schedule-add{grid-template-columns:minmax(0,1fr) auto!important}
+}
+
+/* Aurum data table compact typography — scoped only to #dataTable */
+#dataTable th{font-size:8.25px!important;line-height:1.12!important}
+#dataTable td{font-size:9.15px!important;line-height:1.16!important}
+#dataTable th *{font-size:inherit!important;line-height:inherit!important}
+#dataTable td *{font-size:inherit!important;line-height:inherit!important}
+#dataTable .aurum-symbol-link,#dataTable button{font-size:9.15px!important;line-height:1.12!important}
+#dataTable small{font-size:8.15px!important;line-height:1.12!important}
+
+/* AL/SAT card refinement — compact, single-line numeric layout */
+.aurum-qbs-head{margin-top:11px!important;margin-bottom:5px!important;align-items:center!important;gap:7px!important}
+.aurum-qbs-head h2{font-size:12.2px!important;line-height:1.15!important;font-weight:760!important;letter-spacing:.01em!important}
+.aurum-qbs-head>small{font-size:8.1px!important;line-height:1.2!important;letter-spacing:.01em!important;opacity:.72!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+.aurum-qbs-grid{gap:7px!important;margin-top:4px!important;align-items:start!important}
+.aurum-qbs-grid>.card{padding:8px 9px!important;border-radius:11px!important;min-width:0!important;min-height:0!important}
+.aurum-qbs-grid>.card>b{display:block!important;font-size:9.8px!important;line-height:1.1!important;font-weight:780!important;letter-spacing:.035em!important;margin:0 0 4px!important}
+.aurum-qbs-grid .qbs-row{padding:6px 0!important;border-bottom:1px solid rgba(255,255,255,.05)!important;min-width:0!important}
+.aurum-qbs-grid .qbs-row>.symbol{display:block!important;font-size:10.4px!important;line-height:1.1!important;font-weight:820!important;letter-spacing:.025em!important;margin:0 0 4px!important;white-space:nowrap!important}
+.aurum-qbs-grid .qbs-metrics{display:grid!important;grid-template-columns:minmax(0,.82fr) minmax(0,.82fr) minmax(0,.82fr) minmax(0,1.34fr)!important;gap:4px!important;align-items:end!important;min-width:0!important}
+.aurum-qbs-grid .qbs-metrics span{display:flex!important;flex-direction:column!important;gap:2px!important;min-width:0!important;overflow:hidden!important}
+.aurum-qbs-grid .qbs-metrics small{display:block!important;font-size:7.4px!important;line-height:1!important;font-weight:650!important;letter-spacing:.045em!important;color:var(--muted)!important;white-space:nowrap!important}
+.aurum-qbs-grid .qbs-metrics b{display:block!important;font-size:9.25px!important;line-height:1.08!important;font-weight:700!important;letter-spacing:-.015em!important;font-variant-numeric:tabular-nums!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:clip!important}
+.aurum-qbs-grid .qbs-exit{display:block!important;margin-top:4px!important;font-size:7.5px!important;line-height:1.1!important;color:var(--muted)!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+.aurum-qbs-grid .muted{font-size:8.4px!important;line-height:1.25!important;margin:4px 0 1px!important}
+@media(max-width:390px){.aurum-qbs-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:5px!important}.aurum-qbs-grid>.card{padding:7px!important}.aurum-qbs-grid .qbs-metrics{gap:2px!important;grid-template-columns:minmax(0,.78fr) minmax(0,.78fr) minmax(0,.78fr) minmax(0,1.42fr)!important}.aurum-qbs-grid .qbs-metrics small{font-size:6.9px!important}.aurum-qbs-grid .qbs-metrics b{font-size:8.55px!important}.aurum-qbs-grid .qbs-row>.symbol{font-size:9.8px!important}.aurum-qbs-head>small{font-size:7.5px!important}}
+
+/* Kn table typography — scoped only to Kn/criteria tables. */
+#content.page-criteria .aurum-kn-v117 th{font-size:7.4px!important;line-height:1.12!important}
+#content.page-criteria .aurum-kn-v117 td{font-size:8.35px!important;line-height:1.15!important}
+#content.page-criteria .aurum-kn-v117 td span,
+#content.page-criteria .aurum-kn-v117 td b,
+#content.page-criteria .aurum-kn-v117 td em,
+#content.page-criteria .aurum-kn-v117 .aurum-symbol-link{font-size:inherit!important;line-height:inherit!important}
+
+/* R76 — requested F/data table typography reduction; content only, geometry unchanged. */
+#dataTable th{font-size:7.75px!important;line-height:1.10!important;font-weight:650!important;letter-spacing:.035em!important}
+#dataTable td{font-size:8.55px!important;line-height:1.14!important}
+#dataTable th *{font-size:inherit!important;line-height:inherit!important}
+#dataTable td *{font-size:inherit!important;line-height:inherit!important}
+#dataTable .aurum-symbol-link,#dataTable button{font-size:8.55px!important;line-height:1.10!important}
+#dataTable small{font-size:7.55px!important;line-height:1.10!important}
+
+/* R76 — K_Tarihsel headings: lighter, quieter, more refined; cells/layout untouched. */
+#content.page-history .section-head .aurum-khist-daily-title{font-weight:560!important;letter-spacing:.01em!important}
+#content.page-history .strict-history thead th{font-weight:560!important;letter-spacing:.025em!important;text-transform:none!important}
+#content.page-history .strict-history thead th>small{font-weight:400!important;letter-spacing:.02em!important;opacity:.84}
+#content.page-history .khv27-subhead,#content.page-history .khv27-trend-head,
+#content.page-history .khv29-data-head,#content.page-history .khv29-reel-head,#content.page-history .khv29-trend-head{font-weight:520!important;letter-spacing:.18px!important}
+
+/* R76 — scheduler health state. */
+#aurumSchedulerModule .aurum-scheduler-health{margin:7px 0 4px;padding:6px 8px;border:1px solid rgba(53,212,154,.18);border-radius:8px;background:rgba(53,212,154,.045);font-size:8px;line-height:1.25;color:var(--muted)}
+#aurumSchedulerModule .aurum-scheduler-health.bad{border-color:rgba(255,114,124,.32);background:rgba(255,114,124,.065);color:#ffc5c9}
+
+/* Aurum UI scale controls — presentation only. */
+:root{--aurum-ui-text-scale:1;--aurum-table-scale:1;--aurum-static-scale:1;--aurum-card-scale:1;--aurum-icon-scale:1}
+body.aurum-scale-ui{font-size:calc(16px * var(--aurum-ui-text-scale))}
+body.aurum-scale-table table th,body.aurum-scale-table table td{font-size:calc(1em * var(--aurum-table-scale))}
+body.aurum-scale-static :is(h1,h2,h3,.section-title,.section-head,.eyebrow,.muted,small,label,.badge){font-size:calc(1em * var(--aurum-static-scale))}
+body.aurum-scale-card :is(.card,.quick-card,.metric,.aurum-data-status-card,.operation-card,.glass,.settings-card){font-size:calc(1em * var(--aurum-card-scale))}
+body.aurum-scale-icon :is(.quick-icon,.nav-icon,.icon,[class*="icon"],.material-icons,svg){font-size:calc(1em * var(--aurum-icon-scale));transform:scale(var(--aurum-icon-scale));transform-origin:center}
+.aurum-ui-scale-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.aurum-ui-scale-row{padding:10px;border:1px solid var(--line2);border-radius:10px}
+.aurum-ui-scale-row label{display:flex;gap:8px;align-items:center;font-weight:750;margin-bottom:7px}
+.aurum-ui-scale-row select{width:100%}
+@media(max-width:720px){.aurum-ui-scale-grid{grid-template-columns:1fr}}
+
+/* Aurum Compact Harmony v2 — default visual system. */
+:root{--aurum-space:9px;--aurum-radius:10px}
+#content{padding:10px 11px;max-width:1480px}
+.grid,.quick-grid,.form-grid{gap:9px}
+.card,.quick-card,.metric,.aurum-data-status-card,.operation-card,.settings-card{border-radius:var(--aurum-radius)}
+.card,.settings-card{padding:10px 11px;margin-bottom:9px}
+.section-head{margin-bottom:8px;gap:8px}.section-title h2,h2{font-size:15px;line-height:1.2}.section-title small,.muted,small{line-height:1.3}
+h1{font-size:18px}.eyebrow{font-size:9px}.topbar{padding:10px 12px}.top-actions{gap:6px}
+.quick-card{padding:9px;min-height:68px}.quick-card strong{font-size:12px}.quick-card small{font-size:9.5px}.quick-icon{font-size:17px}
+.metric{padding:9px}.metric strong{font-size:16px}.metric small{font-size:9.5px}
+.gold-btn,.ghost-btn,.danger-btn,button{min-height:32px;padding:6px 9px;border-radius:9px;font-size:11px}
+input,select,textarea{font-size:11px;padding:7px 8px;border-radius:8px}label{font-size:10px}
+.table-wrap{border-radius:9px}table{font-size:10px;line-height:1.2}table th{font-size:9px;padding:6px 6px;white-space:nowrap}table td{padding:5px 6px;white-space:nowrap}.rank{font-size:10px}
+.badge,.pill{font-size:9px;padding:4px 6px}.scorebar{height:5px}
+.aurum-settings-details-body{padding:9px}.aurum-settings-summary{padding:9px 10px}
+@media(max-width:720px){#content{padding:8px}.card,.settings-card{padding:9px}.topbar{padding:9px 10px}table{font-size:9.5px}table th,table td{padding:5px}.quick-card{min-height:62px}}
+
+.aurum-ui-scale-row label{justify-content:space-between}.aurum-scale-value{margin-left:auto;color:var(--gold2);font-variant-numeric:tabular-nums}.aurum-scale-range{width:100%;height:28px;padding:0;margin:2px 0 5px;accent-color:var(--gold)}
+
+/* Aurum Symmetric Compact v3 — final layout authority; presentation only. */
+:root{--ac-gap:8px;--ac-pad:9px;--ac-radius:10px}
+#content{padding:9px!important;max-width:1480px!important}
+#content .grid,#content .quick-grid,#content .metrics,#content .two-col,#content .form-grid{gap:var(--ac-gap)!important;align-items:stretch!important}
+#content .quick-grid,#content .metrics{grid-auto-rows:1fr!important}
+#content .card,#content .quick-card,#content .metric,#content .aurum-data-status-card,#content .operation-card{padding:var(--ac-pad)!important;border-radius:var(--ac-radius)!important;margin-bottom:8px!important;min-width:0!important;box-sizing:border-box!important}
+#content .quick-card{min-height:72px!important;height:100%!important;display:flex!important;flex-direction:column!important;align-items:flex-start!important;justify-content:flex-start!important;gap:3px!important;overflow:hidden!important}
+#content .quick-card .quick-icon{width:23px!important;height:23px!important;min-width:23px!important;display:grid!important;place-items:center!important;margin:0 0 2px!important;border-radius:7px!important}
+#content .quick-card strong{font-size:10.4px!important;line-height:1.18!important;margin:0!important}
+#content .quick-card small{font-size:7.9px!important;line-height:1.22!important;margin:0!important;display:-webkit-box!important;-webkit-line-clamp:2!important;-webkit-box-orient:vertical!important;overflow:hidden!important}
+#content .metric{min-height:58px!important;height:100%!important;display:flex!important;flex-direction:column!important;justify-content:center!important}
+#content .section-head{min-height:28px!important;margin:8px 0 6px!important;display:flex!important;align-items:center!important;justify-content:space-between!important;gap:8px!important}
+#content .section-head h2{font-size:12.4px!important;line-height:1.18!important;margin:0!important}
+#content .section-head small{font-size:8.2px!important;line-height:1.2!important;margin:0!important}
+#content .actions{display:flex!important;align-items:center!important;gap:6px!important;flex-wrap:wrap!important}
+#content .gold-btn,#content .ghost-btn,#content .danger-btn{min-height:30px!important;padding:6px 9px!important;font-size:9px!important;line-height:1.1!important;border-radius:8px!important}
+#content .table-wrap{width:100%!important;overflow-x:auto!important;border-radius:9px!important}
+#content table{width:100%!important;border-collapse:collapse!important;font-variant-numeric:tabular-nums!important}
+#content table th{font-size:7.6px!important;line-height:1.12!important;padding:6px!important;vertical-align:middle!important;white-space:nowrap!important}
+#content table td{font-size:8.45px!important;line-height:1.16!important;padding:6px!important;vertical-align:middle!important;white-space:nowrap!important}
+#content table tr{height:30px!important}
+#content .notice,#content .aurum-data-status-card{font-size:8.6px!important;line-height:1.28!important}
+#content .list-row{min-height:34px!important;display:flex!important;align-items:center!important;gap:7px!important}
+.aurum-ui-scale-grid{grid-template-columns:1fr!important;gap:7px!important}.aurum-ui-scale-row{padding:8px 9px!important;border-radius:9px!important}.aurum-ui-scale-row label{font-size:9px!important;margin:0!important}.aurum-scale-range{margin:1px 0!important}
+@media(min-width:520px){#content .quick-grid{grid-template-columns:repeat(4,minmax(0,1fr))!important}#content .metrics{grid-template-columns:repeat(4,minmax(0,1fr))!important}}
+@media(max-width:519px){#content .quick-grid,#content .metrics{grid-template-columns:repeat(2,minmax(0,1fr))!important}#content{padding:7px!important}#content .card,#content .quick-card,#content .metric{padding:8px!important}#content .quick-card{min-height:68px!important}}
+/* Live per-control preview + fixed default marker; repair clipped status rows. */
+.aurum-scale-preview{transform:scale(var(--preview-scale,1));transform-origin:left center;min-height:26px;display:flex;align-items:center}.aurum-scale-preview label{width:100%;font-size:11px!important;line-height:1.25!important}.aurum-scale-preview-icon{font-size:16px;line-height:1}.aurum-scale-track-wrap{position:relative;padding-bottom:15px}.aurum-default-mark{position:absolute;top:18px;transform:translateX(-50%);pointer-events:none;text-align:center}.aurum-default-mark i{display:block;width:2px;height:8px;margin:auto;background:var(--gold)}.aurum-default-mark em{display:block;font-style:normal;font-size:7.5px;white-space:nowrap;color:var(--gold2)}
+.aurum-data-status-card{height:auto!important;min-height:58px!important;grid-template-rows:none!important;overflow:visible!important;padding-top:9px!important;padding-bottom:9px!important}.aurum-data-status-card>div{height:auto!important;min-height:15px!important;line-height:1.35!important;overflow:hidden!important;text-overflow:ellipsis!important}
+
+
+/* R2 scale-control usability */
+.aurum-r2-default-point{margin-left:8px;min-width:48px;padding:4px 8px!important;font-size:11px!important;vertical-align:middle}
+input[type="range"][id^="aurumScaleVal_"]{height:3px;accent-color:currentColor;vertical-align:middle}
+
+
+
+/* R3 compact market changes; no wrapping/overflow regression */
+.aurum-r3-market{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px 12px!important}
+.aurum-r3-market-item{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.aurum-r3-change{font-size:.68em;font-weight:500;margin-left:3px;letter-spacing:-.01em;white-space:nowrap}
+.aurum-r3-change.up{color:#35b96f}.aurum-r3-change.down{color:#e65b63}.aurum-r3-change.flat{opacity:.65}
+.aurum-v141225 th.aurum-r3-verizamani,.aurum-v141225 td.aurum-r3-verizamani{min-width:154px!important;width:154px!important;max-width:154px!important;white-space:nowrap!important}
+@media(max-width:390px){.aurum-r3-market{gap:6px 8px!important}.aurum-r3-change{font-size:.64em;margin-left:2px}.aurum-v141225 th.aurum-r3-verizamani,.aurum-v141225 td.aurum-r3-verizamani{min-width:148px!important;width:148px!important;max-width:148px!important}}
+
+
+
+
+/* R4: understated, one-headed micro trend arrow */
+.aurum-r4-change{display:inline-flex;align-items:baseline;gap:2px;margin-left:3px;white-space:nowrap;font-size:.58em!important;font-weight:300!important;line-height:1!important;letter-spacing:-.02em;vertical-align:baseline}
+.aurum-r4-arrow{display:inline-block;font-family:Arial,sans-serif;font-size:.92em!important;font-weight:300!important;line-height:.75!important;transform:scaleX(.68);transform-origin:center;opacity:.58}
+.aurum-r4-pct{font-size:1em!important;font-weight:300!important;color:rgba(190,198,216,.72)!important}
+.aurum-r4-change.up .aurum-r4-arrow{color:rgba(67,174,121,.68)!important}
+.aurum-r4-change.down .aurum-r4-arrow{color:rgba(205,83,92,.68)!important}
+.aurum-r4-change.flat .aurum-r4-arrow{color:rgba(170,178,196,.55)!important}
+@media(max-width:390px){.aurum-r4-change{font-size:.54em!important;gap:1px;margin-left:2px}}
+
+/* === Card layout consolidation 2026-09-16 ===
+   Replaces the conflicting legacy R5–R10 / user-compact spacing patches.
+   Section headings are intentionally excluded. */
+:root{--aurum-card-space:12px;--aurum-card-vpad:4px;--aurum-card-hpad:8px}
+
+/* One spacing authority for card containers on every tab. */
+#content .grid,
+#content .quick-grid,
+#content .metrics,
+#content .two-col,
+#content .trait-grid,
+#content .behavior-grid,
+#content .form-grid,
+#content .list,
+#content .weight-grid,
+#content .aurum-qbs-grid{
+  column-gap:var(--aurum-card-space)!important;
+  row-gap:var(--aurum-card-space)!important;
+}
+/* Grid gaps own spacing; old card margins must not add/collapse unpredictably. */
+#content .grid>.card,#content .grid>.metric,#content .grid>.panel,#content .grid>.status-card,#content .grid>.settings-card,
+#content .quick-grid>.quick-card,#content .metrics>.metric,#content .two-col>.card,#content .trait-grid>.trait-card,
+#content .behavior-grid>.behavior-stat,#content .form-grid>.card,#content .list>.list-row,#content .weight-grid>div{
+  margin:0!important;
+}
+/* Stacked card siblings outside a grid still receive the same 12px separation. */
+#content>.card+#content>.card,
+#content .panel>.card+.card,
+#content .settings-card+.settings-card{margin-top:var(--aurum-card-space)!important}
+
+/* Compact card shells: remove redundant vertical dead space while preserving content. */
+#content .card:not(.notice):not(.aurum-market-indicators),
+#content .metric,
+#content .panel,
+#content .status-card,
+#content .settings-card,
+#content .trait-card,
+#content .behavior-stat,
+#content .detail-cell,
+#content .weight-grid>div{
+  height:auto!important;
+  min-height:0!important;
+  padding-top:var(--aurum-card-vpad)!important;
+  padding-bottom:var(--aurum-card-vpad)!important;
+}
+#content .card>:first-child:not(button):not(input):not(select):not(textarea),
+#content .panel>:first-child:not(button):not(input):not(select):not(textarea){margin-top:0!important}
+#content .card>:last-child:not(button):not(input):not(select):not(textarea),
+#content .panel>:last-child:not(button):not(input):not(select):not(textarea){margin-bottom:0!important}
+#content .card p,#content .panel p{margin-block:.28em!important}
+
+/* Overview: the first six quick-access cards keep their established dimensions/content rhythm. */
+#content.page-overview .quick-card{
+  min-height:72px!important;height:auto!important;padding:6px 8px!important;
+  align-items:center!important;justify-content:center!important;text-align:center!important;gap:0!important
+}
+#content.page-overview .quick-card .quick-icon{width:27px!important;height:27px!important;min-width:27px!important;margin:0 auto 3px!important}
+#content.page-overview .quick-card strong{font-size:13px!important;line-height:1.12!important;text-align:center!important}
+#content.page-overview .quick-card small{font-size:9.5px!important;line-height:1.16!important;margin-top:2px!important;text-align:center!important}
+
+/* Cards below those six, including overview metrics, are content-height rather than forced tall. */
+#content.page-overview .aurum-overview-metrics>.metric,
+#content.page-learning .metrics>.metric,
+#content.page-ai .metrics>.metric{
+  min-height:0!important;height:auto!important;padding:4px 8px!important
+}
+
+/* Never reduce inter-card spacing on narrow screens. */
+@media(max-width:560px){:root{--aurum-card-space:12px}}
+@media(max-width:360px){:root{--aurum-card-space:12px}.bottom-nav{z-index:1000}}
+
+
+/* R6 follow-up: halve inter-card spacing and tighten icon/text vertical rhythm. */
+#content:not(.page-overview) .quick-card{min-height:0!important;height:auto!important;padding:6px 8px!important;gap:2px!important}
+#content:not(.page-overview) .quick-card .quick-icon{margin-bottom:1px!important}
+#content:not(.page-overview) .quick-card strong,#content:not(.page-overview) .quick-card small{margin-top:0!important;margin-bottom:0!important}
+
+/* R4.2 verified market markup fix */
+.aurum-r3-market-item>b{font-size:.84em!important;font-weight:700!important}
+.aurum-r4-change{display:inline-flex!important;align-items:baseline!important;gap:1px!important;margin-left:2px!important;white-space:nowrap!important;font-size:.56em!important;font-weight:300!important;line-height:1!important}
+.aurum-r4-arrow{display:inline-block!important;font-family:Arial,sans-serif!important;font-size:.82em!important;font-weight:200!important;line-height:.8!important;transform:scaleX(.55)!important;opacity:.72!important}
+.aurum-r4-pct{color:inherit!important;font-size:1em!important;font-weight:300!important;opacity:.72!important}
+.aurum-r4-change.up,.aurum-r4-change.down,.aurum-r4-change.flat{color:inherit!important}
+.aurum-r4-change.up .aurum-r4-arrow{color:#35b96f!important}
+.aurum-r4-change.down .aurum-r4-arrow{color:#e65b63!important}
+.aurum-r4-change.flat .aurum-r4-arrow{color:rgba(170,178,196,.55)!important}
+@media(max-width:390px){.aurum-r3-market-item>b{font-size:.80em!important}.aurum-r4-change{font-size:.52em!important}}
+
+/* UX hotfix: BIST 100 must never be ellipsized; integer format is used in JS if width is tight. */
+.aurum-r3-market-item.aurum-bist100-full{overflow:visible!important;text-overflow:clip!important;letter-spacing:-.015em!important}
+
+/* UX 2026-09-17: market arrows = price size/bold; percentages +2px */
+.aurum-r4-arrow{font-size:1.78em!important;font-weight:800!important;line-height:1!important;transform:none!important;opacity:1!important}
+.aurum-r4-pct{font-size:calc(1em + 2px)!important}
+@media(max-width:390px){.aurum-r4-arrow{font-size:1.92em!important}.aurum-r4-pct{font-size:calc(1em + 2px)!important}}
+
+/* UX 2026-09-17: top market arrows/percentages match price size; percentage remains light. */
+.aurum-r4-change{font-size:1em!important;font-weight:300!important;gap:2px!important;margin-left:3px!important}
+.aurum-r4-arrow{font-size:1em!important;font-weight:800!important;line-height:1!important;transform:none!important;opacity:1!important}
+.aurum-r4-pct{font-size:1em!important;font-weight:300!important;line-height:1!important;opacity:.78!important}
+@media(max-width:390px){.aurum-r4-change{font-size:1em!important}.aurum-r4-arrow,.aurum-r4-pct{font-size:1em!important}}
+
+/* UX 2026-09-17: slightly larger/heavier top market arrows */
+.aurum-r4-arrow{font-size:1.16em!important;font-weight:900!important;line-height:1!important;transform:scaleX(1.06)!important;opacity:1!important}
+@media(max-width:390px){.aurum-r4-arrow{font-size:1.16em!important;font-weight:900!important;transform:scaleX(1.06)!important}}
+
+
+/* REV20 API key input focus hardening */
+.aurum-api-key-field{position:relative;z-index:3}
+.aurum-api-key-input{
+  position:relative!important;
+  z-index:4!important;
+  pointer-events:auto!important;
+  user-select:text!important;
+  -webkit-user-select:text!important;
+  touch-action:manipulation!important;
+  caret-color:var(--gold2)!important;
+  -webkit-tap-highlight-color:rgba(243,211,111,.12);
+}
+.aurum-api-key-input:focus{
+  border-color:rgba(243,211,111,.62)!important;
+  box-shadow:0 0 0 3px rgba(212,175,55,.08)!important;
+  outline:none!important;
+}
+
+
+/* REV20.5 market header: independent compact cards; prevents value/percent clipping and concatenation. */
+.aurum-r205-market{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;width:100%;margin:8px 0 2px;align-items:stretch}
+.aurum-r205-market-card{min-width:0;display:grid;grid-template-columns:1fr auto;grid-template-areas:"label pct" "value pct";column-gap:8px;row-gap:2px;padding:9px 10px;border:1px solid var(--border,#22304d);border-radius:12px;background:color-mix(in srgb,var(--card,#071127) 94%,transparent);overflow:hidden}
+.aurum-r205-market-label{grid-area:label;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.76rem;font-weight:700;color:var(--muted,#9aa5bd)}
+.aurum-r205-market-value{grid-area:value;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums;font-size:.98rem;color:var(--text,#f4f7ff)}
+.aurum-r205-market-pct{grid-area:pct;align-self:center;justify-self:end;white-space:nowrap;font-variant-numeric:tabular-nums;font-size:.78rem;font-weight:700}
+.aurum-r205-market-pct.up{color:#55c98c}.aurum-r205-market-pct.down{color:#ef6b7b}.aurum-r205-market-pct.flat{color:var(--muted,#9aa5bd)}
+@media(max-width:560px){.aurum-r205-market{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.aurum-r205-market-card{padding:8px 9px}.aurum-r205-market-value{font-size:.94rem}.aurum-r205-market-pct{font-size:.74rem}}
+
+/* REV20.9 compact market-strip refresh affordance */
+.aurum-r209-market-wrap{position:relative;width:100%;padding-top:2px}
+.aurum-r209-market-wrap>.aurum-r205-market{padding-right:24px}
+.aurum-r209-market-refresh{position:absolute;top:5px;right:4px;z-index:3;width:24px;height:24px;display:grid;place-items:center;padding:0;border:1px solid color-mix(in srgb,var(--gold2,#f3d36f) 28%,transparent);border-radius:8px;background:color-mix(in srgb,var(--panel,#071327) 88%,transparent);color:color-mix(in srgb,var(--gold2,#f3d36f) 86%,var(--muted,#9aa5bd));font-size:15px;line-height:1;opacity:.72;box-shadow:none;transition:opacity .15s ease,border-color .15s ease,background .15s ease,transform .15s ease}
+.aurum-r209-market-refresh:hover,.aurum-r209-market-refresh:focus-visible{opacity:1;border-color:color-mix(in srgb,var(--gold2,#f3d36f) 55%,transparent);background:color-mix(in srgb,var(--panel,#071327) 78%,var(--gold2,#f3d36f) 8%);outline:none}
+.aurum-r209-market-refresh:active{transform:scale(.94)}
+.aurum-r209-market-refresh[data-busy="1"] span{display:inline-block;animation:aurum-r209-spin .72s linear infinite}
+.aurum-r209-market-refresh:disabled{opacity:.48}
+@keyframes aurum-r209-spin{to{transform:rotate(360deg)}}
+@media(max-width:560px){.aurum-r209-market-wrap>.aurum-r205-market{padding-right:22px}.aurum-r209-market-refresh{top:4px;right:2px;width:22px;height:22px;font-size:14px}}
+
+
+/* REV20.10 — piyasa özeti: 6 gösterge, iki satır (3x2), ince ve sakin tipografi. */
+.aurum-r209-market-wrap{padding-top:1px}
+.aurum-r209-market-wrap>.aurum-r205-market{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:4px!important;padding-right:22px!important;align-items:stretch}
+.aurum-r209-market-wrap .aurum-r205-market-card{min-width:0!important;display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;grid-template-areas:"label label" "value pct"!important;column-gap:4px!important;row-gap:1px!important;padding:5px 6px!important;border-radius:9px!important;min-height:38px!important;box-shadow:none!important}
+.aurum-r209-market-wrap .aurum-r205-market-label{grid-area:label!important;font-size:7.2px!important;line-height:1.05!important;font-weight:400!important;letter-spacing:.015em!important;opacity:.72!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+.aurum-r209-market-wrap .aurum-r205-market-value{grid-area:value!important;font-size:8.9px!important;line-height:1.08!important;font-weight:500!important;letter-spacing:-.015em!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:clip!important;font-variant-numeric:tabular-nums!important}
+.aurum-r209-market-wrap .aurum-r205-market-pct{grid-area:pct!important;align-self:end!important;font-size:7.5px!important;line-height:1.05!important;font-weight:400!important;white-space:nowrap!important;font-variant-numeric:tabular-nums!important}
+.aurum-r209-market-refresh{width:20px!important;height:20px!important;top:2px!important;right:1px!important;border-radius:7px!important;font-size:12px!important;opacity:.62!important}
+@media(max-width:360px){.aurum-r209-market-wrap>.aurum-r205-market{gap:3px!important;padding-right:19px!important}.aurum-r209-market-wrap .aurum-r205-market-card{padding:4px 4px!important;min-height:35px!important}.aurum-r209-market-wrap .aurum-r205-market-label{font-size:6.6px!important}.aurum-r209-market-wrap .aurum-r205-market-value{font-size:8.1px!important}.aurum-r209-market-wrap .aurum-r205-market-pct{font-size:6.9px!important}.aurum-r209-market-refresh{width:18px!important;height:18px!important;font-size:11px!important}}
+
+/* REV20.21 market direction arrows */
+.aurum-r205-market-pct .aurum-market-dir{font-style:normal;font-weight:700;font-size:.82em;line-height:1;margin-right:3px;vertical-align:.04em}
+.aurum-r205-market-pct.up .aurum-market-dir{color:#39d98a}
+.aurum-r205-market-pct.down .aurum-market-dir{color:#ff6577}
+
+/* REV20.22 unified finance portal + compact refresh affordances */
+.r222-market-actions{display:flex;justify-content:space-between;gap:8px;margin-bottom:10px}.r222-market-head{margin-bottom:8px}.r222-unified-portal{width:100%;max-width:100%;min-width:0}.r222-unified-portal #aurumFinancePortal{width:100%}
+.r207-featured{width:100%;margin-top:2px}.r207-news-grid{grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch}.r207-news-card{display:flex;flex-direction:column;min-height:180px;width:100%;box-sizing:border-box}.r207-news-card.hero{min-height:190px;width:100%}.r207-news-card-top{display:flex;justify-content:space-between;align-items:center;gap:8px}.r207-news-source{font-size:.69rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:58%}.r207-news-card p{flex:1;line-height:1.5}.r207-news-meta{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px;padding-top:8px;text-align:left}.r207-news-meta span:last-child{text-align:right}.r207-news-link{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-top:8px;font-size:.68rem}.r207-news-link span{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.r207-news-link a{color:var(--gold2);font-weight:800;text-decoration:none;white-space:nowrap}.r207-news-foot{border-top:1px solid rgba(255,255,255,.06);padding-top:10px}
+.aurum-r222-head-tools{display:flex;align-items:center;gap:8px;min-width:0}.aurum-r222-head-tools small{min-width:0}.aurum-r222-mini-refresh{appearance:none;border:1px solid rgba(212,175,55,.22)!important;background:rgba(212,175,55,.055)!important;color:var(--gold2)!important;width:26px!important;height:26px!important;min-width:26px!important;min-height:26px!important;border-radius:999px!important;padding:0!important;display:inline-grid!important;place-items:center!important;font-size:15px!important;line-height:1!important;box-shadow:none!important}.aurum-r222-mini-refresh:active{transform:rotate(22deg) scale(.96)}.aurum-vp-title-tools{display:flex;align-items:center;justify-content:center;gap:7px}.aurum-vp-title-tools h2{margin:0}.aurum-vp-title-tools .aurum-r222-mini-refresh{width:24px!important;height:24px!important;min-width:24px!important;min-height:24px!important;font-size:14px!important}.aurum-trade-dir{font-style:normal;font-weight:900;margin-right:3px}.aurum-trade-dir.up{color:#39d98a}.aurum-trade-dir.down{color:#ff6577}
+@media(max-width:680px){.r207-news-grid{grid-template-columns:1fr}.r207-news-card,.r207-news-card.hero{min-height:0}.r207-news-meta{grid-template-columns:1fr}.r207-news-meta span:last-child{text-align:left}.r207-portal-head{display:grid;grid-template-columns:1fr auto;align-items:end}.r207-portal-head>div{min-width:0}.r207-portal-head button{align-self:end}.r207-news-card h3,.r207-news-card.hero h3{font-size:1rem;line-height:1.34}.r207-news-card p{font-size:.8rem}.r222-market-actions button{font-size:.76rem;padding:8px 10px}.aurum-r222-head-tools small{display:none}}
+\n/* REV20.23 expandable finance-news cards */\n.r223-news-title-row{display:grid;grid-template-columns:minmax(0,1fr) 30px;gap:8px;align-items:start;margin-top:6px}.r223-news-title-row h3{margin:2px 0 0!important;min-width:0}.r223-news-toggle{appearance:none;border:1px solid rgba(212,175,55,.24);background:rgba(212,175,55,.055);color:var(--gold2);width:30px;height:30px;min-width:30px;border-radius:999px;padding:0;display:grid;place-items:center;font-size:18px;line-height:1;cursor:pointer;transition:transform .18s ease,background .18s ease,border-color .18s ease}.r223-news-toggle[aria-expanded=\"true\"]{transform:rotate(180deg);background:rgba(212,175,55,.12);border-color:rgba(212,175,55,.42)}.r223-news-preview{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;margin-top:7px!important;min-height:2.3em}.r223-news-detail{margin-top:9px;padding-top:9px;border-top:1px solid rgba(255,255,255,.065);animation:r223NewsOpen .16s ease}.r223-news-detail[hidden]{display:none!important}.r223-news-detail p{margin:0 0 9px!important;color:var(--text)!important;opacity:.88;line-height:1.58!important;font-size:.81rem!important}.r223-news-detail p:last-child{margin-bottom:2px!important;color:var(--muted)!important}.r223-expanded{border-color:rgba(212,175,55,.20)}@keyframes r223NewsOpen{from{opacity:.55;transform:translateY(-2px)}to{opacity:1;transform:none}}\n@media(max-width:680px){.r223-news-title-row{grid-template-columns:minmax(0,1fr) 28px;gap:7px}.r223-news-toggle{width:28px;height:28px;min-width:28px;font-size:17px}.r223-news-detail p{font-size:.8rem!important}}\n
