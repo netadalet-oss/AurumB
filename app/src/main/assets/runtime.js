@@ -1255,37 +1255,7 @@ async function bootstrapClean(){
     await nextPaint();
 
     await loadState();
-    let __r45SpeedMigrated=false;
-    if(Number(state.settings.concurrency||0)===6){state.settings.concurrency=20;__r45SpeedMigrated=true;}
-    if(Number(state.settings.maxGlobalConcurrency||0)===10){state.settings.maxGlobalConcurrency=28;__r45SpeedMigrated=true;}
-    if(Number(state.settings.stageBatchSize||0)===12){state.settings.stageBatchSize=64;__r45SpeedMigrated=true;}
-    if(Number(state.settings.stageFlushMs||0)===24){state.settings.stageFlushMs=8;__r45SpeedMigrated=true;}
-    state.settings.providerConcurrency={...(state.settings.providerConcurrency||{})};
-    const __r45ProviderFloor={ISYATIRIM:6,ISYATIRIM_FINANCIALS:4,YAHOO:12,YAHOO_ALT:12,YAHOO_QUOTE:12,BIGPARA:6,BIGPARA_LIVE:6,FOREKS:6,STOOQ:6};
-    for(const [__p,__n] of Object.entries(__r45ProviderFloor)){const __v=Number(state.settings.providerConcurrency[__p]);if(!Number.isFinite(__v)||__v<=4){state.settings.providerConcurrency[__p]=__n;__r45SpeedMigrated=true;}}
-    if(__r45SpeedMigrated)try{await saveSettings()}catch{}
-    /* R50 maximum-throughput migration applies only to untouched R45/R49 defaults.
-       Explicit user custom values are preserved. Provider health/rate-limit logic can still
-       reduce concurrency dynamically when a source degrades. */
-    let __r50SpeedMigrated=false;
-    if(Number(state.settings.concurrency||0)===20){state.settings.concurrency=28;__r50SpeedMigrated=true;}
-    if(Number(state.settings.concurrency||0)===28){state.settings.concurrency=32;__r50SpeedMigrated=true;}
-    if(Number(state.settings.maxGlobalConcurrency||0)===28){state.settings.maxGlobalConcurrency=32;__r50SpeedMigrated=true;}
-    if(Number(state.settings.providerWaveSize||0)===4||Number(state.settings.providerWaveSize||0)===8){state.settings.providerWaveSize=12;state.settings.maxGlobalConcurrency=Math.max(24,Number(state.settings.maxGlobalConcurrency||0));state.settings.stageBatchSize=Math.max(128,Number(state.settings.stageBatchSize||0));state.settings.stageFlushMs=Math.min(2,Number(state.settings.stageFlushMs||6));__r50SpeedMigrated=true;}
-    if(Number(state.settings.stageBatchSize||0)===64){state.settings.stageBatchSize=96;__r50SpeedMigrated=true;}
-    if(Number(state.settings.stageBatchSize||0)===96||Number(state.settings.stageBatchSize||0)===128){state.settings.stageBatchSize=192;__r50SpeedMigrated=true;}
-    if(Number(state.settings.stageFlushMs||0)===8){state.settings.stageFlushMs=6;__r50SpeedMigrated=true;}
-    state.settings.providerConcurrency={...(state.settings.providerConcurrency||{})};
-    const __r50ProviderFloor={ISYATIRIM:8,ISYATIRIM_FINANCIALS:6,ISYATIRIM_LIVE:6,YAHOO:16,YAHOO_ALT:16,YAHOO_QUOTE:16,BIGPARA:8,BIGPARA_LIVE:8,FOREKS:8,STOOQ:8,KAP:4};
-    for(const [__p,__n] of Object.entries(__r50ProviderFloor)){
-      const __v=Number(state.settings.providerConcurrency[__p]);
-      if(!Number.isFinite(__v)||__v===6||__v===12||(__p==='ISYATIRIM_FINANCIALS'&&__v===4)){
-        state.settings.providerConcurrency[__p]=__n;__r50SpeedMigrated=true;
-      }
-    }
-    if(__r50SpeedMigrated)try{await saveSettings()}catch{}
-    await freezeLegacyHistorical30Values();
-
+    /* Foreground launch is read-only: no migrations, repairs, calculations or network work. */
     /* Background alarm/service launches keep the original strict sequencing; the
        progressive first-paint path is only for the foreground UI. */
     if(BACKGROUND_SYNC){
@@ -1314,20 +1284,7 @@ async function bootstrapClean(){
     if(header){header.disabled=true;header.textContent=globalOperationLabel();header.setAttribute('aria-live','polite');}
     /* Startup/network restoration must not start scheduler work or data jobs. Native scheduled alarms and explicit user actions remain authoritative. */
 
-    /* Non-critical migration/repair work no longer delays the first usable screen. */
-    setTimeout(async()=>{
-      try{
-        if(!readLocal(INSTALL_EPOCH_KEY,null))writeLocal(INSTALL_EPOCH_KEY,{establishedAt:nowISO()});
-        await applyStoredAurumUpdates();
-        await refreshTableMeta();
-        renderCurrentPagePreservingView();
-        await new Promise(r=>setTimeout(r,0));
-        await repairLegacyCorruptRecordsLocal();
-        renderCurrentPagePreservingView();
-        setTimeout(()=>persistSanitizedRunsAfterStartup().catch(()=>{}),700);
-        await recoverOnlyExistingOnStartup();
-      }catch(e){console.error('Aurum deferred startup maintenance',e);}
-    },120);
+    /* No deferred startup maintenance. Maintenance runs only from explicit commands or defined scheduled jobs. */
   }catch(e){if(content)content.innerHTML=`<div class="card"><h2>Genel Bakış</h2><p class="muted">Motor başlatma hatası: ${html(e?.message||String(e))}</p></div>`;if(header){header.disabled=false;header.textContent='Şimdi Güncelle';}}
 }
 
@@ -5728,7 +5685,7 @@ try{AurumUpdateAPI.state.r225={version:'REV20.25-RELIABILITY-FILL-NEWS',activate
  async function persistSafety(){try{const st=fillStatus(),kn=(await dbGet('meta','knSnapshot'))?.value||null,hist=(await dbGet('meta','historicalSnapshot'))?.value||null,sel=(await dbGet('meta','selectionSnapshot'))?.value||null,at=nowISO();await dbPut('meta',{key:'r226DerivedSafety',value:{at,fillPct:st.fill,minFillPct:70,derivedUpdateAllowed:st.derived,preservedWhenBelow70:!st.derived,knAt:kn?.at||kn?.transferredAt||null,historicalAt:hist?.at||hist?.transferredAt||null,selectionAt:sel?.at||sel?.transferredAt||null,targets},updatedAt:at})}catch{}}
  const baseManualData=runManualData;runManualData=async function r226ManualData(){const ok=await baseManualData.apply(this,arguments);await persistSafety();try{await refreshMarket('DATA_COMMAND')}catch{}return ok};globalThis.runDataRefresh=mode=>runManualData(mode);
  try{globalThis.AurumRuntime=Object.freeze({...globalThis.AurumRuntime,manualData:runManualData})}catch{}
- queueMicrotask(async()=>{try{state.settings.targetMinFillPct=95;state.settings.marketFreshMinutes=30;state.settings.concurrency=Math.min(6,Math.max(3,Number(state.settings.concurrency||6)));state.settings.maxGlobalConcurrency=Math.min(8,Math.max(4,Number(state.settings.maxGlobalConcurrency||8)));await saveSettings();await persistSafety();AurumUpdateAPI.state.r226={version:'REV20.26-USER-RELIABILITY-CONTRACT',activatedAt:nowISO(),features:['SIX_TOTAL_FETCHES_THRESHOLDS_95_95_95_90_80_70','DERIVED_FREEZE_BELOW_70','PRESERVE_DERIVED_TIMESTAMPS','MARKET_AUTO_30_MIN','NO_STARTUP_FOREGROUND_NETWORK_DATA_FETCH','MULTI_SOURCE_DIRECT_PERCENT_ARROWS','NEWS_VISIBLE_URL_NATIVE_OPEN_BACK','SLIGHT_SAFE_THROUGHPUT_INCREASE']}}catch{}});
+ try{AurumUpdateAPI.state.r226={version:'REV20.29-STRICT-IDLE-STARTUP',activatedAt:nowISO(),features:['SIX_TOTAL_FETCHES_THRESHOLDS_95_95_95_90_80_70','DERIVED_FREEZE_BELOW_70','PRESERVE_DERIVED_TIMESTAMPS','MARKET_AUTO_30_MIN','STRICT_IDLE_FOREGROUND_START','NO_STARTUP_DB_WRITES','NO_STARTUP_REPAIR_OR_MIGRATION','MULTI_SOURCE_DIRECT_PERCENT_ARROWS','NEWS_VISIBLE_URL_NATIVE_OPEN_BACK']}}catch{};
 })();
 
 /* ===== REV20.27 — NAVIGATION/LIFECYCLE SAFETY ===== */
