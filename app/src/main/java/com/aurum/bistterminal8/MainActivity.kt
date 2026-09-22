@@ -153,6 +153,16 @@ class MainActivity : AppCompatActivity() {
                     "ACCEPTED"
                 }
             }
+            "open_url" -> {
+                val raw = uri.getQueryParameter("url").orEmpty()
+                val target = runCatching { Uri.parse(raw) }.getOrNull()
+                if (target == null || target.scheme != "https") "ERR:MISSING_URL"
+                else {
+                    runCatching {
+                        startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, target))
+                    }.fold(onSuccess = { "OPENED" }, onFailure = { "ERR:OPEN_URL" })
+                }
+            }
             "folder_pick" -> { runOnUiThread { folderPicker.launch(null) }; "PICKING" }
             "folder_status" -> currentFolderUri()?.toString().orEmpty()
             "folder_clear" -> {
