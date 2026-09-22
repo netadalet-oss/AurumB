@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Launcher mark uses the same geometry as assets/aurum-icon.svg shown at the top-left of Genel Bakış. -->
+<!-- Edge-to-edge launcher mark; no transparent/white perimeter. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="48dp" android:height="48dp"
     android:viewportWidth="512" android:viewportHeight="512">
-    <path android:fillColor="#01083B" android:pathData="M18,18h476v476h-476z"/>
+    <path android:fillColor="#01083B" android:pathData="M0,0h512v512h-512z"/>
     <path android:fillColor="@android:color/transparent" android:strokeColor="#D4AF37"
         android:strokeAlpha="0.42" android:strokeWidth="4"
-        android:pathData="M33,33h446v446h-446z"/>
+        android:pathData="M18,18h476v476h-476z"/>
     <path android:fillColor="@android:color/transparent" android:strokeColor="#D4AF37"
         android:strokeWidth="38" android:strokeLineCap="round" android:strokeLineJoin="round"
         android:pathData="M126,358 L238,132 C245,118 265,118 272,132 L384,358"/>
