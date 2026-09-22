@@ -938,10 +938,7 @@ async function schedulerForegroundHealthCheck(reason='FOREGROUND'){
   try{await refreshSchedulerStatus()}catch{}
   return out.ok;
 }
-addEventListener('pageshow',()=>schedulerForegroundHealthCheck('PAGESHOW').catch(()=>{}));
-addEventListener('focus',()=>schedulerForegroundHealthCheck('FOCUS').catch(()=>{}));
-addEventListener('online',()=>schedulerForegroundHealthCheck('ONLINE').catch(()=>{}));
-document.addEventListener('visibilitychange',()=>{if(!document.hidden)schedulerForegroundHealthCheck('VISIBLE').catch(()=>{})});
+/* Scheduler health is checked only from its explicit settings/manual repair path; lifecycle/network events do not re-arm or start work. */
 globalThis.openExactAlarmSettings=openExactAlarmSettings;
 
 
@@ -1315,7 +1312,7 @@ async function bootstrapClean(){
     const updateInput=document.getElementById('updatePackageInput');
     updateInput?.addEventListener('change',async e=>{const f=e.target.files?.[0];try{if(f)await importAurumUpdateFile(f)}catch(err){showAurumNotice(err?.message||'Güncelleme uygulanamadı','error',4600)}finally{e.target.value=''}});
     if(header){header.disabled=true;header.textContent=globalOperationLabel();header.setAttribute('aria-live','polite');}
-    window.addEventListener('online',()=>{startScheduler().catch(()=>{})});queueMicrotask(()=>{startScheduler().catch(()=>{})});setTimeout(()=>startScheduler().catch(()=>{}),900);
+    /* Startup/network restoration must not start scheduler work or data jobs. Native scheduled alarms and explicit user actions remain authoritative. */
 
     /* Non-critical migration/repair work no longer delays the first usable screen. */
     setTimeout(async()=>{
@@ -2594,9 +2591,7 @@ try{AurumUpdateAPI.state.cleanREV20={version:'REV20.0-CLEAN',activatedAt:new Dat
   document.addEventListener('visibilitychange',r22Hide,{passive:true});
   window.addEventListener('pagehide',()=>{try{r22ArmGuard()}catch{}},{passive:true});
   window.addEventListener('blur',()=>{if(document.hidden)try{r22ArmGuard()}catch{}},{passive:true});
-  window.addEventListener('pageshow',()=>{try{r22RestoreSchedule()}catch{}},{passive:true});
-  window.addEventListener('focus',()=>{try{r22RestoreSchedule()}catch{}},{passive:true});
-  window.addEventListener('online',()=>queueMicrotask(()=>{try{r22RestoreSchedule()}catch{}}),{passive:true});
+  /* Existing in-flight native handoff may be armed when a running job is backgrounded, but reopening/foreground/network restoration never restores or starts it automatically. */
 
   /* Keep the continuation state diagnosable and enable strict coherent publication by default. */
   queueMicrotask(async()=>{try{state.settings.backgroundStagingContinuation=true;state.settings.strictFreshSnapshot=true;state.settings.stageRetentionHours=Math.max(72,Number(state.settings.stageRetentionHours||72));await saveSettings();try{AurumUpdateAPI.state.r22={version:'R22.0',activatedAt:nowISO(),features:['NATIVE_PIPELINE_SCREEN_OFF_HANDOFF','DURABLE_STAGE_RESUME_NO_CLEAR','RESUME_SKIPS_ALREADY_FRESH_SYMBOLS','ATOMIC_ALL_FRESH_SNAPSHOT','STAGING_REPAIR_BEFORE_PUBLISH','ONLINE_FOCUS_PAGESHOW_RECOVERY','NATIVE_OWNER_RACE_GUARD']}}catch{}}catch{}});
