@@ -58,6 +58,11 @@ class MainActivity : AppCompatActivity() {
             .getString("uri", null)?.let(Uri::parse)
         webView = WebView(this)
         setContentView(webView)
+        if (android.os.Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 2020)
+        }
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
         webView.addJavascriptInterface(NativeBridge(), "AurumNativeBridge")
