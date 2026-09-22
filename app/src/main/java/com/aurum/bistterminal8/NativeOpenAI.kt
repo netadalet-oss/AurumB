@@ -13,13 +13,12 @@ import kotlin.concurrent.thread
 object NativeOpenAI {
     fun request(
         context: Context,
-        id: String,
         endpoint: String,
         method: String,
         body: String,
         callback: (String) -> Unit
     ) {
-        thread(name = "AurumOpenAI-$id") {
+        thread(name = "AurumOpenAI") {
             var connection: HttpURLConnection? = null
             try {
                 val apiKey = SecureSecretStore.get(context)
