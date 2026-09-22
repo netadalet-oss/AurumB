@@ -19,6 +19,7 @@ jobs:
           node --check app/src/main/assets/runtime.js
           node --check app/src/main/assets/offline-first.js
           node --check app/src/main/assets/rev20-customization.js
+          node --check app/src/main/assets/rev20-final-rules.js
 
       - name: Assemble debug APK
         run: gradle --no-daemon :app:assembleDebug --stacktrace
