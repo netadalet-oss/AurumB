@@ -172,35 +172,56 @@ class MainActivity : AppCompatActivity() {
     fun currentFolderUri(): Uri? = exportFolder
 
     fun exportBytes(name: String, mime: String, data: String, encoding: String, target: String): String {
-        return runCatching {
+        val safeName = name.replace(Regex("""[\\/:*?"<>|]"""), "_").take(120)
+            .ifBlank { "aurum_export" }
+        val bytes = try {
+            if (encoding.equals("base64", ignoreCase = true)) {
+                android.util.Base64.decode(data, android.util.Base64.DEFAULT)
+            } else data.toByteArray(Charsets.UTF_8)
+        } catch (_: IllegalArgumentException) {
+            return "ERR:INVALID_DATA"
+        }
+
+        var mediaUri: Uri? = null
+        return try {
             val outUri = if (target == "custom") {
                 val tree = currentFolderUri() ?: return "ERR:NO_FOLDER"
                 val docId = android.provider.DocumentsContract.getTreeDocumentId(tree)
                 val parent = android.provider.DocumentsContract.buildDocumentUriUsingTree(tree, docId)
-                android.provider.DocumentsContract.createDocument(contentResolver, parent, mime, name)
-                    ?: return "ERR:WRITE_FAILED"
+                android.provider.DocumentsContract.createDocument(
+                    contentResolver, parent,
+                    mime.ifBlank { "application/octet-stream" }, safeName
+                ) ?: return "ERR:CREATE_FILE"
             } else {
                 if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q) {
                     return "ERR:ANDROID_10_REQUIRED"
                 }
                 val values = android.content.ContentValues().apply {
-                    put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, name.ifBlank { "Aurum" })
-                    put(android.provider.MediaStore.MediaColumns.MIME_TYPE, mime)
+                    put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, safeName)
+                    put(android.provider.MediaStore.MediaColumns.MIME_TYPE, mime.ifBlank { "application/octet-stream" })
                     put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS + "/Aurum")
+                    put(android.provider.MediaStore.MediaColumns.IS_PENDING, 1)
                 }
                 contentResolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
-                    ?: return "ERR:WRITE_FAILED"
+                    ?.also { mediaUri = it } ?: return "ERR:CREATE_FILE"
             }
 
-            contentResolver.openOutputStream(outUri)?.use { out ->
-                if (encoding.equals("base64", ignoreCase = true)) {
-                    out.write(android.util.Base64.decode(data, android.util.Base64.DEFAULT))
-                } else {
-                    out.write(data.toByteArray(Charsets.UTF_8))
+            val out = contentResolver.openOutputStream(outUri, "w") ?: return "ERR:OPEN_FILE"
+            out.use { it.write(bytes) }
+            mediaUri?.let { uri ->
+                val done = android.content.ContentValues().apply {
+                    put(android.provider.MediaStore.MediaColumns.IS_PENDING, 0)
                 }
-            } ?: return "ERR:WRITE_FAILED"
+                contentResolver.update(uri, done, null, null)
+            }
             "OK"
-        }.getOrDefault("ERR:WRITE_FAILED")
+        } catch (_: SecurityException) {
+            "ERR:PERMISSION"
+        } catch (_: java.io.IOException) {
+            "ERR:WRITE_FILE"
+        } catch (_: Throwable) {
+            "ERR:WRITE_FILE"
+        }
     }
 
     fun openSecretEditor() {
@@ -210,7 +231,7 @@ class MainActivity : AppCompatActivity() {
                 val value = input.text.toString().trim()
                 if (value.isNotEmpty()) {
                     SecureSecretStore.put(this, value)
-                    webView.evaluateJavascript("window.AurumNativeAIKeySaved(true)", null)
+                    webView.evaluateJavascript("window.AurumNativeAIKeySaved&&window.AurumNativeAIKeySaved(true)", null)
                 }
             }.setNegativeButton(android.R.string.cancel, null).show()
     }
