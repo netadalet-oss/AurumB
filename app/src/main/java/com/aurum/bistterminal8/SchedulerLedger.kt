@@ -1,39 +1,46 @@
 package com.aurum.bistterminal8
 
 // RECONSTRUCTED_FROM_DEX
-// Reconstructed from classes3.dex descriptors/constants. Original Kotlin formatting is not claimed.
-
 import android.content.Context
-import java.security.MessageDigest
+import org.json.JSONObject
+import java.time.Instant
 
 object SchedulerLedger {
     private const val PREFS = "aurum_scheduler_ledger"
 
-    fun begin(context: Context, epoch: Long, slot: String): String {
-        val token = token(epoch, slot)
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit()
-            .putString("active_token", token)
-            .putLong("active_epoch", epoch)
-            .putString("active_slot", slot)
-            .apply()
+    fun begin(context: Context, epoch: Long, time: String): String {
+        val token = token(epoch, time)
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val previous = prefs.getString(token, null)
+        if (previous != null) {
+            val status = runCatching { JSONObject(previous).optString("status") }.getOrDefault("")
+            if (status in setOf("RUNNING", "COMPLETED")) return ""
+        }
+        val record = JSONObject()
+            .put("eventId", token)
+            .put("eventTime", Instant.ofEpochMilli(epoch).toString())
+            .put("scheduledTime", time)
+            .put("jobToken", token)
+            .put("calendarType", "BIST")
+            .put("startedAt", Instant.now().toString())
+            .put("status", "RUNNING")
+            .put("attempt", 1)
+        prefs.edit().putString(token, record.toString()).apply()
         return token
     }
 
     fun complete(context: Context, token: String, status: String, detail: String) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit()
-            .putString("last_token", token)
-            .putString("last_status", status)
-            .putString("last_detail", detail)
-            .putLong("last_completed_at", System.currentTimeMillis())
-            .apply()
+        if (token.isBlank()) return
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val record = runCatching { JSONObject(prefs.getString(token, "{}") ?: "{}") }
+            .getOrElse { JSONObject() }
+        record.put("jobToken", token)
+            .put("completedAt", Instant.now().toString())
+            .put("status", status)
+            .put("error", detail)
+        prefs.edit().putString(token, record.toString()).apply()
     }
 
-    fun token(epoch: Long, slot: String): String {
-        val bytes = "$epoch|$slot".toByteArray(Charsets.UTF_8)
-        return MessageDigest.getInstance("SHA-256")
-            .digest(bytes)
-            .joinToString("") { "%02x".format(it) }
-    }
+    fun token(epoch: Long, time: String): String =
+        "AUTO|" + epoch + "|" + time.replace(":", "")
 }
