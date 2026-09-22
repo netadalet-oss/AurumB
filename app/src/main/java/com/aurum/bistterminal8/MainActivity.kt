@@ -89,9 +89,10 @@ class MainActivity : AppCompatActivity() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 val uri = request.url
                 if (uri.scheme == "https" && uri.host == "appassets.androidplatform.net") return false
-                if (uri.scheme == "https" || uri.scheme == "http") {
+                if (uri.scheme == "https") {
                     runCatching {
-                        startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, uri))
+                        startActivity(android.content.Intent(this@MainActivity, BrowserActivity::class.java)
+                            .putExtra("url", uri.toString()))
                     }
                     return true
                 }
