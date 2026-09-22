@@ -1648,18 +1648,20 @@ bootstrapClean();
     const p=r47IstanbulParts(rec.marketDataAt);return !!p&&p.date===date&&p.minutes>=1090;
   }
   function r47T0FinalStatus(){
-    const t0=kh117T0(),syms=r47T0Symbols(t0);if(!t0?.date||syms.length<20)return {ready:false,t0,syms,missing:syms};
-    const nextDayEvidence=(state.records||[]).filter(r=>r?.latestDate&&String(r.latestDate)>String(t0.date)&&r?.jobDataStatus==='FRESH');
-    return {ready:nextDayEvidence.length>0,t0,syms,missing:[],nextDayEvidence:nextDayEvidence.slice(0,8).map(r=>({sym:r.sym,date:r.latestDate,at:r.marketDataAt||r.apiAccessedAt||null}))};
+    const current=kh117T0(),archive=kh117ArchiveState(),prior=archive.live;
+    if(!current?.date||!prior?.date||String(current.date)<=String(prior.date))return {ready:false,t0:current,prior,syms:r47T0Symbols(prior),missing:[]};
+    const evidence=(state.records||[]).filter(r=>r?.latestDate===current.date&&r?.jobDataStatus==='FRESH');
+    return {ready:evidence.length>0,t0:current,prior,syms:r47T0Symbols(prior),missing:[],nextDayEvidence:evidence.slice(0,8).map(r=>({sym:r.sym,date:r.latestDate,at:r.marketDataAt||r.apiAccessedAt||null}))};
   }
   globalThis.r47T0FinalStatus=r47T0FinalStatus;
 
   async function r47FinalizeT0IfReady(source='CHECK'){
     const q=r47T0FinalStatus();if(!q.ready)return false;
-    const a=kh117ArchiveState(),date=q.t0.date;if(a.lastFinalizedDate===date||a.rows?.some(x=>x.date===date&&x.frozen===true))return false;
-    const frozen={...kh117CloneValue(q.t0),source:'LIVE_FINAL_CLOSE',archiveOrigin:'AUTO',formulaVersion:MODEL_VERSION,criteriaSchemaFingerprint:MODEL_SCHEMA_FINGERPRINT,provisional:false,frozen:true,archivedAt:nowISO(),anchorId:`final:${date}`,finalization:{source,verifiedSymbols:q.syms.length,rule:'FIRST_VERIFIED_DATA_FROM_NEW_TRADING_DAY_FINALIZES_PRIOR_T0',nextDayEvidence:q.nextDayEvidence||[]}};
-    a.rows=kh117NormalizeArchiveRows([frozen,...(a.rows||[])],null).slice(0,30);a.live=null;a.lastFinalizedDate=date;a.lastShift={fromT0Date:date,toT1Date:date,at:nowISO(),rowCount:a.rows.length,source};a.schema=Math.max(3,Number(a.schema||2));state.khArchive=a;await kh117PersistArchive();
-    try{const locks=readLocal(HISTORY_LOCK_KEY,{rows:{}});locks.rows=locks.rows||{};locks.rows[date]={...(locks.rows[date]||{}),lockedAt:nowISO(),finalized:true,source};writeLocal(HISTORY_LOCK_KEY,locks);}catch{}
+    const shifted=await kh117AdvanceArchive(q.t0);
+    if(!shifted?.shifted)return false;
+    const date=shifted.shiftedDate;
+    try{const locks=readLocal(HISTORY_LOCK_KEY,{rows:{}});locks.rows=locks.rows||{};locks.rows[date]={...(locks.rows[date]||{}),lockedAt:nowISO(),finalized:true,source,rule:'FIRST_VERIFIED_DATA_FROM_NEW_TRADING_DAY'};writeLocal(HISTORY_LOCK_KEY,locks);}catch{}
+    const a=kh117ArchiveState();a.lastFinalizedDate=date;a.lastShift={...(a.lastShift||{}),source,rule:'FIRST_VERIFIED_DATA_FROM_NEW_TRADING_DAY',nextDayEvidence:q.nextDayEvidence||[]};state.khArchive=a;await kh117PersistArchive();
     if(state.page==='history')renderCurrentPagePreservingView();return true;
   }
   globalThis.r47FinalizeT0IfReady=r47FinalizeT0IfReady;
