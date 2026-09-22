@@ -72,6 +72,7 @@ class PipelineService : Service() {
     }
 
     override fun onDestroy() {
+        stopForeground(STOP_FOREGROUND_REMOVE)
         webView?.apply {
             stopLoading()
             loadUrl("about:blank")
