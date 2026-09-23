@@ -7,6 +7,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -15,9 +16,14 @@ class NativeSchedulerAcceptanceTest {
     private val context: Context
         get() = InstrumentationRegistry.getInstrumentation().targetContext
 
+    @Before
+    fun resetScheduler() {
+        AurumScheduler.install(context, false, emptyList())
+        AurumScheduler.cancelKnown(context)
+    }
+
     @Test
     fun foregroundLaunchDoesNotArmScheduler() {
-        AurumScheduler.cancelKnown(context)
         ActivityScenario.launch(MainActivity::class.java).use { }
         assertFalse(hasAlarm("12:30"))
     }
@@ -53,7 +59,6 @@ class NativeSchedulerAcceptanceTest {
 
     @Test
     fun invalidScheduleIsRejectedWithoutArming() {
-        AurumScheduler.cancelKnown(context)
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             scenario.onActivity { activity ->
                 assertEquals(
