@@ -6028,7 +6028,7 @@ try{AurumUpdateAPI.state.r225={version:'REV20.25-RELIABILITY-FILL-NEWS',activate
        const f=globalThis.cachedMarketIndicators?.()?.fields||{};
        const times=Object.values(f).filter(x=>x&&!x.stale&&x.value!=null).map(x=>Date.parse(x.providerAt||x.at||'')).filter(Number.isFinite);
        const latest=times.length?new Date(Math.max(...times)).toLocaleString('tr-TR',{dateStyle:'short',timeStyle:'short'}):'—';
-       out=out.replace('<div class="r233-market-card">','<div class="r233-market-card"><div class="r233-market-head"><b>Piyasa Akışı</b><small>Fiyat + % aynı kaynaktan · yüzde kaynakta yoksa gösterilmez · kaynak zamanı '+html(latest)+'</small></div>');
+       out=out.replace('<div class="r233-market-card">','<div class="r233-market-card">');
      }catch{}
      return out;
    };
