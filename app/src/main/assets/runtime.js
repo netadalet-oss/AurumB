@@ -3462,9 +3462,6 @@ try{AurumUpdateAPI.state.cleanREV20={version:'REV20.0-CLEAN',activatedAt:new Dat
         },updatedAt:sTransferredAt});
       }catch{}
 
-      /* R34 is the effective S owner. Keep the virtual portfolio side effect here rather than
-         in an earlier wrapper that later owner replacements can bypass. */
-      try{mark();await save();refreshVisible()}catch(e){await log('warn','S sanal portföy yardımcı kaydı güncellenemedi; atomik S snapshotı korundu',{error:e?.message||String(e)})}
       await markDerivedUpdate('S');
       await refreshTableMeta();
       await transition(job,JOB_STATUS.COMPLETED,{completedAt:nowISO(),message:`S tamamlandı · ${state.selection.length} hisse`,done:1,total:1});
@@ -3713,6 +3710,14 @@ try{AurumUpdateAPI.state.cleanREV20={version:'REV20.0-CLEAN',activatedAt:new Dat
         const notice=`${d.in.length?'AL '+d.in.join(', '):''}${d.in.length&&d.out.length?' · ':''}${d.out.length?'SAT '+d.out.join(', '):''}`;
         job.sNotificationDetail=notice;
         try{await globalThis.r21DispatchSChange?.(d.in,d.out,at,job)}catch{}
+      }
+
+      /* R34 is the effective S owner. Advance the qualified AL/SAT lifecycle only after
+         the atomic S snapshot has committed, then reconcile the persistent virtual portfolio. */
+      const qev=await globalThis.AurumQualifiedBuySell?.advance?.(job);
+      if(qev){
+        try{await globalThis.AurumPortfolio?.reconcile?.()}catch(e){await log('warn','S sanal portföy eşleştirmesi güncellenemedi; atomik S snapshotı korundu',{error:e?.message||String(e)})}
+        if(qev.buys?.length||qev.sells?.length)job.sNotificationDetail=(qev.buys?.length?'AL '+qev.buys.join(', '):'')+(qev.buys?.length&&qev.sells?.length?' · ':'')+(qev.sells?.length?'SAT '+qev.sells.join(', '):'');
       }
 
       await markDerivedUpdate('S');
