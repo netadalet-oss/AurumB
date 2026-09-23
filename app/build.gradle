@@ -17,11 +17,11 @@ android {
     }
 
     defaultConfig {
-        applicationId 'com.aurum.rev20.smartfastx.rebuild'
+        applicationId 'com.aurum.rev20.smartfastx.debug'
         minSdk 26
         targetSdk 35
-        versionCode 11
-        versionName '1.0.4-rev20.33'
+        versionCode 12
+        versionName '1.0.4-rev20.34'
     }
 }
 
