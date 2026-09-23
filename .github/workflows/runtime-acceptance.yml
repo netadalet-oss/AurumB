@@ -19,6 +19,7 @@ jobs:
           node --check app/src/main/assets/runtime.js
           node --check app/src/main/assets/rev20-final-rules.js
           ! grep -q "indicatorPromise=refreshMarketIndicators()" app/src/main/assets/runtime.js
+          ! grep -q "indicatorPromise=refreshMarketIndicators" app/src/main/assets/runtime.js
           ! grep -q "refreshMarketIndicators(),mode!='LIVE'" app/src/main/assets/runtime.js
           ! grep -q "await refreshMarket('DATA_COMMAND')" app/src/main/assets/runtime.js
           ! grep -q "prepareGeneralDataR47" app/src/main/assets/runtime.js
