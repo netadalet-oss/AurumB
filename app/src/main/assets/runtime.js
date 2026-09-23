@@ -5679,7 +5679,7 @@ try{AurumUpdateAPI.state.r225={version:'REV20.25-RELIABILITY-FILL-NEWS',activate
    try{const d=await globalThis.refreshMarketIndicators?.();localStorage.setItem(MARKET_LAST_KEY,String(Date.now()));const host=document.getElementById('aurumDataMarketStrip');if(host&&typeof globalThis.marketIndicatorsMarkup==='function')host.outerHTML=globalThis.marketIndicatorsMarkup();return !!d}catch{return false}finally{globalThis.__aurumR226MarketRefreshing=false}
  }
  /* The independent 30-minute market-indicator cadence remains active while the app process is alive. Lifecycle/network events must not initiate or reset a data fetch. */
- setInterval(()=>refreshMarket('TIMER'),MARKET_REFRESH_MS);
+ /* REV20.32 owns the single 30-minute market/portal cadence. */
  globalThis.openAurumSourceUrl=function(raw,ev){try{ev?.preventDefault?.();ev?.stopPropagation?.();const u=new URL(String(raw||''));if(u.protocol!=='https:')return false;const qp=new URLSearchParams({cmd:'open_url',url:u.href}),ans=window.prompt('aurum://native?'+qp.toString(),'')||'';if(ans==='OPENED')return false;location.href=u.href;return false}catch{return false}};
  document.addEventListener('click',ev=>{const a=ev.target?.closest?.('.r207-news-link a,.r207-news-card h3 a');if(a?.href)openAurumSourceUrl(a.href,ev)},true);
  async function persistSafety(){try{const st=fillStatus(),kn=(await dbGet('meta','knSnapshot'))?.value||null,hist=(await dbGet('meta','historicalSnapshot'))?.value||null,sel=(await dbGet('meta','selectionSnapshot'))?.value||null,at=nowISO();await dbPut('meta',{key:'r226DerivedSafety',value:{at,fillPct:st.fill,minFillPct:70,derivedUpdateAllowed:st.derived,preservedWhenBelow70:!st.derived,knAt:kn?.at||kn?.transferredAt||null,historicalAt:hist?.at||hist?.transferredAt||null,selectionAt:sel?.at||sel?.transferredAt||null,targets},updatedAt:at})}catch{}}
@@ -5834,4 +5834,42 @@ try{AurumUpdateAPI.state.r225={version:'REV20.25-RELIABILITY-FILL-NEWS',activate
  globalThis.cachedMarketIndicators=cached;globalThis.refreshMarketIndicators=refresh;globalThis.marketIndicatorsMarkup=markup;try{refreshMarketIndicators=refresh;marketIndicatorsMarkup=markup}catch{}
  globalThis.refreshAurumDataMarketStrip=async function(ev){const btn=ev?.currentTarget||document.querySelector('.aurum-r209-market-refresh');if(btn?.dataset.busy==='1')return false;try{if(btn){btn.dataset.busy='1';btn.disabled=true}await refresh();const h=document.getElementById('aurumDataMarketStrip');if(h)h.outerHTML=markup();return true}catch(e){globalThis.showAurumNotice?.('Piyasa bilgileri yenilenemedi: '+(e?.message||e),'error',2600);return false}finally{const b=document.querySelector('.aurum-r209-market-refresh');if(b){delete b.dataset.busy;b.disabled=false}}};
  try{AurumUpdateAPI.state.r231={version:'REV20.31-PROVIDER-PUBLISHED-PERCENT',activatedAt:nowISO(),features:['NO_PERCENT_CALCULATION_IN_APP','PRICE_AND_PERCENT_FROM_PROVIDER','BIGPARA_DIRECT_PRIMARY','YAHOO_DIRECT_QUOTE_FALLBACK','ALL_SIX_REQUIRED_WHEN_SOURCE_AVAILABLE','DIRECTION_ARROW_FROM_PUBLISHED_PERCENT','MANUAL_AND_30_MIN_REFRESH_ONLY','NO_LIFECYCLE_AUTOSTART']}}catch{}
+})();
+
+
+/* ===== REV20.32 — STRICT TRIGGER POLICY + NON-BLOCKING 30M MARKET/PORTAL CADENCE ===== */
+(function installR232StrictCadence(){
+ if(globalThis.__AURUM_R232_STRICT_CADENCE)return;globalThis.__AURUM_R232_STRICT_CADENCE=true;
+ const PERIOD=30*60*1000;
+ let marketBusy=false,portalBusy=false;
+ const idle=fn=>new Promise(resolve=>{
+   const run=()=>Promise.resolve().then(fn).then(resolve,()=>resolve(false));
+   if(typeof requestIdleCallback==='function')requestIdleCallback(run,{timeout:2500});else setTimeout(run,0);
+ });
+ async function marketTick(){
+   if(marketBusy)return false;marketBusy=true;
+   try{
+     const data=await idle(()=>globalThis.refreshMarketIndicators?.());
+     const host=document.getElementById('aurumDataMarketStrip');
+     if(host&&typeof globalThis.marketIndicatorsMarkup==='function')requestAnimationFrame(()=>{try{const h=document.getElementById('aurumDataMarketStrip');if(h)h.outerHTML=globalThis.marketIndicatorsMarkup()}catch{}});
+     return !!data;
+   }finally{marketBusy=false}
+ }
+ async function portalTick(){
+   if(portalBusy)return false;portalBusy=true;
+   try{return !!(await idle(()=>globalThis.refreshAurumFinancePortal?.(true)))}finally{portalBusy=false}
+ }
+ /* Deliberately no immediate call. Loading, foregrounding, reconnecting, opening a tab or
+    regaining access never starts network work. The first autonomous market/news request is
+    exactly one cadence after this runtime starts; subsequent requests are cadence-only. */
+ setInterval(()=>{void marketTick()},PERIOD);
+ setInterval(()=>{void portalTick()},PERIOD);
+ globalThis.AurumPeriodicMarket=Object.freeze({periodMs:PERIOD,marketTick,portalTick,policy:'30M_TIMER_OR_EXPLICIT_MANUAL_ONLY'});
+ try{AurumUpdateAPI.state.r232={version:'REV20.32-STRICT-TRIGGERS-NONBLOCKING-30M',activatedAt:nowISO(),features:[
+   'NO_STARTUP_FETCH','NO_FOREGROUND_FETCH','NO_NETWORK_RESTORE_FETCH','NO_TAB_NAVIGATION_FETCH',
+   'DATA_ONLY_DEFINED_SCHEDULER_OR_MANUAL','MARKET_INDICATORS_30M','FINANCE_PORTAL_30M',
+   'PROVIDER_PUBLISHED_PERCENT_ONLY','VALUE_AND_PERCENT_SAME_PROVIDER_RECORD',
+   'NO_APP_PERCENT_CALCULATION','PERCENT_HIDDEN_WHEN_PROVIDER_OMITS',
+   'IDLE_SCHEDULED_NETWORK_START','ASYNC_DOM_PAINT','NO_UI_THREAD_WAIT_FOR_NETWORK'
+ ]}}catch{}
 })();
