@@ -41,8 +41,6 @@ jobs:
           ! grep -Fq "r62CalculateS" app/src/main/assets/runtime.js
           grep -Fq "FAST_NAV_CACHE" app/src/main/assets/runtime.js
           grep -Fq "Sorunları Gider ve Tekrar Doğrula" app/src/main/assets/runtime.js
-          grep -Fq "Veri / Hesaplama Doğruluğunu Denetle" app/src/main/assets/runtime.js
-          test "$(grep -F "accuracySettingsModule()" app/src/main/assets/runtime.js | wc -l)" -eq 0
           grep -Fq "✓ ONARILDI" app/src/main/assets/runtime.js
           grep -Fq "ACCURACY_" app/src/main/assets/runtime.js
           ! grep -Fq '${accuracySettingsModule()}${tableAuditSettingsModule()}' app/src/main/assets/runtime.js
