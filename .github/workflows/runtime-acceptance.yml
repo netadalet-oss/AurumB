@@ -75,6 +75,7 @@ jobs:
             adb shell pidof com.aurum.rev20.smartfastx.debug
             adb logcat -d | tee /tmp/logcat.txt
             ! grep -E 'FATAL EXCEPTION|AndroidRuntime.*FATAL' /tmp/logcat.txt
+            gradle --no-daemon :app:connectedDebugAndroidTest --stacktrace
       - name: Upload acceptance artifacts
         if: always()
         uses: actions/upload-artifact@v4
