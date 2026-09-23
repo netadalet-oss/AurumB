@@ -39,10 +39,13 @@ object AurumScheduler {
         if (enabled && clean.isEmpty()) return false
         val previous = configuredTimes(context)
         cancelTimes(context, previous)
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+        // Persist scheduler ownership before changing alarms. Async apply() can expose the
+        // previous slot set to an immediate relaunch/test and leave a stale PendingIntent visible.
+        val persisted = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putBoolean("enabled", enabled)
             .putString("times", clean.joinToString(","))
-            .apply()
+            .commit()
+        if (!persisted) return false
         if (!enabled) return true
         val now = Instant.now()
         clean.forEach { scheduleNextForTime(context, it, now) }
