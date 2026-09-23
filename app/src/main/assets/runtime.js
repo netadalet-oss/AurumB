@@ -6157,14 +6157,22 @@ try{AurumUpdateAPI.state.r225={version:'REV20.25-RELIABILITY-FILL-NEWS',activate
     }return out;
   }
   async function refresh(){
-    const providers=[['TCMB',tcmb],['FOREKS',foreks],['GENELPARA',genelpara],['BIGPARA_BAND',bigparaBand],['BIGPARA_EXTRA',bigparaExtra],['YAHOO_Q1',()=>yahoo('query1.finance.yahoo.com')],['YAHOO_Q2',()=>yahoo('query2.finance.yahoo.com')]],fields={},errors=[];
-    for(const [name,fn] of providers){if(KEYS.every(k=>fields[k]?.value!=null))break;try{const got=await fn();if(got?.__error)errors.push(got.__error);for(const [k,q] of Object.entries(got||{}))if(KEYS.includes(k)&&!fields[k]&&q?.value!=null)fields[k]=q}catch(e){errors.push(name+': '+String(e?.message||e))}}
-
-    for(const r of rs){
-      if(r.status==='rejected'){errors.push(String(r.reason?.message||r.reason));continue}
-      if(r.value?.__error)errors.push(r.value.__error);
-      for(const [k,q] of Object.entries(r.value||{}))if(KEYS.includes(k)&&!fields[k]&&q?.value!=null&&Number.isFinite(Number(q.changePct)))fields[k]=q;
+    const providers=[
+      {name:'FOREKS',keys:KEYS,fn:foreks},
+      {name:'TCMB',keys:['USDTRY','EURTRY'],fn:tcmb},
+      {name:'GENELPARA',keys:['USDTRY','EURTRY','GRAMTRY','GOLDUSD'],fn:genelpara},
+      {name:'BIGPARA_BAND',keys:['XU100','USDTRY','EURTRY','GRAMTRY'],fn:bigparaBand},
+      {name:'BIGPARA_EXTRA',keys:['EURUSD','GOLDUSD'],fn:bigparaExtra},
+      {name:'YAHOO_Q1',keys:['XU100','USDTRY','EURTRY','EURUSD','GOLDUSD'],fn:()=>yahoo('query1.finance.yahoo.com')},
+      {name:'YAHOO_Q2',keys:['XU100','USDTRY','EURTRY','EURUSD','GOLDUSD'],fn:()=>yahoo('query2.finance.yahoo.com')}
+    ],fields={},errors=[];
+    for(const p of providers){
+      const missing=p.keys.filter(k=>!fields[k]?.value);if(!missing.length)continue;
+      try{const got=await p.fn();if(got?.__error)errors.push(p.name+': '+got.__error);for(const k of missing){const q=got?.[k];if(q?.value!=null)fields[k]=q}}
+      catch(e){errors.push(p.name+': '+String(e?.message||e))}
+      if(KEYS.every(k=>fields[k]?.value!=null))break;
     }
+
     const old=cached()?.fields||{};for(const k of KEYS)if(!fields[k]&&old[k])fields[k]={...old[k],stale:true,changePct:null};
     if(!KEYS.some(k=>fields[k]?.value!=null)){
       const reason=errors.filter(Boolean).join(' · ')||'Doğrudan piyasa sağlayıcıları doğrulanmış değer döndürmedi';
