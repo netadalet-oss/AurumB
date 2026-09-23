@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' data: blob: https:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://www.tefas.gov.tr https://query1.finance.yahoo.com https://query2.finance.yahoo.com https://news.google.com https://www.tcmb.gov.tr https://www.kap.org.tr https://www.borsaistanbul.com; object-src 'none'; base-uri 'none'; frame-src 'none'; form-action 'none'">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#01083B">
+  <title>Aurum FUND Top 20</title>
+  <link rel="icon" type="image/svg+xml" href="fund-logo.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="k-tarihsel.css">
+</head>
+<body>
+  <div id="app">
+    <header class="topbar glass">
+      <div class="brand-lockup"><div class="brand-mark" aria-hidden="true"><img src="fund-logo.png" alt=""></div><div class="brand-block"><div class="eyebrow"><span class="brand-name">AURUM FON TOP 20</span></div><h1 id="pageTitle">Genel Bakış</h1></div></div>
+      <div class="top-actions"><span id="dataBadge" class="badge warn">VERİ YOK</span><span id="refreshBtn" class="aurum-global-operation" role="status" aria-live="polite">Durum</span></div>
+    </header>
+    <main id="content"></main>
+    <nav class="bottom-nav glass" aria-label="Ana menü">
+      <button data-page="overview" class="active"><span>◈</span><small>Genel</small></button>
+      <button data-page="selection"><span>★</span><small>F</small></button>
+      <button data-page="data"><span>▦</span><small>Veriler</small></button>
+      <button data-page="criteria"><span>∑</span><small>Kn</small></button>
+      <button data-page="history"><span>⌁</span><small>K_Tarihsel</small></button>
+      <button data-page="learning"><span>↗</span><small>Öğrenme</small></button>
+      <button data-page="ai"><span>✦</span><small>AI</small></button>
+    </nav>
+    <div id="aurumToastHost" class="aurum-toast-host" role="status" aria-live="polite" aria-atomic="true"></div>
+  </div>
+  <dialog id="detailDialog"><button class="dialog-close" onclick="this.closest('dialog').close()">×</button><div id="dialogBody"></div></dialog>
+  <input type="file" id="fileInput" accept=".json,.csv,text/csv,application/json" hidden>
+  <input type="file" id="updateFileInput" accept=".json,application/json" hidden>
+  <script src="core.js"></script>
+  <script src="features.js"></script>
+  <script src="k-tarihsel.js"></script>
+  <script src="runtime.js"></script>
+</body>
+</html>
