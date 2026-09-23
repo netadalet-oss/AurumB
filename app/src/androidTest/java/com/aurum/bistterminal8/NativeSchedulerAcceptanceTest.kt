@@ -30,10 +30,13 @@ class NativeSchedulerAcceptanceTest {
         val prefs = context.getSharedPreferences("aurum_scheduler", Context.MODE_PRIVATE)
         val beforeEnabled = prefs.getBoolean("enabled", false)
         val beforeTimes = prefs.getString("times", null)
+        assertFalse(hasAlarm("03:17"))
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             scenario.onActivity {
                 assertEquals(beforeEnabled, prefs.getBoolean("enabled", false))
                 assertEquals(beforeTimes, prefs.getString("times", null))
+                // Foreground startup must neither mutate scheduler prefs nor create an alarm.
+                assertFalse(hasAlarm("03:17"))
             }
         }
     }
