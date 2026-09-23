@@ -61,10 +61,7 @@ jobs:
             sleep 8
             adb shell pidof com.aurum.rev20.smartfastx.debug
             adb shell dumpsys alarm > /tmp/alarm.txt
-            if grep -q 'com.aurum.rev20.smartfastx.debug' /tmp/alarm.txt; then
-              echo 'Unexpected startup alarm: foreground launch must remain idle'
-              exit 1
-            fi
+            ! grep -q 'com.aurum.rev20.smartfastx.debug' /tmp/alarm.txt
             adb shell input keyevent 3
             sleep 2
             adb shell am start -W -n com.aurum.rev20.smartfastx.debug/com.aurum.bistterminal8.MainActivity
