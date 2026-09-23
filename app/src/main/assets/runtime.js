@@ -6200,14 +6200,24 @@ try{AurumUpdateAPI.state.r225={version:'REV20.25-RELIABILITY-FILL-NEWS',activate
       {name:'YAHOO_Q1',keys:['XU100','USDTRY','EURTRY','EURUSD','GOLDUSD'],fn:()=>yahoo('query1.finance.yahoo.com')},
       {name:'YAHOO_Q2',keys:['XU100','USDTRY','EURTRY','EURUSD','GOLDUSD'],fn:()=>yahoo('query2.finance.yahoo.com')}
     ],fields={},errors=[];
+    const complete=q=>q?.value!=null&&Number.isFinite(Number(q.changePct));
     for(const p of providers){
-      const missing=p.keys.filter(k=>!fields[k]?.value);if(!missing.length)continue;
-      try{const got=await p.fn();if(got?.__error)errors.push(p.name+': '+got.__error);for(const k of missing){const q=got?.[k];if(q?.value!=null)fields[k]=q}}
-      catch(e){errors.push(p.name+': '+String(e?.message||e))}
-      if(KEYS.every(k=>fields[k]?.value!=null))break;
+      const unresolved=p.keys.filter(k=>!complete(fields[k]));if(!unresolved.length)continue;
+      try{
+        const got=await p.fn();if(got?.__error)errors.push(p.name+': '+got.__error);
+        for(const k of unresolved){
+          const q=got?.[k];if(q?.value==null)continue;
+          if(complete(q)||!fields[k]?.value)fields[k]=q;
+        }
+      }catch(e){errors.push(p.name+': '+String(e?.message||e))}
+      if(KEYS.every(k=>complete(fields[k])))break;
     }
 
-    const old=cached()?.fields||{};for(const k of KEYS)if(!fields[k]&&old[k])fields[k]={...old[k],stale:true,changePct:null};
+    const old=cached()?.fields||{};
+    for(const k of KEYS){
+      if(!fields[k]&&old[k])fields[k]={...old[k],stale:true,changePct:null};
+      else if(fields[k]&&!complete(fields[k])&&complete(old[k]))fields[k]={...old[k],stale:true};
+    }
     if(!KEYS.some(k=>fields[k]?.value!=null)){
       const reason=errors.filter(Boolean).join(' · ')||'Doğrudan piyasa sağlayıcıları doğrulanmış değer döndürmedi';
       throw new Error(reason);
