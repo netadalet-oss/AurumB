@@ -32,6 +32,9 @@ jobs:
           grep -Fq "async function marketRequest" app/src/main/assets/runtime.js
           grep -Fq "native?.canHandle?.(url)" app/src/main/assets/runtime.js
           grep -Fq "'api.genelpara.com'" app/src/main/assets/native-market-http.js
+          grep -Fq "'static.altinkaynak.com'" app/src/main/assets/native-market-http.js
+          grep -Fq "async function altinkaynak" app/src/main/assets/runtime.js
+          grep -Fq "for(const k of KEYS)if(!fields[k]&&partial[k])fields[k]=partial[k]" app/src/main/assets/runtime.js
           grep -Fq "{name:'ALTINKAYNAK',keys:['USDTRY','EURTRY','GRAMTRY','GOLDUSD'],fn:altinkaynak}" app/src/main/assets/runtime.js
           grep -Fq "{name:'THEUNAT',keys:['XU100','USDTRY','EURTRY','GOLDUSD'],fn:theunat}" app/src/main/assets/runtime.js
           grep -Fq "{name:'BISTCANLI',keys:['XU100','USDTRY','EURTRY','GRAMTRY','GOLDUSD'],fn:bistCanli}" app/src/main/assets/runtime.js
