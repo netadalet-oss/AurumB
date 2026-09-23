@@ -27,8 +27,13 @@ class NativeSchedulerAcceptanceTest {
 
     @Test
     fun foregroundLaunchDoesNotArmScheduler() {
-        ActivityScenario.launch(MainActivity::class.java).use { }
-        assertFalse(hasAlarm("12:30"))
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity {
+                // Assert while the Activity is still foregrounded. Closing ActivityScenario emits
+                // pagehide/visibilitychange and may legitimately arm an in-flight background handoff.
+                assertFalse(hasAlarm("12:30"))
+            }
+        }
     }
 
     @Test
