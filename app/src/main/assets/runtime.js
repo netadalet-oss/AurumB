@@ -4806,7 +4806,7 @@ try{AurumUpdateAPI.state.cleanREV20={version:'REV20.0-CLEAN',activatedAt:new Dat
   }
   function inRange(key,v){const x=Number(v),r=LIMITS[key];return Number.isFinite(x)&&(!r||(x>=r[0]&&x<=r[1]));}
   function directQuote(key,value,changePct,source,url,providerAt=null,extra={}){
-    const v=trNumber(value),c=trNumber(changePct);if(!inRange(key,v)||c==null||Math.abs(c)>35)return null;
+    const v=trNumber(value),c=trNumber(changePct);if(!inRange(key,v)||(c!=null&&Math.abs(c)>35))return null;
     return {value:v,changePct:c,at:nowISO(),providerAt:providerAt||null,source,direct:true,url,...extra};
   }
   async function getText(url,provider,label){
@@ -4908,7 +4908,7 @@ try{AurumUpdateAPI.state.cleanREV20={version:'REV20.0-CLEAN',activatedAt:new Dat
     for(const row of rows){const key=symbols[String(row?.symbol||'')];if(!key||out[key])continue;const q=directQuote(key,row.regularMarketPrice,row.regularMarketChangePercent,source,url,row.regularMarketTime?new Date(Number(row.regularMarketTime)*1000).toISOString():null,{symbol:row.symbol,bid:trNumber(row.bid),ask:trNumber(row.ask)});if(q)out[key]=q}
     return out;
   }
-  function choose(key,sources){for(const src of sources){const q=src?.[key];if(q?.direct&&inRange(key,q.value)&&Number.isFinite(Number(q.changePct)))return q}return null}
+  function choose(key,sources){for(const src of sources){const q=src?.[key];if(q?.direct&&inRange(key,q.value)&&Number.isFinite(Number(q.changePct)))return q}for(const src of sources){const q=src?.[key];if(q?.direct&&inRange(key,q.value))return {...q,changePct:null,percentOrigin:'PROVIDER_OMITTED'}}return null}
   function directCached(){const s=state.marketIndicators;if(s?.source==='REV20.4_DIRECT_PROVIDER_VALUES')return s;return readLocal(KEY,null)}
   globalThis.cachedMarketIndicators=directCached;
   async function refresh(){
@@ -4944,6 +4944,19 @@ try{AurumUpdateAPI.state.cleanREV20={version:'REV20.0-CLEAN',activatedAt:new Dat
   /* Startup refresh intentionally disabled: market refresh is manual, scheduled/data-command driven, or the independent 30-minute timer. */
 })();
 
+
+/* REV20.39 strict acquisition policy: lifecycle/connectivity/navigation never trigger data or market work.
+   Main tables: defined Android scheduler or explicit user command only.
+   Market indicators + finance portal: independent 30-minute cadence or explicit user refresh only.
+   Market cards prefer a provider record containing both value and provider-published percentage; when the
+   same provider publishes a value without a percentage, the value may be shown and the percentage stays blank.
+   No local percentage synthesis is permitted by the final direct-market layer. Periodic work is asynchronous. */
+try{AurumUpdateAPI.state.r239={version:'REV20.39-STRICT-CADENCE-SAME-SOURCE-MARKET',activatedAt:nowISO(),features:[
+ 'NO_APP_START_FETCH','NO_FOREGROUND_FETCH','NO_CONNECTIVITY_RESTORE_FETCH','NO_TAB_NAVIGATION_FETCH',
+ 'TABLES_ONLY_DEFINED_SCHEDULER_OR_EXPLICIT_MANUAL','MARKET_INDICATORS_30M_OR_MANUAL',
+ 'FINANCE_PORTAL_30M_OR_MANUAL','VALUE_PERCENT_SAME_PROVIDER_RECORD','PROVIDER_PERCENT_ONLY',
+ 'VALUE_ALLOWED_PERCENT_BLANK_IF_PROVIDER_OMITS','NONBLOCKING_IDLE_PERIODIC_WORK'
+]}}catch{}
 
 /* ===== REV20.5 COMPLETENESS GUARD + DIRECT MARKET V2 =====
    Goals:
