@@ -6142,6 +6142,10 @@ try{AurumUpdateAPI.state.r225={version:'REV20.25-RELIABILITY-FILL-NEWS',activate
       for(const [k,q] of Object.entries(r.value||{}))if(KEYS.includes(k)&&!fields[k]&&q?.value!=null&&Number.isFinite(Number(q.changePct)))fields[k]=q;
     }
     const old=cached()?.fields||{};for(const k of KEYS)if(!fields[k]&&old[k])fields[k]={...old[k],stale:true,changePct:null};
+    if(!KEYS.some(k=>fields[k]?.value!=null)){
+      const reason=errors.filter(Boolean).join(' · ')||'Doğrudan piyasa sağlayıcıları doğrulanmış değer döndürmedi';
+      throw new Error(reason);
+    }
     const payload={at:nowISO(),updatedAt:nowISO(),source:'REV20.40_DIRECT_PROVIDER',calculated:false,percentRule:'PROVIDER_PUBLISHED_SAME_RECORD_ONLY',fields,values:Object.fromEntries(KEYS.map(k=>[k,fields[k]?.value??null])),errors:errors.slice(0,8)};
     state.marketIndicators=payload;writeLocal(KEY,payload);try{await dbPut('meta',{key:KEY,value:payload,updatedAt:nowISO()})}catch{}return payload;
   }
