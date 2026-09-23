@@ -51,6 +51,8 @@ jobs:
           grep -q "calcRecords.length<20" app/src/main/assets/runtime.js
           grep -q "fillOk=fillPct>=70" app/src/main/assets/runtime.js
           grep -q "derivationSuppressed=true" app/src/main/assets/runtime.js
+          grep -Fq "assertFalse(hasAlarm(\"03:17\"))" app/src/androidTest/java/com/aurum/bistterminal8/NativeSchedulerAcceptanceTest.kt
+          grep -Fq "foregroundLaunchDoesNotMutateSchedulerConfiguration" app/src/androidTest/java/com/aurum/bistterminal8/NativeSchedulerAcceptanceTest.kt
           grep -q "closest?.('.aurum-r209-market-refresh')" app/src/main/assets/rev20-final-rules.js
           ! grep -q '#refreshBtn,\[data-action="refresh"\],.refresh-btn' app/src/main/assets/rev20-final-rules.js
       - name: Live provider diagnostics
