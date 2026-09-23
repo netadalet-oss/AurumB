@@ -24,7 +24,8 @@ object NativeMarketHttp {
         "news.google.com", "www.tcmb.gov.tr", "tcmb.gov.tr",
         "script.google.com", "script.googleusercontent.com",
         "theunat.com", "www.theunat.com",
-        "borsaistanbulcanli.com", "www.borsaistanbulcanli.com"
+        "borsaistanbulcanli.com", "www.borsaistanbulcanli.com",
+        "api.genelpara.com"
     )
 
     fun allowed(url: URL): Boolean =
