@@ -1,6 +1,5 @@
 package com.aurum.bistterminal8
 
-import android.app.AlarmManager
 import android.content.Context
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -69,11 +68,7 @@ class NativeSchedulerAcceptanceTest {
         assertFalse(hasAlarm("99:99"))
     }
 
-    private fun hasAlarm(time: String): Boolean {
-        val alarm = context.getSystemService(AlarmManager::class.java)
-        val pi = AurumScheduler.pending(context, time, System.currentTimeMillis() + 86_400_000L)
-        return alarm.nextAlarmClock?.showIntent == pi || pendingExists(time)
-    }
+    private fun hasAlarm(time: String): Boolean = pendingExists(time)
 
     private fun pendingExists(time: String): Boolean {
         val intent = android.content.Intent(context, TriggerReceiver::class.java)
