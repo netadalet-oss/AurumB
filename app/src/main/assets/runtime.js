@@ -520,7 +520,7 @@ async function prepareGeneralData(job,mode='GENERAL'){
     await pauseCheckpoint(job,JOB_STATUS.FETCHING_DATA);
     if(!isOnline()){await transition(job,JOB_STATUS.WAITING_FOR_NETWORK,{error:'OFFLINE',message:'Ağ bağlantısı bekleniyor'});return false;}
     try{await refreshKapDirectoryIfDue()}catch(e){await log('warn','Şirket dizini güncellenemedi; veri job devam ediyor',{error:e?.message||String(e)})}
-    const end=new Date(),start=addMonths(end,-Number(state.settings.monthsBack||14)),indicatorPromise=refreshMarketIndicators();let indexBundle=(await dbGet('meta','indexBundle'))?.value||{bars:[]};
+    const end=new Date(),start=addMonths(end,-Number(state.settings.monthsBack||14));let indexBundle=(await dbGet('meta','indexBundle'))?.value||{bars:[]};
     if(mode!=='LIVE'){try{const fresh=await fetchIndexBundle(start,end);indexBundle=mergeBundles(INDEX_SYMBOL,[indexBundle,fresh]);await dbPut('meta',{key:'indexBundle',value:indexBundle,updatedAt:nowISO()})}catch(e){await issue(job,INDEX_SYMBOL,'index','ALL','INDEX_FETCH_FAILED',e?.message||String(e));}}
     const canonicalPoint=await resolveCanonicalMarketPoint(start,end);if(canonicalPoint?.timestampVerified&&safeTime(canonicalPoint.at)!=null){job.canonicalMarketAt=canonicalPoint.at;job.canonicalMarketProvider=canonicalPoint.provider||'XU100';}else{job.canonicalMarketAt=null;job.canonicalMarketProvider=null;await issue(job,INDEX_SYMBOL,'VeriZamani','ALL','CANONICAL_MARKET_TIME_UNAVAILABLE_CONTINUE_HISTORY',canonicalPoint?.attempts||[]);}job.canonicalMarketAttempts=canonicalPoint?.attempts||[];await saveJob(job);
     let cursor=0,completed=__resumeFresh.size,critical=0;const concurrency=adaptiveWorkerCount(Math.max(1,universe.length-__resumeFresh.size));job.symbolScanPolicy={sequential:false,concurrency,skipUnavailable:true,automaticExhaustiveRepair:false,providerPool:await providerOrder(false)};await saveJob(job);
@@ -537,7 +537,7 @@ async function prepareGeneralData(job,mode='GENERAL'){
       }catch(e){issues.push(e?.code||e?.message||String(e));await issue(job,sym,'*','ALL','FETCH_OR_VALIDATE_FAILED',e?.message||String(e));rec=makePlaceholder(sym,prior,issues);rec.unresolvedFields=prior?bundleRecordMissingFields(rec):['*'];if(!prior)critical++;}
       await stagePut(job.id,sym,rec);completed++;job.processedSymbols=completed;const completedSource=(rec?.providers||[]).find(x=>x&&x!=='LOCAL_PREVIOUS')||(rec?.providers||[])[0]||null;setRuntime({status:JOB_STATUS.FETCHING_DATA,jobId:job.id,mode:job.mode,stage:'Veriler',done:completed,total:universe.length,message:rec?.jobDataStatus==='FRESH'?(completedSource?`${sym} · ${sourceName(completedSource)}`:sym):`${sym} · pas geçildi, önceki veri korundu`,symbol:sym,provider:completedSource});if(completed%48===0)await saveJob(job);await pauseCheckpoint(job,JOB_STATUS.FETCHING_DATA);
     }};
-    await Promise.all(Array.from({length:concurrency},worker));await indicatorPromise.catch(()=>null);await flushStageBatch(job.id);await pauseCheckpoint(job,JOB_STATUS.FETCHING_DATA);
+    await Promise.all(Array.from({length:concurrency},worker));await flushStageBatch(job.id);await pauseCheckpoint(job,JOB_STATUS.FETCHING_DATA);
     /* R22 snapshot-coherence: do not publish a half-new/half-old market snapshot. Missing or stale
        symbols remain in durable staging and are retried from alternative providers. */
     const __repair=await repairStagedIntegrity(job,universe,start,end,indexBundle);await flushStageBatch(job.id);
