@@ -5671,8 +5671,7 @@ try{AurumUpdateAPI.state.r225={version:'REV20.25-RELIABILITY-FILL-NEWS',activate
  function fillStatus(){const sum=typeof dataSummary==='function'?dataSummary(state.records):{};const fill=Number(sum?.fillPct||0);return {fill,derived:fill>=70}}
  const oldMeta=globalThis.dataMetaMarkup||dataMetaMarkup;
  globalThis.dataMetaMarkup=dataMetaMarkup=function r226DataMetaMarkup(){
-   let h=oldMeta(),st=fillStatus(),msg=st.fill>=95?'Yüksek doluluk hedefi sağlandı; ek çekim gerekmiyor.':st.fill>=70?'Doluluk hedefi için eksikler kademeli yeniden denenir: %95 → %95 → %95 → %90 → %80 → %70.':'Veriler tabloya yazılır; %70 altındaysa Kn, K_Tarihsel, S ve AL/SAT önceki geçerli snapshot ve zaman damgalarını korur.';
-   return h+'<div class="r226-fill-note"><small>'+html(msg)+'</small></div>';
+   return oldMeta();
  };
  async function refreshMarket(reason){
    if(document.hidden&&reason==='TIMER')return false;if(globalThis.__aurumR226MarketRefreshing)return false;globalThis.__aurumR226MarketRefreshing=true;
@@ -6044,4 +6043,22 @@ try{AurumUpdateAPI.state.r225={version:'REV20.25-RELIABILITY-FILL-NEWS',activate
    'PROVIDER_PERCENT_ONLY_NO_LOCAL_PERCENT_CALCULATION','PERCENT_HIDDEN_IF_PROVIDER_OMITS',
    'MARKET_SOURCE_TIMESTAMP_VISIBLE','SINGLE_AUTONOMOUS_30M_CADENCE','IDLE_NONBLOCKING_PERIODIC_WORK'
  ]}}catch{}
+})();
+
+
+/* ===== REV20.27 — UI COPY CLEANUP ===== */
+(function installR227UiCopyCleanup(){
+ const REMOVE_TEXT=[
+  'Fiyat + % aynı kaynaktan · yüzde kaynakta yoksa gösterilmez · kaynak zamanı',
+  'Veriler tabloya yazılır; %70 altındaysa Kn, K_Tarihsel, S ve AL/SAT önceki geçerli snapshot ve zaman damgalarını korur.'
+ ];
+ function clean(){
+  document.querySelectorAll('.r226-fill-note').forEach(n=>n.remove());
+  document.querySelectorAll('small,div,p,span').forEach(n=>{
+   const t=(n.textContent||'').trim();
+   if(REMOVE_TEXT.some(x=>t===x||t.startsWith(x+' —'))) n.remove();
+  });
+ }
+ new MutationObserver(clean).observe(document.documentElement,{subtree:true,childList:true});
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',clean,{once:true});else clean();
 })();
