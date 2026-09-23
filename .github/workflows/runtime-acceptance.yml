@@ -29,6 +29,8 @@ jobs:
           grep -Fq "MARKET_30M_OWNER" app/src/main/assets/runtime.js
           grep -Fq "FINANCE_PORTAL_CACHE" app/src/main/assets/runtime.js
           grep -Fq "BUY_SELL_SAFETY_GATE" app/src/main/assets/runtime.js
+          grep -Fq "ms.put(tableState);ms.put(selectionSnapshot);ms.put(auditRow)" app/src/main/assets/runtime.js
+          grep -Fq "S_ATOMIC_META_TX_FAILED" app/src/main/assets/runtime.js
           grep -Fq "state.db.transaction('meta','readwrite')" app/src/main/assets/runtime.js
           grep -Fq "S_ATOMIC_META_TX_ABORTED" app/src/main/assets/runtime.js
           grep -Fq "state.selection=nextSelection" app/src/main/assets/runtime.js
