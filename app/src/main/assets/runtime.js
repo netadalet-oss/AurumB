@@ -497,6 +497,9 @@ async function r73ExtendedAudit(){const r=tableCalculationAudit(),add=(id,ok,det
   let portal=null;try{portal=JSON.parse(localStorage.getItem('aurum.rev224.financePortal.v2')||'null')}catch{};add('FINANCE_PORTAL_CACHE',!!portal?.updatedAt&&Array.isArray(portal?.items)&&portal.items.length>0,portal?.updatedAt?`Portal cache ${portal.items?.length||0} içerik · ${formatTableTime(portal.updatedAt)}`:'Portal cache boş','warn');
   const gateNow=dataIntegrityGate(dataSummary(state.records));add('BUY_SELL_SAFETY_GATE',gateNow.ok?Array.isArray(state.selection):true,gateNow.ok?`%70 kapısı açık · S satırı ${state.selection?.length||0}`:'%70 kapısı kapalı · yeni AL/SAT üretimi bastırılmalı');
   add('SELECTION_SNAPSHOT',!gateNow.ok||!state.selection?.length||!!selection,selection?`S snapshot ${selection.snapshotId||selection.at||'kalıcı'}`:'Aktif S yok veya henüz kalıcı snapshot oluşmadı','warn');
+  const sOwner=String(globalThis.calculateS||'');
+  add('S_EFFECTIVE_OWNER',sOwner.includes('calculateSR34')&&sOwner.includes('AurumQualifiedBuySell?.advance?.(job)'),'Effective S owner R34 · atomik snapshot sonrası qualified AL/SAT yaşam döngüsü bağlı');
+  add('S_PORTFOLIO_RECONCILE',sOwner.includes('AurumPortfolio?.reconcile?.()')&&typeof globalThis.AurumPortfolio?.reconcile==='function','Effective S owner · kalıcı sanal portföy eşlemesi bağlı');
   add('FAST_NAV_CACHE',!!globalThis.AurumRawStoreR55&&String(globalThis.goPage).includes('r55Go'),'Sekme geçişinde detached DOM/cache yolu etkin','warn');
   add('STAGE_QUEUE_PRESSURE',STAGE_BATCHES.size<12,`Aktif staging batch kuyruğu: ${STAGE_BATCHES.size}`,'warn');
   /* Accuracy checks belong to the single Check-up surface; keep diagnosis centralized. */
