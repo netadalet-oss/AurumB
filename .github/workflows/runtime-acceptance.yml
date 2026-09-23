@@ -32,8 +32,14 @@ jobs:
           grep -Fq "async function marketRequest" app/src/main/assets/runtime.js
           grep -Fq "native?.canHandle?.(url)" app/src/main/assets/runtime.js
           grep -Fq "'api.genelpara.com'" app/src/main/assets/native-market-http.js
-          grep -Fq "const providers=[['TCMB',tcmb],['FOREKS',foreks],['GENELPARA',genelpara],['BIGPARA_BAND',bigparaBand],['BIGPARA_EXTRA',bigparaExtra],['YAHOO_Q1'" app/src/main/assets/runtime.js
+          grep -Fq "{name:'ALTINKAYNAK',keys:['USDTRY','EURTRY','GRAMTRY','GOLDUSD'],fn:altinkaynak}" app/src/main/assets/runtime.js
+          grep -Fq "{name:'THEUNAT',keys:['XU100','USDTRY','EURTRY','GOLDUSD'],fn:theunat}" app/src/main/assets/runtime.js
+          grep -Fq "{name:'BISTCANLI',keys:['XU100','USDTRY','EURTRY','GRAMTRY','GOLDUSD'],fn:bistCanli}" app/src/main/assets/runtime.js
+          grep -Fq "const missing=p.keys.filter(k=>!fields[k]?.value)" app/src/main/assets/runtime.js
           grep -Fq "if(KEYS.every(k=>fields[k]?.value!=null))break" app/src/main/assets/runtime.js
+          grep -Fq "'static.altinkaynak.com'" app/src/main/assets/native-market-http.js
+          grep -Fq "'theunat.com'" app/src/main/assets/native-market-http.js
+          grep -Fq "'borsaistanbulcanli.com'" app/src/main/assets/native-market-http.js
           grep -Fq "web-paragaranti-pubsub.foreks.com" app/src/main/assets/runtime.js
           grep -Fq "www.tcmb.gov.tr/kurlar/today.xml" app/src/main/assets/runtime.js
           grep -Fq "FINANCE_PORTAL_CACHE" app/src/main/assets/runtime.js
@@ -91,8 +97,15 @@ jobs:
           GP=$?
           curl --fail --silent --show-error --max-time 20 -A "$UA" 'https://query1.finance.yahoo.com/v8/finance/chart/XU100.IS?range=1d&interval=5m&includePrePost=false' -o /tmp/yahoo.json || curl --fail --silent --show-error --max-time 20 -A "$UA" 'https://query2.finance.yahoo.com/v8/finance/chart/XU100.IS?range=1d&interval=5m&includePrePost=false' -o /tmp/yahoo.json
           YH=$?
-          echo "genelpara_exit=$GP yahoo_chart_exit=$YH"
+          curl --fail --silent --show-error --max-time 20 -A "$UA" 'https://static.altinkaynak.com/public/Currency' -o /tmp/altinkaynak.json
+          AK=$?
+          grep -q '"Kod":"USD"' /tmp/altinkaynak.json
+          curl --fail --silent --show-error --max-time 20 -A "$UA" 'https://theunat.com/markets' -o /tmp/theunat.html
+          TU=$?
+          grep -qi 'BIST 100' /tmp/theunat.html
+          echo "genelpara_exit=$GP yahoo_chart_exit=$YH altinkaynak_exit=$AK theunat_exit=$TU"
           test "$YH" -eq 0
+          test "$AK" -eq 0
       - name: Enable KVM acceleration
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
