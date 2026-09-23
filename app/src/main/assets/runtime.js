@@ -1678,16 +1678,8 @@ bootstrapClean();
   };
   globalThis.calculateS=calculateS;
 
-  /* Finalization checks are event-driven after data/repair and Kn completion. */
-  if(typeof prepareGeneralData==='function'){
-    const base=prepareGeneralData;prepareGeneralData=async function prepareGeneralDataR47(job,mode='GENERAL'){const ok=await base(job,mode);if(ok){try{await refreshMarketIndicators()}catch{}try{await r47FinalizeT0IfReady('DATA_PUBLISH')}catch{}}return ok};globalThis.prepareGeneralData=prepareGeneralData;
-  }
-  if(typeof prepareMissingData==='function'){
-    const base=prepareMissingData;prepareMissingData=async function prepareMissingDataR47(job){const ok=await base(job);if(ok){try{await refreshMarketIndicators()}catch{}try{await r47FinalizeT0IfReady('REPAIR_PUBLISH')}catch{}}return ok};globalThis.prepareMissingData=prepareMissingData;
-  }
-  if(typeof calculateKn==='function'){
-    const base=calculateKn;calculateKn=async function calculateKnR47(job){const ok=await base(job);if(ok)try{await r47FinalizeT0IfReady('KN_COMPLETED')}catch{}return ok};globalThis.calculateKn=calculateKn;
-  }
+  /* Data/repair/Kn do not own market refresh or T0 finalization.
+     Market refresh is manual/30-minute cadence only; R49/final-rules own next-session T0 finalization. */
 
   /* 6) Richer timestamped market summary. Publication timestamp is parsed when the source
         exposes it; otherwise retrieval time is shown explicitly, never invented as publish time. */
