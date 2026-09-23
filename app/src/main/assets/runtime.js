@@ -6103,20 +6103,29 @@ try{AurumUpdateAPI.state.r225={version:'REV20.25-RELIABILITY-FILL-NEWS',activate
   const num=v=>{if(v==null||v==='')return null;if(typeof v==='number')return Number.isFinite(v)?v:null;let x=String(v).replace(/\u00a0/g,' ').trim().replace(/\s+/g,'').replace(/%/g,'').replace(/^\+/,'').replace(/[^0-9,.\-+]/g,'');if(!x)return null;if(x.includes(',')&&x.includes('.'))x=x.lastIndexOf(',')>x.lastIndexOf('.')?x.replace(/\./g,'').replace(',','.'):x.replace(/,/g,'');else if(x.includes(','))x=x.replace(',','.');const n=Number(x);return Number.isFinite(n)?n:null};
   const valid=(k,v)=>Number.isFinite(Number(v))&&Number(v)>=LIMITS[k][0]&&Number(v)<=LIMITS[k][1];
   const quote=(k,v,p,source,url,at)=>{v=num(v);p=num(p);if(!valid(k,v)||!Number.isFinite(p)||Math.abs(p)>35)return null;return {value:v,changePct:p,source,url,providerAt:at||null,at:nowISO(),direct:true,identityVerified:true,percentOrigin:'PROVIDER_PUBLISHED',stale:false}};
+  async function marketRequest(url,headers,label){
+    const native=globalThis.AurumNativeHTTP;
+    if(native?.canHandle?.(url)){
+      const r=await native.request(url,{method:'GET',headers:{Accept:'*/*',...(headers||{})}},Number(state.settings?.requestTimeoutMs)||15000);
+      if(!r.ok)throw new Error(label+' HTTP '+r.status);return r;
+    }
+    const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),Number(state.settings?.requestTimeoutMs)||15000);
+    try{const r=await fetch(url,{headers:headers||{},cache:'no-store',signal:ctrl.signal});if(!r.ok)throw new Error(label+' HTTP '+r.status);return r}finally{clearTimeout(timer)}
+  }
   async function yahoo(host){
     const map={'XU100.IS':'XU100','TRY=X':'USDTRY','EURTRY=X':'EURTRY','EURUSD=X':'EURUSD','GC=F':'GOLDUSD'},src=host.startsWith('query1')?'YAHOO_Q1':'YAHOO_Q2',url='https://'+host+'/v7/finance/quote?symbols='+encodeURIComponent(Object.keys(map).join(','));
-    const r=await fetchWithTimeout(url,{headers:{Accept:'application/json'},cache:'no-store',__provider:'YAHOO_QUOTE'},src+' piyasa quote');if(!r.ok)throw new Error(src+' HTTP '+r.status);
+    const r=await marketRequest(url,{Accept:'application/json'},src+' piyasa quote');
     const rows=(await responseJSON(r))?.quoteResponse?.result||[],out={};for(const z of rows){const k=map[z?.symbol];if(!k)continue;const q=quote(k,z.regularMarketPrice,z.regularMarketChangePercent,src,url,z.regularMarketTime?new Date(Number(z.regularMarketTime)*1000).toISOString():null);if(q)out[k]=q}return out;
   }
   async function bigparaBand(){
-    const url='https://bigpara.hurriyet.com.tr/Partial/GetPiyasaBandContent/?rev=2040',r=await fetchWithTimeout(url,{headers:{Accept:'text/html,*/*;q=0.8'},cache:'no-store',__provider:'BIGPARA'},'Bigpara piyasa bandı');if(!r.ok)throw new Error('Bigpara HTTP '+r.status);
+    const url='https://bigpara.hurriyet.com.tr/Partial/GetPiyasaBandContent/?rev=2040',r=await marketRequest(url,{Accept:'text/html,*/*;q=0.8'},'Bigpara piyasa bandı');
     const doc=new DOMParser().parseFromString(await r.text(),'text/html'),t=(doc.body?.innerText||doc.body?.textContent||'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim(),out={};
     const defs={XU100:/BIST\s*100\s+([0-9][0-9.,]*)\s+([+\-−]?[0-9.,]+)\s*%/i,USDTRY:/(?:DOLAR|USD\s*\/\s*TRY)\s+([0-9][0-9.,]*)\s+([+\-−]?[0-9.,]+)\s*%/i,EURTRY:/(?:EURO|EUR\s*\/\s*TRY)\s+([0-9][0-9.,]*)\s+([+\-−]?[0-9.,]+)\s*%/i,GRAMTRY:/(?:GRAM\s*ALTIN|ALTIN)\s+([0-9][0-9.,]*)\s+([+\-−]?[0-9.,]+)\s*%/i};
     for(const [k,re] of Object.entries(defs)){const m=t.match(re);if(m){const q=quote(k,m[1],m[2],'BIGPARA_BAND',url,null);if(q)out[k]=q}}return out;
   }
   async function bigparaExtra(){
     const jobs=[['EURUSD','https://bigpara.hurriyet.com.tr/doviz/pariteler/',/EUR\s*[\/-]\s*USD[\s\S]{0,220}?([0-9]+[,.][0-9]+)[\s\S]{0,100}?([+\-−][0-9.,]+)\s*%/i],['GOLDUSD','https://bigpara.hurriyet.com.tr/altin/',/(?:Altın\s*\(ONS\)|Altın\s*Ons)[\s\S]{0,260}?([0-9][0-9.,]*)[\s\S]{0,100}?([+\-−][0-9.,]+)\s*%/i]],out={};
-    await Promise.all(jobs.map(async([k,url,re])=>{try{const r=await fetchWithTimeout(url,{headers:{Accept:'text/html,*/*;q=0.8'},cache:'no-store',__provider:'BIGPARA'},'Bigpara '+k);if(!r.ok)return;const d=new DOMParser().parseFromString(await r.text(),'text/html'),t=(d.body?.innerText||d.body?.textContent||'').replace(/\u00a0/g,' ').replace(/\s+/g,' '),m=t.match(re);if(m){const q=quote(k,m[1],m[2],'BIGPARA',url,null);if(q)out[k]=q}}catch{}}));return out;
+    await Promise.all(jobs.map(async([k,url,re])=>{try{const r=await marketRequest(url,{Accept:'text/html,*/*;q=0.8'},'Bigpara '+k);const d=new DOMParser().parseFromString(await r.text(),'text/html'),t=(d.body?.innerText||d.body?.textContent||'').replace(/\u00a0/g,' ').replace(/\s+/g,' '),m=t.match(re);if(m){const q=quote(k,m[1],m[2],'BIGPARA',url,null);if(q)out[k]=q}}catch{}}));return out;
   }
   function cached(){return state.marketIndicators?.source==='REV20.40_DIRECT_PROVIDER'?state.marketIndicators:readLocal(KEY,null)}
   async function genelpara(){
@@ -6127,7 +6136,7 @@ try{AurumUpdateAPI.state.r225={version:'REV20.25-RELIABILITY-FILL-NEWS',activate
     ]){
       const url='https://api.genelpara.com/json/?list='+encodeURIComponent(list)+'&sembol='+encodeURIComponent(symbols.join(','));
       try{
-        const r=await fetchWithTimeout(url,{headers:{Accept:'application/json'},cache:'no-store',__provider:'GENELPARA'},'GenelPara piyasa');if(!r.ok)throw new Error('GenelPara HTTP '+r.status);
+        const r=await marketRequest(url,{Accept:'application/json'},'GenelPara piyasa');
         const o=await responseJSON(r),d=o?.data||{};
         for(const [sym,k] of Object.entries(defs)){const z=d?.[sym];if(!z)continue;const q=quote(k,z.satis??z.alis??z.fiyat,z.oran??z.degisim,'GENELPARA_DIRECT',url,o?.timestamp||null);if(q)out[k]=q}
       }catch(e){out.__error=(out.__error?out.__error+' · ':'')+String(e?.message||e)}
