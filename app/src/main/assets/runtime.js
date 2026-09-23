@@ -1311,7 +1311,10 @@ globalThis.recalculateSelectionTable=runManualS;
 globalThis.recalculateAllTables=()=>{showAurumNotice('Manuel modda tablolar ayrı ayrı ve sırayla çalıştırılır.','info',3200);return false};
 globalThis.AurumRuntime=Object.freeze({version:AURUM_RUNTIME_VERSION,status:currentRuntime,summary:dataSummary,manualSequence,manualData:runManualData,manualKn:runManualKn,manualHistorical:runManualHistorical,manualS:runManualS,resume:resumePendingJobs,scheduled:scheduledEntry,providerOrder,togglePause,command:operationCommand,tableTimePanel,operationStrip,jobStatus:JOB_STATUS});
 
-/* Bootstrap is deferred until this runtime file has installed all effective owners below.\n   Starting here races later loadState wrappers (notably persistent portfolio/timestamp state)\n   against IndexedDB initialization and can issue meta transactions while state.db is null. */\n
+/* Bootstrap is deferred until this runtime file has installed all effective owners below.
+   Starting here races later loadState wrappers (notably persistent portfolio/timestamp state)
+   against IndexedDB initialization and can issue meta transactions while state.db is null. */
+
 
 /* Embedded R47 compatibility layer */
 /* AurumB R46 compatibility update for R45/R44-compatible appVersionCode 120.
