@@ -6127,6 +6127,24 @@ try{AurumUpdateAPI.state.r225={version:'REV20.25-RELIABILITY-FILL-NEWS',activate
     const jobs=[['EURUSD','https://bigpara.hurriyet.com.tr/doviz/pariteler/',/EUR\s*[\/-]\s*USD[\s\S]{0,220}?([0-9]+[,.][0-9]+)[\s\S]{0,100}?([+\-−][0-9.,]+)\s*%/i],['GOLDUSD','https://bigpara.hurriyet.com.tr/altin/',/(?:Altın\s*\(ONS\)|Altın\s*Ons)[\s\S]{0,260}?([0-9][0-9.,]*)[\s\S]{0,100}?([+\-−][0-9.,]+)\s*%/i]],out={};
     await Promise.all(jobs.map(async([k,url,re])=>{try{const r=await marketRequest(url,{Accept:'text/html,*/*;q=0.8'},'Bigpara '+k);const d=new DOMParser().parseFromString(await r.text(),'text/html'),t=(d.body?.innerText||d.body?.textContent||'').replace(/\u00a0/g,' ').replace(/\s+/g,' '),m=t.match(re);if(m){const q=quote(k,m[1],m[2],'BIGPARA',url,null);if(q)out[k]=q}}catch{}}));return out;
   }
+  async function directPage(url,source,defs){
+    const r=await marketRequest(url,{Accept:'text/html,application/xhtml+xml,*/*;q=0.8'},source+' piyasa'),d=new DOMParser().parseFromString(await r.text(),'text/html'),t=(d.body?.innerText||d.body?.textContent||'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim(),out={};
+    for(const [k,re] of Object.entries(defs)){const m=t.match(re);if(!m)continue;const q=quote(k,m[1],m[2],source,url,null);if(q)out[k]=q}
+    return out;
+  }
+  async function theunat(){return directPage('https://theunat.com/markets','THEUNAT_DIRECT',{
+    XU100:/BIST\s*100\s*([0-9.,]+)\s*([+\-−][0-9.,]+)\s*%/i,
+    USDTRY:/USD\s*\/\s*TRY[^0-9]*([0-9.,]+)\s*([+\-−][0-9.,]+)\s*%/i,
+    EURTRY:/EUR\s*\/\s*TRY[^0-9]*([0-9.,]+)\s*([+\-−][0-9.,]+)\s*%/i,
+    GOLDUSD:/ALTIN\s*\(ONS\)[^0-9]*([0-9.,]+)\s*([+\-−][0-9.,]+)\s*%/i
+  })}
+  async function bistCanli(){return directPage('https://borsaistanbulcanli.com/markets.php?tab=commodities','BISTCANLI_DIRECT',{
+    XU100:/BIST\s*100\s*([0-9.,]+)\s*([+\-−][0-9.,]+)\s*%/i,
+    USDTRY:/USD\s*\/\s*TRY\s*([0-9.,]+)\s*([+\-−][0-9.,]+)\s*%/i,
+    EURTRY:/EUR\s*\/\s*TRY\s*([0-9.,]+)\s*([+\-−][0-9.,]+)\s*%/i,
+    GRAMTRY:/Gram\s*Altın[^0-9]*([0-9.,]+)\s*([+\-−][0-9.,]+)\s*%/i,
+    GOLDUSD:/Ons\s*Altın[^0-9]*([0-9.,]+)\s*([+\-−][0-9.,]+)\s*%/i
+  })}
   function cached(){return state.marketIndicators?.source==='REV20.40_DIRECT_PROVIDER'?state.marketIndicators:readLocal(KEY,null)}
   async function genelpara(){
     const out={};
@@ -6177,6 +6195,8 @@ try{AurumUpdateAPI.state.r225={version:'REV20.25-RELIABILITY-FILL-NEWS',activate
       {name:'TCMB',keys:['USDTRY','EURTRY'],fn:tcmb},
       {name:'BIGPARA_BAND',keys:['XU100','USDTRY','EURTRY','GRAMTRY'],fn:bigparaBand},
       {name:'BIGPARA_EXTRA',keys:['EURUSD','GOLDUSD'],fn:bigparaExtra},
+      {name:'THEUNAT',keys:['XU100','USDTRY','EURTRY','GOLDUSD'],fn:theunat},
+      {name:'BISTCANLI',keys:['XU100','USDTRY','EURTRY','GRAMTRY','GOLDUSD'],fn:bistCanli},
       {name:'YAHOO_Q1',keys:['XU100','USDTRY','EURTRY','EURUSD','GOLDUSD'],fn:()=>yahoo('query1.finance.yahoo.com')},
       {name:'YAHOO_Q2',keys:['XU100','USDTRY','EURTRY','EURUSD','GOLDUSD'],fn:()=>yahoo('query2.finance.yahoo.com')}
     ],fields={},errors=[];
