@@ -6174,6 +6174,19 @@ try{AurumUpdateAPI.state.r225={version:'REV20.25-RELIABILITY-FILL-NEWS',activate
     }
     return out;
   }
+  async function altinkaynak(){
+    const out={};
+    for(const [url,map] of [
+      ['https://static.altinkaynak.com/public/Currency',{USD:'USDTRY',EUR:'EURTRY'}],
+      ['https://static.altinkaynak.com/public/Gold',{GA:'GRAMTRY',XAUUSD:'GOLDUSD'}]
+    ]){
+      try{
+        const r=await marketRequest(url,{Accept:'application/json'},'Altınkaynak piyasa'),rows=await responseJSON(r);
+        for(const z of Array.isArray(rows)?rows:[]){const k=map[String(z?.Kod||'').toUpperCase()];if(!k)continue;const v=num(z?.Satis??z?.Alis);if(valid(k,v))out[k]={value:v,changePct:null,source:'ALTINKAYNAK_DIRECT',url,providerAt:z?.GuncellenmeZamani||null,at:nowISO(),direct:true,identityVerified:true,percentOrigin:'PROVIDER_OMITTED',stale:false}}
+      }catch(e){out.__error=(out.__error?out.__error+' · ':'')+String(e?.message||e)}
+    }
+    return out;
+  }
   async function tcmb(){
     const url='https://www.tcmb.gov.tr/kurlar/today.xml',r=await marketRequest(url,{Accept:'application/xml,text/xml,*/*'},'TCMB kurlar');
     const doc=new DOMParser().parseFromString(await r.text(),'application/xml'),out={};
@@ -6189,30 +6202,30 @@ try{AurumUpdateAPI.state.r225={version:'REV20.25-RELIABILITY-FILL-NEWS',activate
   }
   async function refresh(){
     const providers=[
-      {name:'FOREKS',keys:KEYS,fn:foreks},
-      {name:'ALTINKAYNAK',keys:['USDTRY','EURTRY','GRAMTRY','GOLDUSD'],fn:altinkaynak},
-      {name:'GENELPARA',keys:['USDTRY','EURTRY','GRAMTRY','GOLDUSD'],fn:genelpara},
-      {name:'TCMB',keys:['USDTRY','EURTRY'],fn:tcmb},
-      {name:'BIGPARA_BAND',keys:['XU100','USDTRY','EURTRY','GRAMTRY'],fn:bigparaBand},
-      {name:'BIGPARA_EXTRA',keys:['EURUSD','GOLDUSD'],fn:bigparaExtra},
-      {name:'THEUNAT',keys:['XU100','USDTRY','EURTRY','GOLDUSD'],fn:theunat},
-      {name:'BISTCANLI',keys:['XU100','USDTRY','EURTRY','GRAMTRY','GOLDUSD'],fn:bistCanli},
-      {name:'YAHOO_Q1',keys:['XU100','USDTRY','EURTRY','EURUSD','GOLDUSD'],fn:()=>yahoo('query1.finance.yahoo.com')},
-      {name:'YAHOO_Q2',keys:['XU100','USDTRY','EURTRY','EURUSD','GOLDUSD'],fn:()=>yahoo('query2.finance.yahoo.com')}
-    ],fields={},errors=[];
-    const complete=q=>q?.value!=null&&Number.isFinite(Number(q.changePct));
-    for(const p of providers){
-      const unresolved=p.keys.filter(k=>!complete(fields[k]));if(!unresolved.length)continue;
+      ['FOREKS',KEYS,foreks],
+      ['GENELPARA',['USDTRY','EURTRY','GRAMTRY','GOLDUSD'],genelpara],
+      ['ALTINKAYNAK',['USDTRY','EURTRY','GRAMTRY','GOLDUSD'],altinkaynak],
+      ['BIGPARA_BAND',['XU100','USDTRY','EURTRY','GRAMTRY'],bigparaBand],
+      ['BIGPARA_EXTRA',['EURUSD','GOLDUSD'],bigparaExtra],
+      ['YAHOO_Q1',['XU100','USDTRY','EURTRY','EURUSD','GOLDUSD'],()=>yahoo('query1.finance.yahoo.com')],
+      ['YAHOO_Q2',['XU100','USDTRY','EURTRY','EURUSD','GOLDUSD'],()=>yahoo('query2.finance.yahoo.com')],
+      ['TCMB',['USDTRY','EURTRY'],tcmb]
+    ],fields={},partial={},errors=[];
+    const complete=k=>fields[k]?.value!=null&&Number.isFinite(Number(fields[k]?.changePct));
+    for(const [name,covers,fn] of providers){
+      const missing=covers.filter(k=>!complete(k));
+      if(!missing.length)continue;
       try{
-        const got=await p.fn();if(got?.__error)errors.push(p.name+': '+got.__error);
-        for(const k of unresolved){
+        const got=await fn();if(got?.__error)errors.push(got.__error);
+        for(const k of missing){
           const q=got?.[k];if(q?.value==null)continue;
-          if(complete(q)||!fields[k]?.value)fields[k]=q;
+          if(Number.isFinite(Number(q.changePct))){fields[k]=q;delete partial[k]}
+          else if(!fields[k]&&!partial[k])partial[k]=q;
         }
-      }catch(e){errors.push(p.name+': '+String(e?.message||e))}
-      if(KEYS.every(k=>complete(fields[k])))break;
+      }catch(e){errors.push(name+': '+String(e?.message||e))}
+      if(KEYS.every(complete))break;
     }
-
+    for(const k of KEYS)if(!fields[k]&&partial[k])fields[k]=partial[k];
     const old=cached()?.fields||{};
     for(const k of KEYS){
       if(!fields[k]&&old[k])fields[k]={...old[k],stale:true,changePct:null};
