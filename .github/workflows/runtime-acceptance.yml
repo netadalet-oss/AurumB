@@ -37,7 +37,9 @@ jobs:
           grep -Fq "state.db.transaction('meta','readwrite')" app/src/main/assets/runtime.js
           grep -Fq "S_ATOMIC_META_TX_ABORTED" app/src/main/assets/runtime.js
           grep -Fq "state.selection=nextSelection" app/src/main/assets/runtime.js
-          grep -Fq "try{mark();await save();refreshVisible()}" app/src/main/assets/runtime.js
+          grep -Fq "const qev=await globalThis.AurumQualifiedBuySell?.advance?.(job)" app/src/main/assets/runtime.js
+          grep -Fq "await globalThis.AurumPortfolio?.reconcile?.()" app/src/main/assets/runtime.js
+          ! grep -Fq "try{mark();await save();refreshVisible()}" app/src/main/assets/runtime.js
           ! grep -Fq "r62CalculateS" app/src/main/assets/runtime.js
           grep -Fq "FAST_NAV_CACHE" app/src/main/assets/runtime.js
           grep -Fq "Sorunları Gider ve Tekrar Doğrula" app/src/main/assets/runtime.js
