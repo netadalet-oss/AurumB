@@ -43,6 +43,11 @@ jobs:
           grep -Fq "Sorunları Gider ve Tekrar Doğrula" app/src/main/assets/runtime.js
           grep -Fq "✓ ONARILDI" app/src/main/assets/runtime.js
           ! grep -Fq 'globalThis.rev20UserRepairModule?.()' app/src/main/assets/runtime.js
+          ! grep -Fq 'globalThis.rev20UserRepairModule=' app/src/main/assets/runtime.js
+          grep -Fq "runRepairCenter('NATIVE')" app/src/main/assets/runtime.js
+          grep -Fq "runRepairCenter('UI')" app/src/main/assets/runtime.js
+          grep -Fq "runRepairCenter('SETTINGS')" app/src/main/assets/runtime.js
+          grep -Fq "runRepairCenter('FOLDER')" app/src/main/assets/runtime.js
           grep -Fq "incremental:true,changedSymbols:changed.map(x=>x.sym)" app/src/main/assets/runtime.js
           ! grep -q "refreshMarketIndicators(),mode!='LIVE'" app/src/main/assets/runtime.js
           ! grep -q "await refreshMarket('DATA_COMMAND')" app/src/main/assets/runtime.js
