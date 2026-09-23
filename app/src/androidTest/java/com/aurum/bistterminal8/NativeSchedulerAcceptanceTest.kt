@@ -26,12 +26,14 @@ class NativeSchedulerAcceptanceTest {
     }
 
     @Test
-    fun foregroundLaunchDoesNotArmScheduler() {
+    fun foregroundLaunchDoesNotMutateSchedulerConfiguration() {
+        val prefs = context.getSharedPreferences("aurum_scheduler", Context.MODE_PRIVATE)
+        val beforeEnabled = prefs.getBoolean("enabled", false)
+        val beforeTimes = prefs.getString("times", null)
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             scenario.onActivity {
-                // Assert while the Activity is still foregrounded. Closing ActivityScenario emits
-                // pagehide/visibilitychange and may legitimately arm an in-flight background handoff.
-                assertFalse(hasAlarm("03:17"))
+                assertEquals(beforeEnabled, prefs.getBoolean("enabled", false))
+                assertEquals(beforeTimes, prefs.getString("times", null))
             }
         }
     }
