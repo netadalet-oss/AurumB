@@ -29,6 +29,9 @@ jobs:
           grep -Fq "MARKET_30M_OWNER" app/src/main/assets/runtime.js
           grep -Fq "REV20.40_DIRECT_PROVIDER" app/src/main/assets/runtime.js
           grep -Fq "GENELPARA_DIRECT" app/src/main/assets/runtime.js
+          grep -Fq "async function marketRequest" app/src/main/assets/runtime.js
+          grep -Fq "native?.canHandle?.(url)" app/src/main/assets/runtime.js
+          grep -Fq "'api.genelpara.com'" app/src/main/assets/native-market-http.js
           grep -Fq "Promise.allSettled([yahoo('query1.finance.yahoo.com'),yahoo('query2.finance.yahoo.com'),bigparaBand(),bigparaExtra(),genelpara()])" app/src/main/assets/runtime.js
           grep -Fq "FINANCE_PORTAL_CACHE" app/src/main/assets/runtime.js
           grep -Fq "renderCached:()=>{const c=load();return c?render(c):''}" app/src/main/assets/runtime.js
