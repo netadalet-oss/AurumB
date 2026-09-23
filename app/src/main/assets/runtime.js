@@ -6163,19 +6163,6 @@ try{AurumUpdateAPI.state.r225={version:'REV20.25-RELIABILITY-FILL-NEWS',activate
   }
   async function altinkaynak(){
     const out={};
-    for(const [url,defs] of [
-      ['https://static.altinkaynak.com/public/Currency',{USD:'USDTRY',EUR:'EURTRY'}],
-      ['https://static.altinkaynak.com/public/Gold',{GA:'GRAMTRY',XAUUSD:'GOLDUSD'}]
-    ]){
-      try{
-        const r=await marketRequest(url,{Accept:'application/json'},'Altınkaynak piyasa'),rows=await responseJSON(r);
-        for(const row of Array.isArray(rows)?rows:[]){const k=defs[String(row?.Kod||'').toUpperCase()];if(!k)continue;const v=num(row?.Satis??row?.Alis);if(valid(k,v))out[k]={value:v,changePct:null,source:'ALTINKAYNAK_DIRECT',url,providerAt:row?.GuncellenmeZamani||null,at:nowISO(),direct:true,identityVerified:true,percentOrigin:'PROVIDER_OMITTED',stale:false}}
-      }catch(e){out.__error=(out.__error?out.__error+' · ':'')+String(e?.message||e)}
-    }
-    return out;
-  }
-  async function altinkaynak(){
-    const out={};
     for(const [url,map] of [
       ['https://static.altinkaynak.com/public/Currency',{USD:'USDTRY',EUR:'EURTRY'}],
       ['https://static.altinkaynak.com/public/Gold',{GA:'GRAMTRY',XAUUSD:'GOLDUSD'}]
@@ -6229,7 +6216,7 @@ try{AurumUpdateAPI.state.r225={version:'REV20.25-RELIABILITY-FILL-NEWS',activate
     const old=cached()?.fields||{};
     for(const k of KEYS){
       if(!fields[k]&&old[k])fields[k]={...old[k],stale:true,changePct:null};
-      else if(fields[k]&&!complete(fields[k])&&complete(old[k]))fields[k]={...old[k],stale:true};
+      else if(fields[k]&&!Number.isFinite(Number(fields[k]?.changePct))&&Number.isFinite(Number(old[k]?.changePct)))fields[k]={...old[k],stale:true};
     }
     if(!KEYS.some(k=>fields[k]?.value!=null)){
       const reason=errors.filter(Boolean).join(' · ')||'Doğrudan piyasa sağlayıcıları doğrulanmış değer döndürmedi';
