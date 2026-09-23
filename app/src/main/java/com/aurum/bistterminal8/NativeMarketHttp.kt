@@ -22,7 +22,9 @@ object NativeMarketHttp {
         "www.kap.org.tr", "kap.org.tr",
         "www.borsaistanbul.com", "borsaistanbul.com",
         "news.google.com", "www.tcmb.gov.tr", "tcmb.gov.tr",
-        "script.google.com", "script.googleusercontent.com"
+        "script.google.com", "script.googleusercontent.com",
+        "theunat.com", "www.theunat.com",
+        "borsaistanbulcanli.com", "www.borsaistanbulcanli.com"
     )
 
     fun allowed(url: URL): Boolean =
