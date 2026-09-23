@@ -5998,3 +5998,50 @@ try{AurumUpdateAPI.state.r225={version:'REV20.25-RELIABILITY-FILL-NEWS',activate
  try{globalThis.dataMetaMarkup=dataMetaMarkup=function r234DataMetaMarkup(){return ''}}catch{}
  try{AurumUpdateAPI.state.r234={version:'REV20.34-CLEAN-COMPLETE-DIRECT-MARKET',activatedAt:nowISO(),features:['EMPTY_VALUES_STAY_BLANK','NO_PLACEHOLDER_GUIDANCE_TEXT','DIRECT_PROVIDER_PRICE_AND_PERCENT','NO_APP_PERCENT_CALCULATION','GENELPARA_DIRECT_FX_GOLD','YAHOO_DIRECT_INDEX_CROSS','MULTI_SOURCE_FALLBACK','MANUAL_AND_30M_ONLY','NO_LIFECYCLE_AUTOSTART']}}catch{}
 })();
+
+
+/* ===== REV20.35 — CADENCE-ONLY NETWORK + SAME-SOURCE MARKET INTEGRITY ===== */
+(function installR235CadenceOnlyNetwork(){
+ if(globalThis.__AURUM_R235_CADENCE_ONLY)return;globalThis.__AURUM_R235_CADENCE_ONLY=true;
+ const PORTAL_KEY='aurum.rev224.financePortal.v2';
+ /* Entering/returning to a page must be cache-only. Network collection is legal only when
+    the caller explicitly marks the operation (manual refresh or REV20.32 30-minute tick). */
+ const portalNetwork=globalThis.refreshAurumFinancePortal;
+ if(typeof portalNetwork==='function'){
+   const portalCache=()=>{try{return JSON.parse(localStorage.getItem(PORTAL_KEY)||'null')}catch{return null}};
+   globalThis.refreshAurumFinancePortal=async function r235FinancePortal(explicit=false){
+     if(explicit!==true)return portalCache();
+     return portalNetwork(true);
+   };
+   try{
+     const old=globalThis.AurumNewsPortal||{};
+     globalThis.AurumNewsPortal=Object.freeze({...old,refresh:()=>globalThis.refreshAurumFinancePortal(true)});
+   }catch{}
+ }
+ /* Preserve provider-published percentage integrity: a displayed percentage is never derived
+    locally. Price and percentage remain the same provider record. Timestamp is surfaced. */
+ const baseMarkup=globalThis.marketIndicatorsMarkup;
+ if(typeof baseMarkup==='function'){
+   globalThis.marketIndicatorsMarkup=function r235MarketMarkup(){
+     let out=baseMarkup();
+     try{
+       const f=globalThis.cachedMarketIndicators?.()?.fields||{};
+       const times=Object.values(f).filter(x=>x&&!x.stale&&x.value!=null).map(x=>Date.parse(x.providerAt||x.at||'')).filter(Number.isFinite);
+       const latest=times.length?new Date(Math.max(...times)).toLocaleString('tr-TR',{dateStyle:'short',timeStyle:'short'}):'—';
+       out=out.replace('<div class="r233-market-card">','<div class="r233-market-card"><div class="r233-market-head"><b>Piyasa Akışı</b><small>Fiyat + % aynı kaynaktan · yüzde kaynakta yoksa gösterilmez · kaynak zamanı '+html(latest)+'</small></div>');
+     }catch{}
+     return out;
+   };
+   try{marketIndicatorsMarkup=globalThis.marketIndicatorsMarkup}catch{}
+ }
+ /* No online/offline, focus, visibility, pageshow, page-navigation or application-start listener
+    is registered here. REV20.32 remains the only autonomous market/news cadence owner. */
+ try{AurumUpdateAPI.state.r235={version:'REV20.35-CADENCE-ONLY-NETWORK',activatedAt:nowISO(),features:[
+   'NO_NETWORK_ON_APP_START_OR_ACCESS_RESTORE','NO_NETWORK_ON_FOREGROUND_FOCUS_VISIBILITY_PAGESHOW',
+   'NO_NETWORK_ON_CONNECTIVITY_RESTORE','NO_NETWORK_ON_TAB_CHANGE',
+   'DATA_ONLY_MANUAL_OR_DEFINED_SCHEDULER','MARKET_ONLY_MANUAL_OR_30M_PERIODIC',
+   'FINANCE_PORTAL_ONLY_MANUAL_OR_30M_PERIODIC','PRICE_PERCENT_SAME_PROVIDER_RECORD',
+   'PROVIDER_PERCENT_ONLY_NO_LOCAL_PERCENT_CALCULATION','PERCENT_HIDDEN_IF_PROVIDER_OMITS',
+   'MARKET_SOURCE_TIMESTAMP_VISIBLE','SINGLE_AUTONOMOUS_30M_CADENCE','IDLE_NONBLOCKING_PERIODIC_WORK'
+ ]}}catch{}
+})();
