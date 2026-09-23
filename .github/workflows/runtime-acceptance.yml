@@ -42,6 +42,8 @@ jobs:
           grep -Fq "FAST_NAV_CACHE" app/src/main/assets/runtime.js
           grep -Fq "Sorunları Gider ve Tekrar Doğrula" app/src/main/assets/runtime.js
           grep -Fq "✓ ONARILDI" app/src/main/assets/runtime.js
+          grep -Fq "ACCURACY_" app/src/main/assets/runtime.js
+          ! grep -Fq '${accuracySettingsModule()}${tableAuditSettingsModule()}' app/src/main/assets/runtime.js
           ! grep -Fq 'globalThis.rev20UserRepairModule?.()' app/src/main/assets/runtime.js
           ! grep -Fq 'globalThis.rev20UserRepairModule=' app/src/main/assets/runtime.js
           grep -Fq "runRepairCenter('NATIVE')" app/src/main/assets/runtime.js
