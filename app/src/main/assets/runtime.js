@@ -6143,8 +6143,23 @@ try{AurumUpdateAPI.state.r225={version:'REV20.25-RELIABILITY-FILL-NEWS',activate
     }
     return out;
   }
+  async function tcmb(){
+    const url='https://www.tcmb.gov.tr/kurlar/today.xml',r=await marketRequest(url,{Accept:'application/xml,text/xml,*/*'},'TCMB kurlar');
+    const doc=new DOMParser().parseFromString(await r.text(),'application/xml'),out={};
+    for(const [code,k] of [['USD','USDTRY'],['EUR','EURTRY']]){const el=[...doc.querySelectorAll('Currency')].find(x=>x.getAttribute('CurrencyCode')===code),v=num(el?.querySelector('ForexSelling')?.textContent||el?.querySelector('BanknoteSelling')?.textContent);if(valid(k,v))out[k]={value:v,changePct:null,source:'TCMB_DIRECT',url,providerAt:doc.documentElement?.getAttribute('Tarih')||null,at:nowISO(),direct:true,identityVerified:true,percentOrigin:'PROVIDER_OMITTED',stale:false}}
+    return out;
+  }
+  function deepRows(x,out=[],d=0){if(d>8||x==null)return out;if(Array.isArray(x)){for(const v of x)deepRows(v,out,d+1)}else if(typeof x==='object'){out.push(x);for(const v of Object.values(x))deepRows(v,out,d+1)}return out}
+  function field(row,names){const norm=x=>String(x||'').toLocaleLowerCase('tr-TR').replace(/[^a-z0-9çğıöşü]+/g,'');for(const [k,v] of Object.entries(row||{}))if(names.some(n=>norm(k)===norm(n))){const z=num(v);if(z!=null)return z}return null}
+  async function foreks(){
+    const spec={XU100:[['XU100','E','BIST']],USDTRY:[['SUSD','F','FREE']],EURTRY:[['SEUR','F','FREE']],EURUSD:[['EURUSD','F','FOREX'],['EURUSD','F','FREE']],GRAMTRY:[['ALTIN','F','FREE'],['GLDGR','F','FREE']],GOLDUSD:[['XAUUSD','F','FOREX'],['XAUUSD','F','FREE']]},out={};
+    for(const [k,cands] of Object.entries(spec)){for(const [name,group,exchange] of cands){try{const url='https://web-paragaranti-pubsub.foreks.com/web-services/securities/definition?name='+encodeURIComponent(name)+'&group='+encodeURIComponent(group)+'&exchange='+encodeURIComponent(exchange),r=await marketRequest(url,{Accept:'application/json'},'Foreks '+k),o=await responseJSON(r);for(const row of deepRows(o)){const v=field(row,['last','lastprice','price','fiyat','son','sonfiyat','kapanis','close','value','satis','sell','ask']),p=field(row,['changepercent','changepercentage','percentchange','dailychangepercent','daychangepercent','yuzdedegisim','degisimyuzde','farkyuzde','farkpercent']);const q=quote(k,v,p,'FOREKS_DIRECT',url,row.DateTime||row.dateTime||row.time||row.timestamp||null);if(q){out[k]=q;break}}if(out[k])break}catch{}}
+    }return out;
+  }
   async function refresh(){
-    const rs=await Promise.allSettled([yahoo('query1.finance.yahoo.com'),yahoo('query2.finance.yahoo.com'),bigparaBand(),bigparaExtra(),genelpara()]),fields={},errors=[];
+    const providers=[['TCMB',tcmb],['FOREKS',foreks],['GENELPARA',genelpara],['BIGPARA_BAND',bigparaBand],['BIGPARA_EXTRA',bigparaExtra],['YAHOO_Q1',()=>yahoo('query1.finance.yahoo.com')],['YAHOO_Q2',()=>yahoo('query2.finance.yahoo.com')]],fields={},errors=[];
+    for(const [name,fn] of providers){if(KEYS.every(k=>fields[k]?.value!=null))break;try{const got=await fn();if(got?.__error)errors.push(got.__error);for(const [k,q] of Object.entries(got||{}))if(KEYS.includes(k)&&!fields[k]&&q?.value!=null)fields[k]=q}catch(e){errors.push(name+': '+String(e?.message||e))}}
+
     for(const r of rs){
       if(r.status==='rejected'){errors.push(String(r.reason?.message||r.reason));continue}
       if(r.value?.__error)errors.push(r.value.__error);
