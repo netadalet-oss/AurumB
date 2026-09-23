@@ -6075,3 +6075,48 @@ try{AurumUpdateAPI.state.r225={version:'REV20.25-RELIABILITY-FILL-NEWS',activate
  new MutationObserver(clean).observe(document.documentElement,{subtree:true,childList:true});
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',clean,{once:true});else clean();
 })();
+
+
+/* ===== REV20.40 — STRICT TRIGGERS + COMPLETE DIRECT MARKET =====
+   Lifecycle/connectivity/navigation never starts acquisition. Main tables remain scheduler/manual only.
+   Market indicators remain explicit-manual or the existing 30-minute cadence only.
+   Displayed percentages are provider-published fields from the same quote record; Aurum never computes them. */
+(()=>{
+  if(globalThis.__AURUM_REV2040_FINAL)return;globalThis.__AURUM_REV2040_FINAL=true;
+  const KEY='marketIndicatorsREV2040', KEYS=['XU100','USDTRY','EURTRY','EURUSD','GRAMTRY','GOLDUSD'];
+  const LABELS={XU100:'BIST 100',USDTRY:'USD/TRY',EURTRY:'EUR/TRY',EURUSD:'EUR/USD',GRAMTRY:'Gram Altın',GOLDUSD:'Altın Ons'};
+  const LIMITS={XU100:[1000,100000],USDTRY:[5,500],EURTRY:[5,700],EURUSD:[.5,2],GRAMTRY:[100,50000],GOLDUSD:[500,10000]};
+  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const num=v=>{if(v==null||v==='')return null;if(typeof v==='number')return Number.isFinite(v)?v:null;let x=String(v).replace(/\u00a0/g,' ').trim().replace(/\s+/g,'').replace(/%/g,'').replace(/^\+/,'').replace(/[^0-9,.\-+]/g,'');if(!x)return null;if(x.includes(',')&&x.includes('.'))x=x.lastIndexOf(',')>x.lastIndexOf('.')?x.replace(/\./g,'').replace(',','.'):x.replace(/,/g,'');else if(x.includes(','))x=x.replace(',','.');const n=Number(x);return Number.isFinite(n)?n:null};
+  const valid=(k,v)=>Number.isFinite(Number(v))&&Number(v)>=LIMITS[k][0]&&Number(v)<=LIMITS[k][1];
+  const quote=(k,v,p,source,url,at)=>{v=num(v);p=num(p);if(!valid(k,v)||!Number.isFinite(p)||Math.abs(p)>35)return null;return {value:v,changePct:p,source,url,providerAt:at||null,at:nowISO(),direct:true,identityVerified:true,percentOrigin:'PROVIDER_PUBLISHED',stale:false}};
+  async function yahoo(host){
+    const map={'XU100.IS':'XU100','TRY=X':'USDTRY','EURTRY=X':'EURTRY','EURUSD=X':'EURUSD','GC=F':'GOLDUSD'},src=host.startsWith('query1')?'YAHOO_Q1':'YAHOO_Q2',url='https://'+host+'/v7/finance/quote?symbols='+encodeURIComponent(Object.keys(map).join(','));
+    const r=await fetchWithTimeout(url,{headers:{Accept:'application/json'},cache:'no-store',__provider:'YAHOO_QUOTE'},src+' piyasa quote');if(!r.ok)throw new Error(src+' HTTP '+r.status);
+    const rows=(await responseJSON(r))?.quoteResponse?.result||[],out={};for(const z of rows){const k=map[z?.symbol];if(!k)continue;const q=quote(k,z.regularMarketPrice,z.regularMarketChangePercent,src,url,z.regularMarketTime?new Date(Number(z.regularMarketTime)*1000).toISOString():null);if(q)out[k]=q}return out;
+  }
+  async function bigparaBand(){
+    const url='https://bigpara.hurriyet.com.tr/Partial/GetPiyasaBandContent/?rev=2040',r=await fetchWithTimeout(url,{headers:{Accept:'text/html,*/*;q=0.8'},cache:'no-store',__provider:'BIGPARA'},'Bigpara piyasa bandı');if(!r.ok)throw new Error('Bigpara HTTP '+r.status);
+    const doc=new DOMParser().parseFromString(await r.text(),'text/html'),t=(doc.body?.innerText||doc.body?.textContent||'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim(),out={};
+    const defs={XU100:/BIST\s*100\s+([0-9][0-9.,]*)\s+([+\-−]?[0-9.,]+)\s*%/i,USDTRY:/(?:DOLAR|USD\s*\/\s*TRY)\s+([0-9][0-9.,]*)\s+([+\-−]?[0-9.,]+)\s*%/i,EURTRY:/(?:EURO|EUR\s*\/\s*TRY)\s+([0-9][0-9.,]*)\s+([+\-−]?[0-9.,]+)\s*%/i,GRAMTRY:/(?:GRAM\s*ALTIN|ALTIN)\s+([0-9][0-9.,]*)\s+([+\-−]?[0-9.,]+)\s*%/i};
+    for(const [k,re] of Object.entries(defs)){const m=t.match(re);if(m){const q=quote(k,m[1],m[2],'BIGPARA_BAND',url,null);if(q)out[k]=q}}return out;
+  }
+  async function bigparaExtra(){
+    const jobs=[['EURUSD','https://bigpara.hurriyet.com.tr/doviz/pariteler/',/EUR\s*[\/-]\s*USD[\s\S]{0,220}?([0-9]+[,.][0-9]+)[\s\S]{0,100}?([+\-−][0-9.,]+)\s*%/i],['GOLDUSD','https://bigpara.hurriyet.com.tr/altin/',/(?:Altın\s*\(ONS\)|Altın\s*Ons)[\s\S]{0,260}?([0-9][0-9.,]*)[\s\S]{0,100}?([+\-−][0-9.,]+)\s*%/i]],out={};
+    await Promise.all(jobs.map(async([k,url,re])=>{try{const r=await fetchWithTimeout(url,{headers:{Accept:'text/html,*/*;q=0.8'},cache:'no-store',__provider:'BIGPARA'},'Bigpara '+k);if(!r.ok)return;const d=new DOMParser().parseFromString(await r.text(),'text/html'),t=(d.body?.innerText||d.body?.textContent||'').replace(/\u00a0/g,' ').replace(/\s+/g,' '),m=t.match(re);if(m){const q=quote(k,m[1],m[2],'BIGPARA',url,null);if(q)out[k]=q}}catch{}}));return out;
+  }
+  function cached(){return state.marketIndicators?.source==='REV20.40_DIRECT_PROVIDER'?state.marketIndicators:readLocal(KEY,null)}
+  async function refresh(){
+    const rs=await Promise.allSettled([yahoo('query1.finance.yahoo.com'),yahoo('query2.finance.yahoo.com'),bigparaBand(),bigparaExtra()]),fields={},errors=[];
+    for(const r of rs){if(r.status==='fulfilled')for(const [k,q] of Object.entries(r.value||{}))if(!fields[k]&&q?.value!=null&&Number.isFinite(Number(q.changePct)))fields[k]=q;else if(r.status==='rejected')errors.push(String(r.reason?.message||r.reason))}
+    const old=cached()?.fields||{};for(const k of KEYS)if(!fields[k]&&old[k])fields[k]={...old[k],stale:true,changePct:null};
+    const payload={at:nowISO(),updatedAt:nowISO(),source:'REV20.40_DIRECT_PROVIDER',calculated:false,percentRule:'PROVIDER_PUBLISHED_SAME_RECORD_ONLY',fields,values:Object.fromEntries(KEYS.map(k=>[k,fields[k]?.value??null])),errors:errors.slice(0,8)};
+    state.marketIndicators=payload;writeLocal(KEY,payload);try{await dbPut('meta',{key:KEY,value:payload,updatedAt:nowISO()})}catch{}return payload;
+  }
+  function fmt(v,k){if(!Number.isFinite(Number(v)))return '—';const d=k==='XU100'?0:(k==='USDTRY'||k==='EURTRY'||k==='EURUSD'?4:2);return Number(v).toLocaleString('tr-TR',{minimumFractionDigits:d,maximumFractionDigits:d,useGrouping:true})}
+  function markup(){const f=(cached()||{}).fields||{};return '<div class="aurum-r209-market-wrap" id="aurumDataMarketStrip"><button type="button" class="aurum-r209-market-refresh" title="Piyasa bilgilerini yenile" aria-label="Piyasa bilgilerini yenile" onclick="refreshAurumDataMarketStrip(event)"><span aria-hidden="true">↻</span></button><div class="aurum-r205-market">'+KEYS.map(k=>{const x=f[k]||{},p=x.stale?null:Number(x.changePct),ok=Number.isFinite(p),cls=ok?(p>0?'up':p<0?'down':'flat'):'flat',arrow=ok?(p>0?'↑':p<0?'↓':''):'',pct=ok?((p>0?'+':'')+p.toLocaleString('tr-TR',{minimumFractionDigits:2,maximumFractionDigits:2})+'%'):(x.stale?'eski':'—'),title=[x.source,x.providerAt?'Kaynak zamanı '+x.providerAt:'',ok?'Fiyat ve yüzde aynı sağlayıcı kaydından alınmıştır.':''].filter(Boolean).join(' · ');return '<div class="aurum-r205-market-card" title="'+esc(title)+'"><span class="aurum-r205-market-label">'+LABELS[k]+'</span><strong class="aurum-r205-market-value">'+fmt(x.value,k)+'</strong><span class="aurum-r205-market-pct '+cls+'">'+(arrow?'<i class="aurum-market-dir" aria-hidden="true">'+arrow+'</i>':'')+pct+'</span></div>'}).join('')+'</div></div>'}
+  globalThis.cachedMarketIndicators=cached;globalThis.refreshMarketIndicators=refresh;globalThis.marketIndicatorsMarkup=markup;try{refreshMarketIndicators=refresh;marketIndicatorsMarkup=markup}catch{}
+  globalThis.refreshAurumDataMarketStrip=async function(ev){const btn=ev?.currentTarget||document.querySelector('.aurum-r209-market-refresh');if(btn?.dataset.busy==='1')return false;try{if(btn){btn.dataset.busy='1';btn.disabled=true}await new Promise(r=>requestAnimationFrame(()=>r()));await refresh();const h=document.getElementById('aurumDataMarketStrip');if(h)requestAnimationFrame(()=>{const x=document.getElementById('aurumDataMarketStrip');if(x)x.outerHTML=markup()});return true}catch(e){globalThis.showAurumNotice?.('Piyasa bilgileri alınamadı: '+(e?.message||e),'error',2400);return false}finally{const b=document.querySelector('.aurum-r209-market-refresh');if(b){delete b.dataset.busy;b.disabled=false}}};
+  /* Do not call refresh here. No startup/focus/visibility/pageshow/online listener is installed. */
+  try{AurumUpdateAPI.state.r240={version:'REV20.40-STRICT-TRIGGERS-COMPLETE-DIRECT-MARKET',activatedAt:nowISO(),features:['NO_STARTUP_FETCH','NO_FOREGROUND_FETCH','NO_NETWORK_RESTORE_FETCH','NO_NAVIGATION_FETCH','TABLES_SCHEDULER_OR_MANUAL_ONLY','MARKET_30M_OR_MANUAL_ONLY','PROVIDER_PUBLISHED_PERCENT_ONLY','PRICE_PERCENT_SAME_PROVIDER_RECORD','ASYNC_NONBLOCKING_UI']}}catch{}
+})();
