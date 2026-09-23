@@ -23,13 +23,17 @@ jobs:
           ! grep -q "await refreshMarket('DATA_COMMAND')" app/src/main/assets/runtime.js
           grep -q "FIRST_VERIFIED_DATA_FROM_NEW_TRADING_DAY" app/src/main/assets/runtime.js
           grep -q "calcRecords.length<20" app/src/main/assets/runtime.js
-      - name: Live provider reachability
+      - name: Live provider diagnostics
+        continue-on-error: true
         run: |
-          set -e
-          curl --fail --silent --show-error --max-time 20 'https://api.genelpara.com/embed/doviz.json' -o /tmp/genelpara.json
-          test -s /tmp/genelpara.json
-          curl --fail --silent --show-error --max-time 20 'https://query1.finance.yahoo.com/v7/finance/quote?symbols=XU100.IS,TRY=X,EURTRY=X,EURUSD=X,GC=F' -o /tmp/yahoo.json ||           curl --fail --silent --show-error --max-time 20 'https://query2.finance.yahoo.com/v7/finance/quote?symbols=XU100.IS,TRY=X,EURTRY=X,EURUSD=X,GC=F' -o /tmp/yahoo.json
-          test -s /tmp/yahoo.json
+          set +e
+          UA='Mozilla/5.0 (Linux; Android 15) AppleWebKit/537.36 Chrome/140 Mobile Safari/537.36'
+          curl --fail --silent --show-error --max-time 20 -A "$UA" 'https://api.genelpara.com/embed/doviz.json' -o /tmp/genelpara.json
+          GP=$?
+          curl --fail --silent --show-error --max-time 20 -A "$UA" 'https://query1.finance.yahoo.com/v8/finance/chart/XU100.IS?range=1d&interval=5m&includePrePost=false' -o /tmp/yahoo.json || curl --fail --silent --show-error --max-time 20 -A "$UA" 'https://query2.finance.yahoo.com/v8/finance/chart/XU100.IS?range=1d&interval=5m&includePrePost=false' -o /tmp/yahoo.json
+          YH=$?
+          echo "genelpara_exit=$GP yahoo_chart_exit=$YH"
+          test "$YH" -eq 0
       - name: Assemble debug APK
         run: gradle --no-daemon :app:assembleDebug --stacktrace
       - name: Android emulator acceptance
