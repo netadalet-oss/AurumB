@@ -6143,6 +6143,19 @@ try{AurumUpdateAPI.state.r225={version:'REV20.25-RELIABILITY-FILL-NEWS',activate
     }
     return out;
   }
+  async function altinkaynak(){
+    const out={};
+    for(const [url,defs] of [
+      ['https://static.altinkaynak.com/public/Currency',{USD:'USDTRY',EUR:'EURTRY'}],
+      ['https://static.altinkaynak.com/public/Gold',{GA:'GRAMTRY',XAUUSD:'GOLDUSD'}]
+    ]){
+      try{
+        const r=await marketRequest(url,{Accept:'application/json'},'Altınkaynak piyasa'),rows=await responseJSON(r);
+        for(const row of Array.isArray(rows)?rows:[]){const k=defs[String(row?.Kod||'').toUpperCase()];if(!k)continue;const v=num(row?.Satis??row?.Alis);if(valid(k,v))out[k]={value:v,changePct:null,source:'ALTINKAYNAK_DIRECT',url,providerAt:row?.GuncellenmeZamani||null,at:nowISO(),direct:true,identityVerified:true,percentOrigin:'PROVIDER_OMITTED',stale:false}}
+      }catch(e){out.__error=(out.__error?out.__error+' · ':'')+String(e?.message||e)}
+    }
+    return out;
+  }
   async function tcmb(){
     const url='https://www.tcmb.gov.tr/kurlar/today.xml',r=await marketRequest(url,{Accept:'application/xml,text/xml,*/*'},'TCMB kurlar');
     const doc=new DOMParser().parseFromString(await r.text(),'application/xml'),out={};
@@ -6159,8 +6172,9 @@ try{AurumUpdateAPI.state.r225={version:'REV20.25-RELIABILITY-FILL-NEWS',activate
   async function refresh(){
     const providers=[
       {name:'FOREKS',keys:KEYS,fn:foreks},
-      {name:'TCMB',keys:['USDTRY','EURTRY'],fn:tcmb},
+      {name:'ALTINKAYNAK',keys:['USDTRY','EURTRY','GRAMTRY','GOLDUSD'],fn:altinkaynak},
       {name:'GENELPARA',keys:['USDTRY','EURTRY','GRAMTRY','GOLDUSD'],fn:genelpara},
+      {name:'TCMB',keys:['USDTRY','EURTRY'],fn:tcmb},
       {name:'BIGPARA_BAND',keys:['XU100','USDTRY','EURTRY','GRAMTRY'],fn:bigparaBand},
       {name:'BIGPARA_EXTRA',keys:['EURUSD','GOLDUSD'],fn:bigparaExtra},
       {name:'YAHOO_Q1',keys:['XU100','USDTRY','EURTRY','EURUSD','GOLDUSD'],fn:()=>yahoo('query1.finance.yahoo.com')},
