@@ -2404,8 +2404,6 @@ try{AurumUpdateAPI.state.cleanREV20={version:'REV20.0-CLEAN',activatedAt:new Dat
 
   /* Manual and scheduled S calculations share this single path, so entry/exit transactions
      are generated exactly once after the new S list is finalized. */
-  const baseCalcS=calculateS;
-  calculateS=async function r62CalculateS(...args){const ok=await baseCalcS(...args);if(ok){mark();await save();refreshVisible()}return ok};globalThis.calculateS=calculateS;
 
   injectStyle();
   try{AurumUpdateAPI.state.r62VirtualPortfolio={version:'R62.0',activatedAt:iso(),features:['S_DRIVEN_AUTO_BUY_SELL','5000_DEFAULT_POSITION','100000_BASE_CAPITAL','PERSISTENT_IDB_LEDGER','DAILY_TOTAL_PNL','DATE_WEEK_DAY_FILTERS','MANUAL_ADJUST_REMOVE_RESET','S_P_INDICATOR','DATA_TIMER_MANUAL_MARK_TO_MARKET']}}catch{}
@@ -3462,6 +3460,9 @@ try{AurumUpdateAPI.state.cleanREV20={version:'REV20.0-CLEAN',activatedAt:new Dat
         },updatedAt:sTransferredAt});
       }catch{}
 
+      /* R34 is the effective S owner. Keep the virtual portfolio side effect here rather than
+         in an earlier wrapper that later owner replacements can bypass. */
+      try{mark();await save();refreshVisible()}catch(e){await log('warn','S sanal portföy yardımcı kaydı güncellenemedi; atomik S snapshotı korundu',{error:e?.message||String(e)})}
       await markDerivedUpdate('S');
       await refreshTableMeta();
       await transition(job,JOB_STATUS.COMPLETED,{completedAt:nowISO(),message:`S tamamlandı · ${state.selection.length} hisse`,done:1,total:1});
