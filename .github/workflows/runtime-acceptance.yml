@@ -35,9 +35,11 @@ jobs:
           grep -Fq "{name:'ALTINKAYNAK',keys:['USDTRY','EURTRY','GRAMTRY','GOLDUSD'],fn:altinkaynak}" app/src/main/assets/runtime.js
           grep -Fq "{name:'THEUNAT',keys:['XU100','USDTRY','EURTRY','GOLDUSD'],fn:theunat}" app/src/main/assets/runtime.js
           grep -Fq "{name:'BISTCANLI',keys:['XU100','USDTRY','EURTRY','GRAMTRY','GOLDUSD'],fn:bistCanli}" app/src/main/assets/runtime.js
-          grep -Fq "const missing=p.keys.filter(k=>!fields[k]?.value)" app/src/main/assets/runtime.js
-          grep -Fq "if(KEYS.every(k=>fields[k]?.value!=null))break" app/src/main/assets/runtime.js
+          grep -Fq "const unresolved=p.keys.filter(k=>!complete(fields[k]))" app/src/main/assets/runtime.js
+          grep -Fq "if(KEYS.every(k=>complete(fields[k])))break" app/src/main/assets/runtime.js
           grep -Fq "'static.altinkaynak.com'" app/src/main/assets/native-market-http.js
+          grep -Fq "const complete=q=>q?.value!=null&&Number.isFinite(Number(q.changePct))" app/src/main/assets/runtime.js
+          grep -Fq "else if(fields[k]&&!complete(fields[k])&&complete(old[k]))fields[k]={...old[k],stale:true}" app/src/main/assets/runtime.js
           grep -Fq "'theunat.com'" app/src/main/assets/native-market-http.js
           grep -Fq "'borsaistanbulcanli.com'" app/src/main/assets/native-market-http.js
           grep -Fq "web-paragaranti-pubsub.foreks.com" app/src/main/assets/runtime.js
