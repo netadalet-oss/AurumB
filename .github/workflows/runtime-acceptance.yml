@@ -41,6 +41,9 @@ jobs:
           grep -Fq "await globalThis.AurumPortfolio?.reconcile?.()" app/src/main/assets/runtime.js
           ! grep -Fq "try{mark();await save();refreshVisible()}" app/src/main/assets/runtime.js
           ! grep -Fq "r62CalculateS" app/src/main/assets/runtime.js
+          grep -Fq "add('S_EFFECTIVE_OWNER'" app/src/main/assets/runtime.js
+          grep -Fq "add('S_PORTFOLIO_RECONCILE'" app/src/main/assets/runtime.js
+          grep -Fq "throw new Error('Executable runtime update devre dışı; yeni kod yalnız imzalı APK/AAB ile dağıtılır')" app/src/main/assets/runtime.js
           grep -Fq "FAST_NAV_CACHE" app/src/main/assets/runtime.js
           grep -Fq "Sorunları Gider ve Tekrar Doğrula" app/src/main/assets/runtime.js
           grep -Fq "if(open.has('FAST_PARALLEL_TRANSFER')||open.has('BACKGROUND_STAGING_QUEUE'))await r73FastTransferRepair()" app/src/main/assets/runtime.js
