@@ -474,7 +474,7 @@ async function persistSanitizedRunsAfterStartup(){
   }catch(e){console.warn('Deferred run sanitation persistence failed',e);return false;}
 }
 
-async function saveSettings(){await dbPut('settings',{key:'main',value:state.settings,updatedAt:nowISO()});state.settingsDirty=false;}
+async function saveSettings(){if(!state.db)return false;await dbPut('settings',{key:'main',value:state.settings,updatedAt:nowISO()});state.settingsDirty=false;return true;}
 
 async function log(level,message,meta={}){const rec={id:uid(),ts:nowISO(),at:nowTR(),level,message,meta};state.logs.unshift(rec);state.logs=state.logs.slice(0,300);try{await dbPut('logs',rec)}catch{}return rec;}
 
