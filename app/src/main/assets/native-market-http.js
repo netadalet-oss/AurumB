@@ -13,7 +13,7 @@
     'www.borsaistanbul.com','borsaistanbul.com',
     'news.google.com','www.tcmb.gov.tr','tcmb.gov.tr',
     'script.google.com','script.googleusercontent.com',
-    'api.genelpara.com','static.altinkaynak.com','www.altinkaynak.com','altinkaynak.com'
+    'api.genelpara.com','static.altinkaynak.com','www.altinkaynak.com','altinkaynak.com','theunat.com','www.theunat.com','borsaistanbulcanli.com','www.borsaistanbulcanli.com'
   ]);
   const canHandle=input=>{
     try{const u=new URL(String(input));return u.protocol==='https:'&&allowed.has(u.hostname.toLowerCase())}catch{return false}
