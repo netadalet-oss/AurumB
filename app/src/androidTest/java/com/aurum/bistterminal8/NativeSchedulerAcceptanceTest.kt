@@ -21,6 +21,11 @@ class NativeSchedulerAcceptanceTest {
         // Cancel every known default plus the explicit acceptance slot before mutating prefs.
         // install(false) first would replace the configured list and could orphan an old 12:30 PendingIntent.
         AurumScheduler.cancelKnown(context)
+        cancelPending("03:17")
+        // Clear persisted scheduler ownership explicitly so each instrumentation test starts
+        // from the same disabled state even when Android reuses app data between test methods.
+        context.getSharedPreferences("aurum_scheduler", Context.MODE_PRIVATE)
+            .edit().clear().commit()
         AurumScheduler.install(context, false, emptyList())
         cancelPending("03:17")
     }
