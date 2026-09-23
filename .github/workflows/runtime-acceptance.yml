@@ -21,6 +21,9 @@ jobs:
           ! grep -q "indicatorPromise=refreshMarketIndicators()" app/src/main/assets/runtime.js
           ! grep -q "refreshMarketIndicators(),mode!='LIVE'" app/src/main/assets/runtime.js
           ! grep -q "await refreshMarket('DATA_COMMAND')" app/src/main/assets/runtime.js
+          ! grep -q "prepareGeneralDataR47" app/src/main/assets/runtime.js
+          ! grep -q "prepareMissingDataR47" app/src/main/assets/runtime.js
+          ! grep -q "calculateKnR47" app/src/main/assets/runtime.js
           grep -q "FIRST_VERIFIED_DATA_FROM_NEW_TRADING_DAY" app/src/main/assets/runtime.js
           grep -q "calcRecords.length<20" app/src/main/assets/runtime.js
       - name: Live provider diagnostics
