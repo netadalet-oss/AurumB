@@ -43,6 +43,8 @@ jobs:
           ! grep -Fq "r62CalculateS" app/src/main/assets/runtime.js
           grep -Fq "FAST_NAV_CACHE" app/src/main/assets/runtime.js
           grep -Fq "Sorunları Gider ve Tekrar Doğrula" app/src/main/assets/runtime.js
+          grep -Fq "if(open.has('FAST_PARALLEL_TRANSFER')||open.has('BACKGROUND_STAGING_QUEUE'))await r73FastTransferRepair()" app/src/main/assets/runtime.js
+          ! grep -Fq "open=new Set((before.issues||[]).map(x=>x.id));await r73FastTransferRepair()" app/src/main/assets/runtime.js
           grep -Fq "✓ ONARILDI" app/src/main/assets/runtime.js
           grep -Fq "ACCURACY_" app/src/main/assets/runtime.js
           ! grep -Fq '${accuracySettingsModule()}${tableAuditSettingsModule()}' app/src/main/assets/runtime.js
