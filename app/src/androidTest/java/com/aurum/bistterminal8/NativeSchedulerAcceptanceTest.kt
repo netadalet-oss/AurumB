@@ -22,7 +22,7 @@ class NativeSchedulerAcceptanceTest {
         // install(false) first would replace the configured list and could orphan an old 12:30 PendingIntent.
         AurumScheduler.cancelKnown(context)
         AurumScheduler.install(context, false, emptyList())
-        cancelPending("12:30")
+        cancelPending("03:17")
     }
 
     @Test
@@ -31,7 +31,7 @@ class NativeSchedulerAcceptanceTest {
             scenario.onActivity {
                 // Assert while the Activity is still foregrounded. Closing ActivityScenario emits
                 // pagehide/visibilitychange and may legitimately arm an in-flight background handoff.
-                assertFalse(hasAlarm("12:30"))
+                assertFalse(hasAlarm("03:17"))
             }
         }
     }
@@ -43,26 +43,26 @@ class NativeSchedulerAcceptanceTest {
                 assertEquals(
                     "OK",
                     activity.handleNative(
-                        "aurum://native?cmd=schedule&enabled=1&times=12%3A30",
+                        "aurum://native?cmd=schedule&enabled=1&times=03%3A17",
                         ""
                     )
                 )
             }
         }
-        assertTrue(hasAlarm("12:30"))
+        assertTrue(hasAlarm("03:17"))
 
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             scenario.onActivity { activity ->
                 assertEquals(
                     "OK",
                     activity.handleNative(
-                        "aurum://native?cmd=schedule&enabled=0&times=12%3A30",
+                        "aurum://native?cmd=schedule&enabled=0&times=03%3A17",
                         ""
                     )
                 )
             }
         }
-        assertFalse(hasAlarm("12:30"))
+        assertFalse(hasAlarm("03:17"))
     }
 
     @Test
