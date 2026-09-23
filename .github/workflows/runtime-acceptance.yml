@@ -106,3 +106,5 @@ jobs:
             /tmp/logcat.txt
             /tmp/genelpara.json
             /tmp/yahoo.json
+            app/build/reports/androidTests/**
+            app/build/outputs/androidTest-results/**
