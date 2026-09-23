@@ -22,6 +22,8 @@ jobs:
           ! grep -q "indicatorPromise=refreshMarketIndicators" app/src/main/assets/runtime.js
           test "$(grep -F "Promise.resolve(cachedMarketIndicators())," app/src/main/assets/runtime.js | wc -l)" -eq 2
           grep -Fq "Promise.allSettled([refreshMarketIndicators(),refreshAurumFinancePortal(true)])" app/src/main/assets/runtime.js
+          ! grep -Fq "refreshAurumFinancePortal(false).finally(schedule)" app/src/main/assets/runtime.js
+          grep -Fq "setTimeout(()=>{try{paint(load())}catch{}},0)" app/src/main/assets/runtime.js
           ! grep -q "refreshMarketIndicators(),mode!='LIVE'" app/src/main/assets/runtime.js
           ! grep -q "await refreshMarket('DATA_COMMAND')" app/src/main/assets/runtime.js
           ! grep -q "prepareGeneralDataR47" app/src/main/assets/runtime.js
