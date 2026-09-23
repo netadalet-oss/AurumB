@@ -6119,9 +6119,28 @@ try{AurumUpdateAPI.state.r225={version:'REV20.25-RELIABILITY-FILL-NEWS',activate
     await Promise.all(jobs.map(async([k,url,re])=>{try{const r=await fetchWithTimeout(url,{headers:{Accept:'text/html,*/*;q=0.8'},cache:'no-store',__provider:'BIGPARA'},'Bigpara '+k);if(!r.ok)return;const d=new DOMParser().parseFromString(await r.text(),'text/html'),t=(d.body?.innerText||d.body?.textContent||'').replace(/\u00a0/g,' ').replace(/\s+/g,' '),m=t.match(re);if(m){const q=quote(k,m[1],m[2],'BIGPARA',url,null);if(q)out[k]=q}}catch{}}));return out;
   }
   function cached(){return state.marketIndicators?.source==='REV20.40_DIRECT_PROVIDER'?state.marketIndicators:readLocal(KEY,null)}
+  async function genelpara(){
+    const out={};
+    for(const [list,symbols,defs] of [
+      ['doviz',['USD','EUR'],{USD:'USDTRY',EUR:'EURTRY'}],
+      ['altin',['GA','XAUUSD'],{GA:'GRAMTRY',XAUUSD:'GOLDUSD'}]
+    ]){
+      const url='https://api.genelpara.com/json/?list='+encodeURIComponent(list)+'&sembol='+encodeURIComponent(symbols.join(','));
+      try{
+        const r=await fetchWithTimeout(url,{headers:{Accept:'application/json'},cache:'no-store',__provider:'GENELPARA'},'GenelPara piyasa');if(!r.ok)throw new Error('GenelPara HTTP '+r.status);
+        const o=await responseJSON(r),d=o?.data||{};
+        for(const [sym,k] of Object.entries(defs)){const z=d?.[sym];if(!z)continue;const q=quote(k,z.satis??z.alis??z.fiyat,z.oran??z.degisim,'GENELPARA_DIRECT',url,o?.timestamp||null);if(q)out[k]=q}
+      }catch(e){out.__error=(out.__error?out.__error+' · ':'')+String(e?.message||e)}
+    }
+    return out;
+  }
   async function refresh(){
-    const rs=await Promise.allSettled([yahoo('query1.finance.yahoo.com'),yahoo('query2.finance.yahoo.com'),bigparaBand(),bigparaExtra()]),fields={},errors=[];
-    for(const r of rs){if(r.status==='fulfilled')for(const [k,q] of Object.entries(r.value||{}))if(!fields[k]&&q?.value!=null&&Number.isFinite(Number(q.changePct)))fields[k]=q;else if(r.status==='rejected')errors.push(String(r.reason?.message||r.reason))}
+    const rs=await Promise.allSettled([yahoo('query1.finance.yahoo.com'),yahoo('query2.finance.yahoo.com'),bigparaBand(),bigparaExtra(),genelpara()]),fields={},errors=[];
+    for(const r of rs){
+      if(r.status==='rejected'){errors.push(String(r.reason?.message||r.reason));continue}
+      if(r.value?.__error)errors.push(r.value.__error);
+      for(const [k,q] of Object.entries(r.value||{}))if(KEYS.includes(k)&&!fields[k]&&q?.value!=null&&Number.isFinite(Number(q.changePct)))fields[k]=q;
+    }
     const old=cached()?.fields||{};for(const k of KEYS)if(!fields[k]&&old[k])fields[k]={...old[k],stale:true,changePct:null};
     const payload={at:nowISO(),updatedAt:nowISO(),source:'REV20.40_DIRECT_PROVIDER',calculated:false,percentRule:'PROVIDER_PUBLISHED_SAME_RECORD_ONLY',fields,values:Object.fromEntries(KEYS.map(k=>[k,fields[k]?.value??null])),errors:errors.slice(0,8)};
     state.marketIndicators=payload;writeLocal(KEY,payload);try{await dbPut('meta',{key:KEY,value:payload,updatedAt:nowISO()})}catch{}return payload;
