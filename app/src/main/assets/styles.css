@@ -902,3 +902,14 @@ input[type="range"][id^="aurumScaleVal_"]{height:3px;accent-color:currentColor;v
 .r225-news-url{white-space:normal!important;overflow:visible!important;text-overflow:clip!important;overflow-wrap:anywhere;word-break:break-word;line-height:1.25;max-width:72%}
 .r207-news-link{align-items:flex-start}
 .aurum-market-dir{font-weight:500!important;opacity:.92}
+
+
+/* REV20.33 unified two-row market feed card */
+.r233-market-wrap{position:relative;width:100%;padding:0!important}
+.r233-market-wrap>.aurum-r209-market-refresh{top:8px!important;right:8px!important;width:26px!important;height:26px!important;z-index:3;opacity:.82!important}
+.r233-market-card{width:100%;border:1px solid rgba(212,175,55,.18);border-radius:14px;background:linear-gradient(145deg,rgba(5,15,43,.92),rgba(1,7,24,.98));padding:9px 38px 9px 10px;box-shadow:var(--soft-shadow)}
+.r233-market-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}.r233-market-head b{font-size:11px;color:var(--gold2);letter-spacing:.04em}.r233-market-head small{font-size:8px;color:var(--muted);text-align:right}
+.r233-market-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px 8px}
+.r233-market-line{min-width:0;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"name pct" "value source";align-items:center;gap:1px 5px;padding:4px 2px;border-bottom:1px solid rgba(255,255,255,.045)}
+.r233-market-name{grid-area:name;font-size:8px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.r233-market-line strong{grid-area:value;font-size:10px;font-weight:650;font-variant-numeric:tabular-nums;white-space:nowrap}.r233-market-line .aurum-r205-market-pct{grid-area:pct;font-size:8px;text-align:right;white-space:nowrap}.r233-market-line small{grid-area:source;font-size:6.7px;color:#718097;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media(max-width:420px){.r233-market-card{padding:8px 34px 8px 8px}.r233-market-grid{gap:3px 5px}.r233-market-head small{font-size:7px}.r233-market-line strong{font-size:9.2px}.r233-market-name,.r233-market-line .aurum-r205-market-pct{font-size:7.4px}.r233-market-line small{font-size:6.2px}}
