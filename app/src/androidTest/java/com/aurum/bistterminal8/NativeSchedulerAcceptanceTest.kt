@@ -18,8 +18,11 @@ class NativeSchedulerAcceptanceTest {
 
     @Before
     fun resetScheduler() {
-        AurumScheduler.install(context, false, emptyList())
+        // Cancel every known default plus the explicit acceptance slot before mutating prefs.
+        // install(false) first would replace the configured list and could orphan an old 12:30 PendingIntent.
         AurumScheduler.cancelKnown(context)
+        AurumScheduler.install(context, false, emptyList())
+        cancelPending("12:30")
     }
 
     @Test
@@ -74,6 +77,20 @@ class NativeSchedulerAcceptanceTest {
     }
 
     private fun hasAlarm(time: String): Boolean = pendingExists(time)
+
+    private fun cancelPending(time: String) {
+        val intent = android.content.Intent(context, TriggerReceiver::class.java)
+            .setAction("com.aurum.bistterminal8.SCHEDULED_SLOT")
+        android.app.PendingIntent.getBroadcast(
+            context,
+            time.hashCode(),
+            intent,
+            android.app.PendingIntent.FLAG_NO_CREATE or android.app.PendingIntent.FLAG_IMMUTABLE
+        )?.let { pi ->
+            context.getSystemService(android.app.AlarmManager::class.java).cancel(pi)
+            pi.cancel()
+        }
+    }
 
     private fun pendingExists(time: String): Boolean {
         val intent = android.content.Intent(context, TriggerReceiver::class.java)
