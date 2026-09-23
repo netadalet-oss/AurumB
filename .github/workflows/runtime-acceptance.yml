@@ -32,7 +32,10 @@ jobs:
           grep -Fq "async function marketRequest" app/src/main/assets/runtime.js
           grep -Fq "native?.canHandle?.(url)" app/src/main/assets/runtime.js
           grep -Fq "'api.genelpara.com'" app/src/main/assets/native-market-http.js
-          grep -Fq "Promise.allSettled([yahoo('query1.finance.yahoo.com'),yahoo('query2.finance.yahoo.com'),bigparaBand(),bigparaExtra(),genelpara()])" app/src/main/assets/runtime.js
+          grep -Fq "const providers=[['TCMB',tcmb],['FOREKS',foreks],['GENELPARA',genelpara],['BIGPARA_BAND',bigparaBand],['BIGPARA_EXTRA',bigparaExtra],['YAHOO_Q1'" app/src/main/assets/runtime.js
+          grep -Fq "if(KEYS.every(k=>fields[k]?.value!=null))break" app/src/main/assets/runtime.js
+          grep -Fq "web-paragaranti-pubsub.foreks.com" app/src/main/assets/runtime.js
+          grep -Fq "www.tcmb.gov.tr/kurlar/today.xml" app/src/main/assets/runtime.js
           grep -Fq "FINANCE_PORTAL_CACHE" app/src/main/assets/runtime.js
           grep -Fq "renderCached:()=>{const c=load();return c?render(c):''}" app/src/main/assets/runtime.js
           grep -Fq "portalHtml=globalThis.AurumNewsPortal?.renderCached?.()||''" app/src/main/assets/runtime.js
