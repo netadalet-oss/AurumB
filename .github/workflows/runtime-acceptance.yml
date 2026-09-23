@@ -54,8 +54,8 @@ jobs:
           disable-animations: false
           script: |
             set -e
-            APK=$(find app/build/outputs/apk/debug -name '*.apk' | head -1)
-            adb install -r "$APK"
+            test -f app/build/outputs/apk/debug/app-debug.apk
+            adb install -r app/build/outputs/apk/debug/app-debug.apk
             adb shell am force-stop com.aurum.rev20.smartfastx.debug
             adb shell am start -W -n com.aurum.rev20.smartfastx.debug/com.aurum.bistterminal8.MainActivity
             sleep 8
