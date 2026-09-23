@@ -4532,7 +4532,7 @@ try{AurumUpdateAPI.state.cleanREV20={version:'REV20.0-CLEAN',activatedAt:new Dat
   const BASE=.9, scaleKey='aurum.uiScale.v1',keys=['ui','table','static','card','icon'];
   function sr(){try{return JSON.parse(localStorage.getItem(scaleKey)||'{}')}catch{return {}}}
   function apply(){const x=sr(),b=document.body;if(!b)return;for(const k of keys){const o=x[k]||{on:true,v:BASE},v=Math.max(.9,Math.min(1.1,Number(o.v)||BASE));b.classList.toggle('aurum-scale-'+k,o.on!==false);document.documentElement.style.setProperty(`--aurum-${k==='ui'?'ui-text':k}-scale`,String(v))}}
-  globalThis.saveAurumUiScale=function(){const x={};for(const k of keys){const pct=Math.max(90,Math.min(110,Number(document.getElementById('aurumScaleVal_'+k)?.value||100));x[k]={on:!!document.getElementById('aurumScaleOn_'+k)?.checked,v:pct/100}};localStorage.setItem(scaleKey,JSON.stringify(x));apply();showAurumNotice('Arayüz boyutları uygulandı','success',1800)};
+  globalThis.saveAurumUiScale=function(){const x={};for(const k of keys){const pct=Math.max(90,Math.min(110,Number(document.getElementById('aurumScaleVal_'+k)?.value||100)));x[k]={on:!!document.getElementById('aurumScaleOn_'+k)?.checked,v:pct/100}};localStorage.setItem(scaleKey,JSON.stringify(x));apply();showAurumNotice('Arayüz boyutları uygulandı','success',1800)};
   globalThis.resetAurumUiScale=function(){const x={};for(const k of keys)x[k]={on:true,v:BASE};localStorage.setItem(scaleKey,JSON.stringify(x));apply();try{renderCurrentPagePreservingView?.()}catch{}};
 })();
 /* R2 settings usability: modules collapsed by default; scale controls get an exact
