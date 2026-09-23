@@ -1311,8 +1311,7 @@ globalThis.recalculateSelectionTable=runManualS;
 globalThis.recalculateAllTables=()=>{showAurumNotice('Manuel modda tablolar ayrı ayrı ve sırayla çalıştırılır.','info',3200);return false};
 globalThis.AurumRuntime=Object.freeze({version:AURUM_RUNTIME_VERSION,status:currentRuntime,summary:dataSummary,manualSequence,manualData:runManualData,manualKn:runManualKn,manualHistorical:runManualHistorical,manualS:runManualS,resume:resumePendingJobs,scheduled:scheduledEntry,providerOrder,togglePause,command:operationCommand,tableTimePanel,operationStrip,jobStatus:JOB_STATUS});
 
-bootstrapClean();
-
+/* Bootstrap is deferred until this runtime file has installed all effective owners below.\n   Starting here races later loadState wrappers (notably persistent portfolio/timestamp state)\n   against IndexedDB initialization and can issue meta transactions while state.db is null. */\n
 
 /* Embedded R47 compatibility layer */
 /* AurumB R46 compatibility update for R45/R44-compatible appVersionCode 120.
@@ -6121,3 +6120,7 @@ try{AurumUpdateAPI.state.r225={version:'REV20.25-RELIABILITY-FILL-NEWS',activate
   /* Do not call refresh here. No startup/focus/visibility/pageshow/online listener is installed. */
   try{AurumUpdateAPI.state.r240={version:'REV20.40-STRICT-TRIGGERS-COMPLETE-DIRECT-MARKET',activatedAt:nowISO(),features:['NO_STARTUP_FETCH','NO_FOREGROUND_FETCH','NO_NETWORK_RESTORE_FETCH','NO_NAVIGATION_FETCH','TABLES_SCHEDULER_OR_MANUAL_ONLY','MARKET_30M_OR_MANUAL_ONLY','PROVIDER_PUBLISHED_PERCENT_ONLY','PRICE_PERCENT_SAME_PROVIDER_RECORD','ASYNC_NONBLOCKING_UI']}}catch{}
 })();
+
+
+/* Canonical startup: all runtime owner replacements are installed before IndexedDB/state load begins. */
+bootstrapClean();
