@@ -34,6 +34,12 @@ jobs:
           YH=$?
           echo "genelpara_exit=$GP yahoo_chart_exit=$YH"
           test "$YH" -eq 0
+      - name: Enable KVM acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          test -e /dev/kvm
       - name: Assemble debug APK
         run: gradle --no-daemon :app:assembleDebug --stacktrace
       - name: Android emulator acceptance
@@ -41,7 +47,11 @@ jobs:
         with:
           api-level: 35
           arch: x86_64
-          disable-animations: true
+          cores: 2
+          ram-size: 2048M
+          emulator-boot-timeout: 900
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
+          disable-animations: false
           script: |
             set -e
             APK=$(find app/build/outputs/apk/debug -name '*.apk' | head -1)
