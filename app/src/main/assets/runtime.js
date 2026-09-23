@@ -2383,7 +2383,7 @@ try{AurumUpdateAPI.state.cleanREV20={version:'REV20.0-CLEAN',activatedAt:new Dat
 
   /* Load the persistent portfolio immediately after the application's canonical state. */
   const baseLoadState=loadState;
-  loadState=async function r62LoadState(){const r=await baseLoadState();await load();await reconcile('UYGULAMA_ACILISI',{initial:!VP.transactions.length});return r};globalThis.loadState=loadState;
+  loadState=async function r62LoadState(){const r=await baseLoadState();const persistedSync=(await dbGet('meta','lastSuccessfulSync'))?.value,activeSnapshot=(await dbGet('meta','activeDataSnapshot'))?.value||null;state.lastSuccessfulSync=persistedSync||activeSnapshot?.transferredAt||activeSnapshot?.completedAt||state.lastSuccessfulSync||null;await load();await reconcile('UYGULAMA_ACILISI',{initial:!VP.transactions.length});return r};globalThis.loadState=loadState;
 
   /* Every successful data acquisition marks current holdings with the newly published prices. */
   const basePrepare=prepareData;
