@@ -3649,25 +3649,21 @@ try{AurumUpdateAPI.state.cleanREV20={version:'REV20.0-CLEAN',activatedAt:new Dat
       const ranked=applyHistoryToFrozenBase(base.rows);
       const topN=Math.max(20,Number(state.settings.topN||20));
       if(ranked.length<20)throw new Error(`S için 20 hisse üretilemedi; deterministik tabanda ${ranked.length} uygun hisse var`);
-      state.selection=ranked.slice(0,topN);
-      /* Keep Kn tables untouched. Only S model lookup is updated for selected/known candidates. */
-      state.modelBySym=new Map(ranked.map(x=>[x.sym,x]));
-
-      await updateSelectionLifecycle();
-
-      const persisted=state.selection.map(x=>{
+      const nextSelection=ranked.slice(0,topN);
+      const nextModelBySym=new Map(ranked.map(x=>[x.sym,x]));
+      const persisted=nextSelection.map(x=>{
         const y={...x};delete y.record;return y;
       });
-      const outFp=outputFingerprint(state.selection);
+      const outFp=outputFingerprint(nextSelection);
       const at=nowISO();
 
-      await dbPut('meta',{key:'selectionTableState',value:{
+      const tableState={key:'selectionTableState',value:{
         dataSnapshotId:snapshotId,rowsVersion:4,rows:persisted,updatedAt:at,
         formula:'R34_FROZEN_KN_BASE_PLUS_FROZEN_K_HISTORY',
         formulaInputFingerprint,outputFingerprint:outFp
-      },updatedAt:at});
+      },updatedAt:at};
 
-      const currentSymbols=canon(state.selection).slice(0,20);
+      const currentSymbols=canon(nextSelection).slice(0,20);
       const previousSymbols=canon(prev.symbols||[]).slice(0,20);
       const d=diff(previousSymbols,currentSymbols);
       const valid=currentSymbols.length===20&&(previousSymbols.length===0||previousSymbols.length===20);
@@ -3685,28 +3681,28 @@ try{AurumUpdateAPI.state.cleanREV20={version:'REV20.0-CLEAN',activatedAt:new Dat
       const sameOutput=prev.outputFingerprint===outFp;
       const changedAt=sameOutput&&prev.changedAt?prev.changedAt:at;
 
-      state.tableMetrics=state.tableMetrics||{};
-      state.tableMetrics.s={...(state.tableMetrics.s||{}),
-        gln:gln.length?gln.join(' · '):'—',gdn:gdn.length?gdn.join(' · '):'—',
-        glnChangedAt,gdnChangedAt};
-
-      await dbPut('meta',{key:'selectionSnapshot',value:{
+      const selectionSnapshot={key:'selectionSnapshot',value:{
         dataSnapshotId:snapshotId,at,transferredAt:at,changedAt,
-        fingerprint:selectionTableFingerprint(),outputFingerprint:outFp,
+        fingerprint:outFp,outputFingerprint:outFp,
         formulaInputFingerprint,symbols:currentSymbols,gln,gdn,glnChangedAt,gdnChangedAt,
         glnGdnBasis:'REAL_MEMBERSHIP_CHANGE_ONLY_R34',
         formula:'FROZEN_KN_MODEL_BASE + K_TARIHSEL_RECENCY',
         modelContextAt:base.modelContextAt
-      },updatedAt:at});
-
-      await dbPut('meta',{key:AUDIT_KEY,value:{
+      },updatedAt:at};
+      const auditRow={key:AUDIT_KEY,value:{
         at,dataSnapshotId:snapshotId,knFingerprint:kn.fingerprint||null,
         historicalFingerprint:histFingerprint,baseFingerprint:base.fingerprint||null,
         formulaInputFingerprint,outputFingerprint:outFp,
         previousOutputFingerprint:prev.outputFingerprint||null,
         incoming:d.in,outgoing:d.out,orderedSymbols:currentSymbols,
         proof:'NO_WALL_CLOCK_NO_REBUILD_NO_LIVE_CALIBRATION_NO_MUTABLE_BONUS'
-      },updatedAt:at});
+      },updatedAt:at};
+      await new Promise((resolve,reject)=>{const tx=state.db.transaction('meta','readwrite'),ms=tx.objectStore('meta');ms.put(tableState);ms.put(selectionSnapshot);ms.put(auditRow);tx.oncomplete=()=>resolve(true);tx.onerror=()=>reject(tx.error||new Error('S_ATOMIC_META_TX_FAILED'));tx.onabort=()=>reject(tx.error||new Error('S_ATOMIC_META_TX_ABORTED'));});
+      state.selection=nextSelection;
+      state.modelBySym=nextModelBySym;
+      state.tableMetrics=state.tableMetrics||{};
+      state.tableMetrics.s={...(state.tableMetrics.s||{}),gln:gln.length?gln.join(' · '):'—',gdn:gdn.length?gdn.join(' · '):'—',glnChangedAt,gdnChangedAt};
+      try{await updateSelectionLifecycle()}catch(e){await log('warn','S lifecycle yardımcı kaydı güncellenemedi; atomik S snapshotı korundu',{error:e?.message||String(e)})}
 
       if(previousSymbols.length===20&&valid&&(d.in.length||d.out.length)){
         const notice=`${d.in.length?'AL '+d.in.join(', '):''}${d.in.length&&d.out.length?' · ':''}${d.out.length?'SAT '+d.out.join(', '):''}`;
