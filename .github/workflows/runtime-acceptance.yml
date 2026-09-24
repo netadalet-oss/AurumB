@@ -30,6 +30,12 @@ jobs:
           grep -Fq "REV20.40_DIRECT_PROVIDER" app/src/main/assets/runtime.js
           grep -Fq "GENELPARA_DIRECT" app/src/main/assets/runtime.js
           grep -Fq "async function marketRequest" app/src/main/assets/runtime.js
+          grep -Fq "const complete=k=>fields[k]?.value!=null&&Number.isFinite(Number(fields[k]?.changePct))" app/src/main/assets/runtime.js
+          grep -Fq "const missing=covers.filter(k=>!complete(k))" app/src/main/assets/runtime.js
+          grep -Fq "['ALTINKAYNAK',['USDTRY','EURTRY','GRAMTRY','GOLDUSD'],altinkaynak]" app/src/main/assets/runtime.js
+          grep -Fq "['THEUNAT',['XU100','USDTRY','EURTRY','GOLDUSD'],theunat]" app/src/main/assets/runtime.js
+          grep -Fq "['BISTCANLI',['XU100','USDTRY','EURTRY','GRAMTRY','GOLDUSD'],bistCanli]" app/src/main/assets/runtime.js
+          grep -Fq "idle(()=>globalThis.refreshMarketIndicators?.())" app/src/main/assets/runtime.js
           grep -Fq "native?.canHandle?.(url)" app/src/main/assets/runtime.js
           grep -Fq "'api.genelpara.com'" app/src/main/assets/native-market-http.js
           grep -Fq "'static.altinkaynak.com'" app/src/main/assets/native-market-http.js
