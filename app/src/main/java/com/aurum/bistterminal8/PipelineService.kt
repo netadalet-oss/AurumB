@@ -59,7 +59,7 @@ class PipelineService : Service() {
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                     val uri = request.url
                     if (uri.scheme == "aurum" && uri.host == "complete") {
-                        SchedulerLedger.complete(this@PipelineService, jobToken, "COMPLETED", "")
+                        if (manualMode == null) SchedulerLedger.complete(this@PipelineService, jobToken, "COMPLETED", "")
                         stopSelf(startId)
                         return true
                     }
