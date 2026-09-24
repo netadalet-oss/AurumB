@@ -8,6 +8,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.net.Uri
 import android.os.Bundle
+import android.os.PowerManager
 import android.webkit.JavascriptInterface
 import android.webkit.JsPromptResult
 import android.webkit.WebChromeClient
@@ -26,6 +27,7 @@ import java.io.OutputStreamWriter
 class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
     private var exportFolder: Uri? = null
+    private var transferWakeLock: PowerManager.WakeLock? = null
 
     private val folderPicker = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) {
@@ -129,7 +131,21 @@ class MainActivity : AppCompatActivity() {
                 if (id.isBlank()) "ERR:MISSING_REQUEST_ID"
                 else { NativeMarketHttp.cancel(id); "OK" }
             }
-            "http_request" -> {
+            "transfer_keepalive" -> {
+                val enabled = uri.getQueryParameter("enabled") != "0"
+                if (enabled) {
+                    if (transferWakeLock?.isHeld != true) {
+                        transferWakeLock = (getSystemService(POWER_SERVICE) as PowerManager)
+                            .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "AurumB:ActiveTransfer")
+                            .apply { setReferenceCounted(false); acquire(6 * 60 * 60 * 1000L) }
+                    }
+                } else {
+                    transferWakeLock?.let { if (it.isHeld) it.release() }
+                    transferWakeLock = null
+                }
+                "OK"
+            }
+                        "http_request" -> {
                 val id = uri.getQueryParameter("requestId").orEmpty()
                 val url = uri.getQueryParameter("url").orEmpty()
                 if (id.isBlank()) "ERR:MISSING_REQUEST_ID"
@@ -193,15 +209,7 @@ class MainActivity : AppCompatActivity() {
                 uri.getQueryParameter("tag").orEmpty(),
                 uri.getQueryParameter("channel").orEmpty().ifBlank { "aurum_pipeline" }
             )
-            "pipeline_start" -> {
-                val mode = uri.getQueryParameter("mode").orEmpty().ifBlank { "FULL" }
-                val service = android.content.Intent(this, PipelineService::class.java)
-                    .putExtra("epoch", System.currentTimeMillis())
-                    .putExtra("manualMode", mode)
-                androidx.core.content.ContextCompat.startForegroundService(this, service)
-                "OK"
-            }
-                        "schedule" -> {
+            "schedule" -> {
                 val enabled = uri.getQueryParameter("enabled") != "0"
                 val times = uri.getQueryParameter("times").orEmpty()
                     .split(',').map(String::trim).filter(String::isNotEmpty)
@@ -316,6 +324,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        transferWakeLock?.let { if (it.isHeld) it.release() }
+        transferWakeLock = null
         webView.removeJavascriptInterface("AurumNativeBridge")
         webView.destroy()
         super.onDestroy()
