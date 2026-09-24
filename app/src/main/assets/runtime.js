@@ -6132,6 +6132,38 @@ try{AurumUpdateAPI.state.r225={version:'REV20.25-RELIABILITY-FILL-NEWS',activate
   try{marketPage=globalThis.marketPage}catch{}
 })();
 
+/* ===== REV20.42 — PERSISTENT MARKET UI STATE CONTRACT =====
+   Last successfully rendered market indicators and finance portal stay visible until a
+   successful refresh replaces them. Failed/empty refreshes and unrelated renders never erase them. */
+(()=>{
+  if(globalThis.__AURUM_REV2042_PERSISTENT_MARKET_UI)return;globalThis.__AURUM_REV2042_PERSISTENT_MARKET_UI=true;
+  const SNAP='aurum.rev2042.market.ui.snapshot';
+  const read=()=>{try{return JSON.parse(localStorage.getItem(SNAP)||'null')}catch{return null}};
+  const write=x=>{try{localStorage.setItem(SNAP,JSON.stringify(x))}catch{}};
+  const saveDom=()=>{
+    const old=read()||{},strip=document.getElementById('aurumDataMarketStrip'),portal=document.getElementById('aurumFinancePortal');
+    const next={...old,updatedAt:nowISO()};
+    if(strip&&strip.innerHTML.trim()&&!/—/.test(strip.textContent||''))next.marketHtml=strip.outerHTML;
+    if(portal&&portal.innerHTML.trim()&&!/hazırlanıyor/i.test(portal.textContent||''))next.portalHtml=portal.innerHTML;
+    if(next.marketHtml||next.portalHtml)write(next);
+  };
+  const restoreDom=()=>{
+    const s=read();if(!s)return false;
+    const strip=document.getElementById('aurumDataMarketStrip'),portal=document.getElementById('aurumFinancePortal');
+    if(strip&&s.marketHtml&&(/—/.test(strip.textContent||'')||!strip.textContent?.trim()))strip.outerHTML=s.marketHtml;
+    if(portal&&s.portalHtml&&(/hazırlanıyor/i.test(portal.textContent||'')||!portal.textContent?.trim()))portal.innerHTML=s.portalHtml;
+    return true;
+  };
+  const observer=new MutationObserver(()=>{restoreDom();saveDom()});
+  const start=()=>{try{observer.observe(document.body,{childList:true,subtree:true});restoreDom();saveDom()}catch{}};
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else queueMicrotask(start);
+  const oldRender=globalThis.renderCurrentPagePreservingView;
+  if(typeof oldRender==='function')globalThis.renderCurrentPagePreservingView=function r242StableRender(){
+    saveDom();const r=oldRender.apply(this,arguments);queueMicrotask(()=>{restoreDom();saveDom()});return r;
+  };
+  globalThis.AurumPersistentMarketUI=Object.freeze({save:saveDom,restore:restoreDom});
+})();
+
 /* ===== REV20.40 — STRICT TRIGGERS + COMPLETE DIRECT MARKET =====
    Lifecycle/connectivity/navigation never starts acquisition. Main tables remain scheduler/manual only.
    Market indicators remain explicit-manual or the existing 30-minute cadence only.
