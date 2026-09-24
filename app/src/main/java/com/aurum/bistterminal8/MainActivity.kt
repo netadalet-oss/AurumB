@@ -193,7 +193,15 @@ class MainActivity : AppCompatActivity() {
                 uri.getQueryParameter("tag").orEmpty(),
                 uri.getQueryParameter("channel").orEmpty().ifBlank { "aurum_pipeline" }
             )
-            "schedule" -> {
+            "pipeline_start" -> {
+                val mode = uri.getQueryParameter("mode").orEmpty().ifBlank { "FULL" }
+                val service = android.content.Intent(this, PipelineService::class.java)
+                    .putExtra("epoch", System.currentTimeMillis())
+                    .putExtra("manualMode", mode)
+                androidx.core.content.ContextCompat.startForegroundService(this, service)
+                "OK"
+            }
+                        "schedule" -> {
                 val enabled = uri.getQueryParameter("enabled") != "0"
                 val times = uri.getQueryParameter("times").orEmpty()
                     .split(',').map(String::trim).filter(String::isNotEmpty)
