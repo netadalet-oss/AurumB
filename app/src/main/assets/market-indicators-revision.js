@@ -14,6 +14,8 @@
   const YSYM={XU100:'XU100.IS',USDTRY:'TRY=X',EURTRY:'EURTRY=X',GOLDUSD:'GC=F'};
   const OZ=31.1034768;
   const priorRefresh=globalThis.refreshMarketIndicators;
+  const priorCached=globalThis.cachedMarketIndicators;
+  let armed=false, manualPending=false, autoTimer=null;
   const finite=v=>{const n=Number(v);return Number.isFinite(n)?n:null};
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const pct=(v,p)=>Number.isFinite(v)&&Number.isFinite(p)&&p!==0?(v/p-1)*100:null;
@@ -55,7 +57,11 @@
     return null;
   }
 
-  async function refresh(){
+  async function refresh(opts={}){
+    const force=opts?.force===true;
+    const auto=opts?.auto===true;
+    if(!force&&!auto&&!manualPending)return cached();
+    manualPending=false;
     const errors=[];
     let base=null;
     try{if(typeof priorRefresh==='function')base=await priorRefresh()}catch(e){errors.push('çoklu kaynak: '+String(e?.message||e))}
@@ -116,7 +122,7 @@
       fields.GOLDUSD={value,previousClose,changePct:pct(value,previousClose),source:'DERIVED_GRAMTRY_USDTRY',providerAt:[fields.GRAMTRY?.providerAt,fields.USDTRY?.providerAt].filter(Boolean).sort()[0]||null,at:new Date().toISOString(),direct:false,stale:false,percentOrigin:'DERIVED_FROM_PREVIOUS_CLOSE'};
     }
 
-    const old=(globalThis.cachedMarketIndicators?.()||{}).fields||{};
+    const old=(cached()||{}).fields||{};
     for(const k of KEYS)if(!fields[k]&&old[k])fields[k]={...old[k],stale:true};
 
     const payload={at:new Date().toISOString(),updatedAt:new Date().toISOString(),source:'REV20.41_COMPLETE_MARKET',
@@ -128,7 +134,12 @@
     return payload;
   }
 
-  function cached(){return state.marketIndicators?.source==='REV20.41_COMPLETE_MARKET'?state.marketIndicators:readLocal(KEY,null)||globalThis.cachedMarketIndicators?.()||null}
+  function cached(){return state.marketIndicators?.source==='REV20.41_COMPLETE_MARKET'?state.marketIndicators:readLocal(KEY,null)||(typeof priorCached==='function'?priorCached():null)||null}
+  function armAutoRefresh(){
+    if(armed)return;
+    armed=true;
+    if(autoTimer==null)autoTimer=setInterval(()=>{void refresh({auto:true})},30*60*1000);
+  }
   function fmt(v,k){if(!Number.isFinite(Number(v)))return '—';const d=k==='XU100'?0:(k==='USDTRY'||k==='EURTRY'||k==='EURUSD'?4:2);return Number(v).toLocaleString('tr-TR',{minimumFractionDigits:d,maximumFractionDigits:d,useGrouping:true})}
   function markup(){
     const f=(cached()||{}).fields||{};
@@ -148,16 +159,25 @@
     if(btn?.dataset.busy==='1')return false;
     try{
       if(btn){btn.dataset.busy='1';btn.disabled=true}
-      await refresh();
+      armAutoRefresh();
+      await refresh({force:true});
       const h=document.getElementById('aurumDataMarketStrip');if(h)h.outerHTML=markup();
       return true;
     }catch(e){globalThis.showAurumNotice?.('Piyasa bilgileri alınamadı: '+(e?.message||e),'error',2400);return false}
     finally{const b=document.querySelector('.aurum-r209-market-refresh');if(b){delete b.dataset.busy;b.disabled=false}}
   };
 
-  // Her uygulama açılışında bir kez; UI çizimini bloke etmeden.
-  const startup=()=>setTimeout(async()=>{try{await refresh();const h=document.getElementById('aurumDataMarketStrip');if(h)h.outerHTML=markup();if(state?.page==='market')try{renderCurrentPagePreservingView()}catch{}}catch{}},0);
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',startup,{once:true});else startup();
+  // Uygulama açılışında ağ isteği yapılmaz. Kullanıcı ilk yenilemeyi yaptığında
+  // otomatik 30 dakikalık döngü o andan itibaren başlar. Eski REV20.32 zamanlayıcısından
+  // gelen çağrılar, kullanıcı henüz başlatmadıysa veya bizim auto çağrımız değilse no-op olur.
+  document.addEventListener('click',ev=>{
+    const el=ev.target?.closest?.('button,[role="button"]');
+    const txt=(el?.textContent||'').trim().toLocaleLowerCase('tr-TR');
+    if(txt.includes('piyasayı yenile')||txt.includes('piyasayi yenile')){
+      manualPending=true;
+      armAutoRefresh();
+    }
+  },true);
 
-  try{AurumUpdateAPI.state.r241={version:'REV20.41-COMPLETE-MARKET-STARTUP',activatedAt:new Date().toISOString(),features:['STARTUP_REFRESH','EXISTING_30M_CADENCE','MANUAL_REFRESH','MULTI_SOURCE_BASE_VALUES','PREVIOUS_CLOSE_PERCENT_FALLBACK','DERIVED_EURUSD','DERIVED_GOLD_OUNCE','MARKET_ONLY_SCOPE']}}catch{}
+  try{AurumUpdateAPI.state.r241={version:'REV20.41-COMPLETE-MARKET-MANUAL-ARM',activatedAt:new Date().toISOString(),features:['NO_STARTUP_REFRESH','MANUAL_ARMED_30M_CADENCE','MANUAL_REFRESH','MULTI_SOURCE_BASE_VALUES','PREVIOUS_CLOSE_PERCENT_FALLBACK','DERIVED_EURUSD','DERIVED_GOLD_OUNCE','MARKET_ONLY_SCOPE']}}catch{}
 })();
