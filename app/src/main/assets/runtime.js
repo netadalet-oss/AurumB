@@ -6106,6 +6106,32 @@ try{AurumUpdateAPI.state.r225={version:'REV20.25-RELIABILITY-FILL-NEWS',activate
 })();
 
 
+/* ===== REV20.41 — MARKET/PORTAL LIVE RENDER RECOVERY =====
+   Preserve the unified portal and market cards after page re-renders.
+   Opening the Market page performs one immediate refresh only when no cached payload exists. */
+(()=>{
+  const base=globalThis.marketPage;
+  if(typeof base!=='function'||globalThis.__AURUM_REV2041_MARKET_PORTAL_RECOVERY)return;
+  globalThis.__AURUM_REV2041_MARKET_PORTAL_RECOVERY=true;
+  const portalKey='aurum.rev224.financePortal.v2';
+  const hasPortalCache=()=>{try{const x=JSON.parse(localStorage.getItem(portalKey)||'null');return !!(x&&Array.isArray(x.items)&&x.items.length)}catch{return false}};
+  globalThis.marketPage=function marketPageR241Recovery(){
+    const out=base();
+    queueMicrotask(async()=>{
+      if((globalThis.state?.page||'')!=='market')return;
+      try{
+        const m=globalThis.cachedMarketIndicators?.(),values=m?.values||{},fields=m?.fields||{};
+        const marketReady=Object.values(values).some(Number.isFinite)||Object.values(fields).some(x=>Number.isFinite(Number(x?.value)));
+        if(!marketReady)await globalThis.refreshMarketIndicators?.();
+      }catch{}
+      try{await globalThis.refreshAurumFinancePortal?.(!hasPortalCache())}catch{}
+      if((globalThis.state?.page||'')==='market'){try{globalThis.renderCurrentPagePreservingView?.()}catch{}}
+    });
+    return out;
+  };
+  try{marketPage=globalThis.marketPage}catch{}
+})();
+
 /* ===== REV20.40 — STRICT TRIGGERS + COMPLETE DIRECT MARKET =====
    Lifecycle/connectivity/navigation never starts acquisition. Main tables remain scheduler/manual only.
    Market indicators remain explicit-manual or the existing 30-minute cadence only.
