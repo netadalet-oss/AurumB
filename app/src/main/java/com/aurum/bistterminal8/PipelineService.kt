@@ -9,6 +9,7 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
 import android.os.IBinder
+import android.os.PowerManager
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -16,6 +17,7 @@ import androidx.webkit.WebViewAssetLoader
 
 class PipelineService : Service() {
     private var webView: WebView? = null
+    private var wakeLock: PowerManager.WakeLock? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -30,13 +32,13 @@ class PipelineService : Service() {
             .setOngoing(true)
             .build()
         startForeground(2020, notification)
+        wakeLock = (getSystemService(POWER_SERVICE) as PowerManager).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "AurumB:Pipeline").apply { setReferenceCounted(false); acquire(6 * 60 * 60 * 1000L) }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val epoch = intent?.getLongExtra("epoch", 0L)?.takeIf { it > 0L }
-            ?: run { stopSelf(startId); return START_NOT_STICKY }
-        val jobToken = intent.getStringExtra("jobToken")
-            ?: run { stopSelf(startId); return START_NOT_STICKY }
+        val manualMode = intent?.getStringExtra("manualMode")?.takeIf { it.isNotBlank() }
+        val epoch = intent?.getLongExtra("epoch", 0L)?.takeIf { it > 0L } ?: System.currentTimeMillis()
+        val jobToken = intent?.getStringExtra("jobToken") ?: if (manualMode != null) "MANUAL|$epoch" else run { stopSelf(startId); return START_NOT_STICKY }
 
         val loader = WebViewAssetLoader.Builder()
             .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
@@ -57,16 +59,17 @@ class PipelineService : Service() {
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                     val uri = request.url
                     if (uri.scheme == "aurum" && uri.host == "complete") {
-                        SchedulerLedger.complete(this@PipelineService, jobToken, "COMPLETED", "")
+                        if (manualMode == null) SchedulerLedger.complete(this@PipelineService, jobToken, "COMPLETED", "")
                         stopSelf(startId)
                         return true
                     }
                     return uri.scheme != "https" || uri.host != "appassets.androidplatform.net"
                 }
             }
-            loadUrl("https://appassets.androidplatform.net/assets/index.html?background=1&epoch=$epoch")
+            val suffix = if (manualMode != null) "&manualMode=" + android.net.Uri.encode(manualMode) else ""
+            loadUrl("https://appassets.androidplatform.net/assets/index.html?background=1&epoch=$epoch$suffix")
         }
-        return START_NOT_STICKY
+        return START_REDELIVER_INTENT
     }
 
     override fun onDestroy() {
@@ -77,6 +80,8 @@ class PipelineService : Service() {
             destroy()
         }
         webView = null
+        wakeLock?.let { if (it.isHeld) it.release() }
+        wakeLock = null
         super.onDestroy()
     }
 
