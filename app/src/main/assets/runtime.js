@@ -6136,28 +6136,24 @@ try{AurumUpdateAPI.state.r225={version:'REV20.25-RELIABILITY-FILL-NEWS',activate
   }
   async function altinkaynak(){
     const currencyUrl='https://static.altinkaynak.com/public/Currency',goldUrl='https://static.altinkaynak.com/public/Gold',out={};
-    const text=async(url,label)=>{const r=await fetchWithTimeout(url,{headers:{Accept:'application/json,text/plain,*/*'},cache:'no-store',__provider:'ALTINKAYNAK'},label);if(!r.ok)throw new Error(label+' HTTP '+r.status);return await r.text()};
-    const parse=s=>{try{return JSON.parse(s)}catch{return null}};
-    const rows=x=>Array.isArray(x)?x:Array.isArray(x?.data)?x.data:Array.isArray(x?.Data)?x.Data:Array.isArray(x?.items)?x.items:Array.isArray(x?.Items)?x.Items:[];
-    const pick=(o,names)=>{for(const n of names)if(o?.[n]!=null&&o[n]!=='')return o[n];return null};
+    const load=async(url,label)=>{const r=await fetchWithTimeout(url,{headers:{Accept:'application/json,text/plain,*/*'},cache:'no-store',__provider:'ALTINKAYNAK'},label);if(!r.ok)throw new Error(label+' HTTP '+r.status);const x=await responseJSON(r);return Array.isArray(x)?x:[]};
+    const direct=(k,z,source,url)=>{if(!z)return null;const buy=num(z.Alis),sell=num(z.Satis),v=Number.isFinite(buy)&&Number.isFinite(sell)?(buy+sell)/2:(Number.isFinite(buy)?buy:sell);if(!valid(k,v))return null;return {value:v,changePct:null,source,url,providerAt:z.GuncellenmeZamani||null,at:nowISO(),direct:true,identityVerified:true,percentOrigin:'NOT_PUBLISHED',stale:false}};
     try{
-      const raw=await text(currencyUrl,'Altınkaynak döviz'),j=parse(raw),list=rows(j);
-      const find=keys=>list.find(z=>keys.some(k=>String(pick(z,['Code','code','CurrencyCode','currencyCode','Symbol','symbol','Name','name','Description','description'])||'').toUpperCase().includes(k)));
-      for(const [k,keys] of Object.entries({USDTRY:['USD','DOLAR'],EURTRY:['EUR','EURO']})){const z=find(keys);if(!z)continue;const buy=num(pick(z,['Buying','buying','Buy','buy','Alis','alis','BuyingPrice','buyingPrice'])),sell=num(pick(z,['Selling','selling','Sell','sell','Satis','satis','SellingPrice','sellingPrice'])),v=Number.isFinite(buy)&&Number.isFinite(sell)?(buy+sell)/2:(buy??sell),p=pick(z,['Change','change','ChangePercent','changePercent','Rate','rate','Percent','percent']);const q=quote(k,v,p,'ALTINKAYNAK_CURRENCY',currencyUrl,pick(z,['Date','date','UpdateDate','updateDate','UpdatedAt','updatedAt']));if(q)out[k]=q}
+      const list=await load(currencyUrl,'Altınkaynak döviz'),byCode=code=>list.find(z=>String(z?.Kod||'').toUpperCase()===code);
+      for(const [k,code] of [['USDTRY','USD'],['EURTRY','EUR']]){const q=direct(k,byCode(code),'ALTINKAYNAK_CURRENCY',currencyUrl);if(q)out[k]=q}
+      const usd=out.USDTRY?.value,eur=out.EURTRY?.value;if(valid('EURUSD',eur/usd))out.EURUSD={value:eur/usd,changePct:null,source:'ALTINKAYNAK_CROSS',url:currencyUrl,providerAt:byCode('EUR')?.GuncellenmeZamani||null,at:nowISO(),direct:false,identityVerified:true,percentOrigin:'NOT_PUBLISHED',stale:false};
     }catch{}
     try{
-      const raw=await text(goldUrl,'Altınkaynak altın'),j=parse(raw),list=rows(j);
-      const name=z=>String(pick(z,['Code','code','GoldCode','goldCode','Symbol','symbol','Name','name','Description','description'])||'').toUpperCase();
-      const gram=list.find(z=>/GRAM|KÜLÇE|KULCE|HAS/.test(name(z))),ons=list.find(z=>/ONS|OUNCE/.test(name(z)));
-      for(const [k,z] of [['GRAMTRY',gram],['GOLDUSD',ons]]){if(!z)continue;const buy=num(pick(z,['Buying','buying','Buy','buy','Alis','alis','BuyingPrice','buyingPrice'])),sell=num(pick(z,['Selling','selling','Sell','sell','Satis','satis','SellingPrice','sellingPrice'])),v=Number.isFinite(buy)&&Number.isFinite(sell)?(buy+sell)/2:(buy??sell),p=pick(z,['Change','change','ChangePercent','changePercent','Rate','rate','Percent','percent']);const q=quote(k,v,p,'ALTINKAYNAK_GOLD',goldUrl,pick(z,['Date','date','UpdateDate','updateDate','UpdatedAt','updatedAt']));if(q)out[k]=q}
+      const list=await load(goldUrl,'Altınkaynak altın'),byCode=code=>list.find(z=>String(z?.Kod||'').toUpperCase()===code);
+      for(const [k,code] of [['GRAMTRY','GA'],['GOLDUSD','XAUUSD']]){const q=direct(k,byCode(code),'ALTINKAYNAK_GOLD',goldUrl);if(q)out[k]=q}
     }catch{}
     return out;
   }
   function cached(){return state.marketIndicators?.source==='REV20.40_DIRECT_PROVIDER'?state.marketIndicators:readLocal(KEY,null)}
   async function refresh(){
     const rs=await Promise.allSettled([altinkaynak(),yahoo('query1.finance.yahoo.com'),yahoo('query2.finance.yahoo.com'),bigparaBand(),bigparaExtra()]),fields={},errors=[];
-    for(const r of rs){if(r.status==='fulfilled')for(const [k,q] of Object.entries(r.value||{}))if(!fields[k]&&q?.value!=null&&Number.isFinite(Number(q.changePct)))fields[k]=q;else if(r.status==='rejected')errors.push(String(r.reason?.message||r.reason))}
-    const old=cached()?.fields||{};for(const k of KEYS)if(!fields[k]&&old[k])fields[k]={...old[k],stale:true,changePct:null};
+    for(const r of rs){if(r.status==='fulfilled'){for(const [k,q] of Object.entries(r.value||{})){if(!q?.value||!valid(k,q.value))continue;if(!fields[k])fields[k]=q;else if(!Number.isFinite(Number(fields[k].changePct))&&Number.isFinite(Number(q.changePct)))fields[k]={...fields[k],changePct:Number(q.changePct),percentOrigin:q.percentOrigin||'PROVIDER_PUBLISHED',percentSource:q.source}}}else errors.push(String(r.reason?.message||r.reason))}
+    const old=cached()?.fields||{};for(const k of KEYS){if(!fields[k]&&old[k])fields[k]={...old[k],stale:true};else if(fields[k]&&!Number.isFinite(Number(fields[k].changePct))&&Number.isFinite(Number(old[k]?.changePct)))fields[k]={...fields[k],changePct:Number(old[k].changePct),percentOrigin:'LAST_VALID_PERCENT',percentSource:old[k].source||null}}
     const payload={at:nowISO(),updatedAt:nowISO(),source:'REV20.40_DIRECT_PROVIDER',calculated:false,percentRule:'PROVIDER_PUBLISHED_SAME_RECORD_ONLY',fields,values:Object.fromEntries(KEYS.map(k=>[k,fields[k]?.value??null])),errors:errors.slice(0,8)};
     state.marketIndicators=payload;writeLocal(KEY,payload);try{await dbPut('meta',{key:KEY,value:payload,updatedAt:nowISO()})}catch{}return payload;
   }
