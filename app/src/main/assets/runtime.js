@@ -6134,9 +6134,28 @@ try{AurumUpdateAPI.state.r225={version:'REV20.25-RELIABILITY-FILL-NEWS',activate
     const jobs=[['EURUSD','https://bigpara.hurriyet.com.tr/doviz/pariteler/',/EUR\s*[\/-]\s*USD[\s\S]{0,220}?([0-9]+[,.][0-9]+)[\s\S]{0,100}?([+\-−][0-9.,]+)\s*%/i],['GOLDUSD','https://bigpara.hurriyet.com.tr/altin/',/(?:Altın\s*\(ONS\)|Altın\s*Ons)[\s\S]{0,260}?([0-9][0-9.,]*)[\s\S]{0,100}?([+\-−][0-9.,]+)\s*%/i]],out={};
     await Promise.all(jobs.map(async([k,url,re])=>{try{const r=await fetchWithTimeout(url,{headers:{Accept:'text/html,*/*;q=0.8'},cache:'no-store',__provider:'BIGPARA'},'Bigpara '+k);if(!r.ok)return;const d=new DOMParser().parseFromString(await r.text(),'text/html'),t=(d.body?.innerText||d.body?.textContent||'').replace(/\u00a0/g,' ').replace(/\s+/g,' '),m=t.match(re);if(m){const q=quote(k,m[1],m[2],'BIGPARA',url,null);if(q)out[k]=q}}catch{}}));return out;
   }
+  async function altinkaynak(){
+    const currencyUrl='https://static.altinkaynak.com/public/Currency',goldUrl='https://static.altinkaynak.com/public/Gold',out={};
+    const text=async(url,label)=>{const r=await fetchWithTimeout(url,{headers:{Accept:'application/json,text/plain,*/*'},cache:'no-store',__provider:'ALTINKAYNAK'},label);if(!r.ok)throw new Error(label+' HTTP '+r.status);return await r.text()};
+    const parse=s=>{try{return JSON.parse(s)}catch{return null}};
+    const rows=x=>Array.isArray(x)?x:Array.isArray(x?.data)?x.data:Array.isArray(x?.Data)?x.Data:Array.isArray(x?.items)?x.items:Array.isArray(x?.Items)?x.Items:[];
+    const pick=(o,names)=>{for(const n of names)if(o?.[n]!=null&&o[n]!=='')return o[n];return null};
+    try{
+      const raw=await text(currencyUrl,'Altınkaynak döviz'),j=parse(raw),list=rows(j);
+      const find=keys=>list.find(z=>keys.some(k=>String(pick(z,['Code','code','CurrencyCode','currencyCode','Symbol','symbol','Name','name','Description','description'])||'').toUpperCase().includes(k)));
+      for(const [k,keys] of Object.entries({USDTRY:['USD','DOLAR'],EURTRY:['EUR','EURO']})){const z=find(keys);if(!z)continue;const buy=num(pick(z,['Buying','buying','Buy','buy','Alis','alis','BuyingPrice','buyingPrice'])),sell=num(pick(z,['Selling','selling','Sell','sell','Satis','satis','SellingPrice','sellingPrice'])),v=Number.isFinite(buy)&&Number.isFinite(sell)?(buy+sell)/2:(buy??sell),p=pick(z,['Change','change','ChangePercent','changePercent','Rate','rate','Percent','percent']);const q=quote(k,v,p,'ALTINKAYNAK_CURRENCY',currencyUrl,pick(z,['Date','date','UpdateDate','updateDate','UpdatedAt','updatedAt']));if(q)out[k]=q}
+    }catch{}
+    try{
+      const raw=await text(goldUrl,'Altınkaynak altın'),j=parse(raw),list=rows(j);
+      const name=z=>String(pick(z,['Code','code','GoldCode','goldCode','Symbol','symbol','Name','name','Description','description'])||'').toUpperCase();
+      const gram=list.find(z=>/GRAM|KÜLÇE|KULCE|HAS/.test(name(z))),ons=list.find(z=>/ONS|OUNCE/.test(name(z)));
+      for(const [k,z] of [['GRAMTRY',gram],['GOLDUSD',ons]]){if(!z)continue;const buy=num(pick(z,['Buying','buying','Buy','buy','Alis','alis','BuyingPrice','buyingPrice'])),sell=num(pick(z,['Selling','selling','Sell','sell','Satis','satis','SellingPrice','sellingPrice'])),v=Number.isFinite(buy)&&Number.isFinite(sell)?(buy+sell)/2:(buy??sell),p=pick(z,['Change','change','ChangePercent','changePercent','Rate','rate','Percent','percent']);const q=quote(k,v,p,'ALTINKAYNAK_GOLD',goldUrl,pick(z,['Date','date','UpdateDate','updateDate','UpdatedAt','updatedAt']));if(q)out[k]=q}
+    }catch{}
+    return out;
+  }
   function cached(){return state.marketIndicators?.source==='REV20.40_DIRECT_PROVIDER'?state.marketIndicators:readLocal(KEY,null)}
   async function refresh(){
-    const rs=await Promise.allSettled([yahoo('query1.finance.yahoo.com'),yahoo('query2.finance.yahoo.com'),bigparaBand(),bigparaExtra()]),fields={},errors=[];
+    const rs=await Promise.allSettled([altinkaynak(),yahoo('query1.finance.yahoo.com'),yahoo('query2.finance.yahoo.com'),bigparaBand(),bigparaExtra()]),fields={},errors=[];
     for(const r of rs){if(r.status==='fulfilled')for(const [k,q] of Object.entries(r.value||{}))if(!fields[k]&&q?.value!=null&&Number.isFinite(Number(q.changePct)))fields[k]=q;else if(r.status==='rejected')errors.push(String(r.reason?.message||r.reason))}
     const old=cached()?.fields||{};for(const k of KEYS)if(!fields[k]&&old[k])fields[k]={...old[k],stale:true,changePct:null};
     const payload={at:nowISO(),updatedAt:nowISO(),source:'REV20.40_DIRECT_PROVIDER',calculated:false,percentRule:'PROVIDER_PUBLISHED_SAME_RECORD_ONLY',fields,values:Object.fromEntries(KEYS.map(k=>[k,fields[k]?.value??null])),errors:errors.slice(0,8)};
