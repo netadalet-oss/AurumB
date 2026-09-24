@@ -6106,64 +6106,6 @@ try{AurumUpdateAPI.state.r225={version:'REV20.25-RELIABILITY-FILL-NEWS',activate
 })();
 
 
-/* ===== REV20.41 — MARKET/PORTAL LIVE RENDER RECOVERY =====
-   Preserve the unified portal and market cards after page re-renders.
-   Opening the Market page performs one immediate refresh only when no cached payload exists. */
-(()=>{
-  const base=globalThis.marketPage;
-  if(typeof base!=='function'||globalThis.__AURUM_REV2041_MARKET_PORTAL_RECOVERY)return;
-  globalThis.__AURUM_REV2041_MARKET_PORTAL_RECOVERY=true;
-  const portalKey='aurum.rev224.financePortal.v2';
-  const hasPortalCache=()=>{try{const x=JSON.parse(localStorage.getItem(portalKey)||'null');return !!(x&&Array.isArray(x.items)&&x.items.length)}catch{return false}};
-  globalThis.marketPage=function marketPageR241Recovery(){
-    const out=base();
-    queueMicrotask(async()=>{
-      if((globalThis.state?.page||'')!=='market')return;
-      try{
-        const m=globalThis.cachedMarketIndicators?.(),values=m?.values||{},fields=m?.fields||{};
-        const marketReady=Object.values(values).some(Number.isFinite)||Object.values(fields).some(x=>Number.isFinite(Number(x?.value)));
-        if(!marketReady)await globalThis.refreshMarketIndicators?.();
-      }catch{}
-      try{await globalThis.refreshAurumFinancePortal?.(!hasPortalCache())}catch{}
-      if((globalThis.state?.page||'')==='market'){try{globalThis.renderCurrentPagePreservingView?.()}catch{}}
-    });
-    return out;
-  };
-  try{marketPage=globalThis.marketPage}catch{}
-})();
-
-/* ===== REV20.42 — PERSISTENT MARKET UI STATE CONTRACT =====
-   Last successfully rendered market indicators and finance portal stay visible until a
-   successful refresh replaces them. Failed/empty refreshes and unrelated renders never erase them. */
-(()=>{
-  if(globalThis.__AURUM_REV2042_PERSISTENT_MARKET_UI)return;globalThis.__AURUM_REV2042_PERSISTENT_MARKET_UI=true;
-  const SNAP='aurum.rev2042.market.ui.snapshot';
-  const read=()=>{try{return JSON.parse(localStorage.getItem(SNAP)||'null')}catch{return null}};
-  const write=x=>{try{localStorage.setItem(SNAP,JSON.stringify(x))}catch{}};
-  const saveDom=()=>{
-    const old=read()||{},strip=document.getElementById('aurumDataMarketStrip'),portal=document.getElementById('aurumFinancePortal');
-    const next={...old,updatedAt:nowISO()};
-    if(strip&&strip.innerHTML.trim()&&!/—/.test(strip.textContent||''))next.marketHtml=strip.outerHTML;
-    if(portal&&portal.innerHTML.trim()&&!/hazırlanıyor/i.test(portal.textContent||''))next.portalHtml=portal.innerHTML;
-    if(next.marketHtml||next.portalHtml)write(next);
-  };
-  const restoreDom=()=>{
-    const s=read();if(!s)return false;
-    const strip=document.getElementById('aurumDataMarketStrip'),portal=document.getElementById('aurumFinancePortal');
-    if(strip&&s.marketHtml&&(/—/.test(strip.textContent||'')||!strip.textContent?.trim()))strip.outerHTML=s.marketHtml;
-    if(portal&&s.portalHtml&&(/hazırlanıyor/i.test(portal.textContent||'')||!portal.textContent?.trim()))portal.innerHTML=s.portalHtml;
-    return true;
-  };
-  const observer=new MutationObserver(()=>{restoreDom();saveDom()});
-  const start=()=>{try{observer.observe(document.body,{childList:true,subtree:true});restoreDom();saveDom()}catch{}};
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else queueMicrotask(start);
-  const oldRender=globalThis.renderCurrentPagePreservingView;
-  if(typeof oldRender==='function')globalThis.renderCurrentPagePreservingView=function r242StableRender(){
-    saveDom();const r=oldRender.apply(this,arguments);queueMicrotask(()=>{restoreDom();saveDom()});return r;
-  };
-  globalThis.AurumPersistentMarketUI=Object.freeze({save:saveDom,restore:restoreDom});
-})();
-
 /* ===== REV20.40 — STRICT TRIGGERS + COMPLETE DIRECT MARKET =====
    Lifecycle/connectivity/navigation never starts acquisition. Main tables remain scheduler/manual only.
    Market indicators remain explicit-manual or the existing 30-minute cadence only.
@@ -6206,4 +6148,64 @@ try{AurumUpdateAPI.state.r225={version:'REV20.25-RELIABILITY-FILL-NEWS',activate
   globalThis.refreshAurumDataMarketStrip=async function(ev){const btn=ev?.currentTarget||document.querySelector('.aurum-r209-market-refresh');if(btn?.dataset.busy==='1')return false;try{if(btn){btn.dataset.busy='1';btn.disabled=true}await new Promise(r=>requestAnimationFrame(()=>r()));await refresh();const h=document.getElementById('aurumDataMarketStrip');if(h)requestAnimationFrame(()=>{const x=document.getElementById('aurumDataMarketStrip');if(x)x.outerHTML=markup()});return true}catch(e){globalThis.showAurumNotice?.('Piyasa bilgileri alınamadı: '+(e?.message||e),'error',2400);return false}finally{const b=document.querySelector('.aurum-r209-market-refresh');if(b){delete b.dataset.busy;b.disabled=false}}};
   /* Do not call refresh here. No startup/focus/visibility/pageshow/online listener is installed. */
   try{AurumUpdateAPI.state.r240={version:'REV20.40-STRICT-TRIGGERS-COMPLETE-DIRECT-MARKET',activatedAt:nowISO(),features:['NO_STARTUP_FETCH','NO_FOREGROUND_FETCH','NO_NETWORK_RESTORE_FETCH','NO_NAVIGATION_FETCH','TABLES_SCHEDULER_OR_MANUAL_ONLY','MARKET_30M_OR_MANUAL_ONLY','PROVIDER_PUBLISHED_PERCENT_ONLY','PRICE_PERCENT_SAME_PROVIDER_RECORD','ASYNC_NONBLOCKING_UI']}}catch{}
+})();
+
+
+/* ===== REV20.43 — CONSOLIDATED FINAL MARKET / PORTAL UI CONTRACT =====
+   Final rule: older acquisition/cadence layers stay intact, but this is the single UI recovery owner.
+   A valid rendered market/portal view is never replaced by an empty placeholder.
+   Missing initial cache may be fetched once; successful later refreshes replace the saved view. */
+(()=>{
+  if(globalThis.__AURUM_REV2043_FINAL_UI)return;globalThis.__AURUM_REV2043_FINAL_UI=true;
+  const SNAP='aurum.rev2043.market.ui.snapshot',PORTAL_KEY='aurum.rev224.financePortal.v2';
+  const read=()=>{try{return JSON.parse(localStorage.getItem(SNAP)||'null')||{}}catch{return {}}};
+  const write=x=>{try{localStorage.setItem(SNAP,JSON.stringify(x))}catch{}};
+  const portalCached=()=>{try{const x=JSON.parse(localStorage.getItem(PORTAL_KEY)||'null');return !!(x&&Array.isArray(x.items)&&x.items.length)}catch{return false}};
+  const marketReady=()=>{try{const m=globalThis.cachedMarketIndicators?.(),f=m?.fields||{};return Object.values(f).some(x=>Number.isFinite(Number(x?.value)))}catch{return false}};
+  const validMarketDom=el=>!!el&&Array.from(el.querySelectorAll('strong')).some(x=>/[0-9]/.test(x.textContent||''));
+  const validPortalDom=el=>!!el&&el.innerHTML.trim()&&!/hazırlanıyor/i.test(el.textContent||'');
+  let mutating=false,recovering=false;
+  function save(){
+    if(mutating)return;const s=read(),strip=document.getElementById('aurumDataMarketStrip'),portal=document.getElementById('aurumFinancePortal');let changed=false;
+    if(validMarketDom(strip)){const h=strip.outerHTML;if(h!==s.marketHtml){s.marketHtml=h;changed=true}}
+    if(validPortalDom(portal)){const h=portal.innerHTML;if(h!==s.portalHtml){s.portalHtml=h;changed=true}}
+    if(changed){s.updatedAt=nowISO();write(s)}
+  }
+  function restore(){
+    const s=read(),strip=document.getElementById('aurumDataMarketStrip'),portal=document.getElementById('aurumFinancePortal');let changed=false;mutating=true;
+    try{
+      if(strip&&!validMarketDom(strip)&&s.marketHtml){strip.outerHTML=s.marketHtml;changed=true}
+      if(portal&&!validPortalDom(portal)&&s.portalHtml){portal.innerHTML=s.portalHtml;changed=true}
+    }finally{mutating=false}
+    return changed;
+  }
+  const base=globalThis.marketPage;
+  if(typeof base==='function')globalThis.marketPage=function marketPageR243Final(){
+    const out=base.apply(this,arguments);
+    queueMicrotask(async()=>{
+      restore();save();
+      if(recovering)return;recovering=true;
+      try{
+        if(!marketReady()){
+          try{await globalThis.refreshMarketIndicators?.();const h=document.getElementById('aurumDataMarketStrip');if(h&&typeof globalThis.marketIndicatorsMarkup==='function')h.outerHTML=globalThis.marketIndicatorsMarkup()}catch{}
+        }
+        restore();save();
+        const portal=document.getElementById('aurumFinancePortal');
+        if(portal&&!validPortalDom(portal)&&!read().portalHtml){
+          try{await globalThis.refreshAurumFinancePortal?.(true)}catch{}
+        }else if(portal&&!validPortalDom(portal)&&portalCached()){
+          /* Existing persisted HTML is preferred; no navigation-triggered network request. */
+          restore();
+        }
+        save();
+      }finally{recovering=false}
+    });
+    return out;
+  };
+  try{marketPage=globalThis.marketPage}catch{}
+  const observer=new MutationObserver(()=>{if(mutating)return;queueMicrotask(()=>{restore();save()})});
+  const start=()=>{try{observer.observe(document.body,{childList:true,subtree:true});restore();save()}catch{}};
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else queueMicrotask(start);
+  globalThis.AurumPersistentMarketUI=Object.freeze({save,restore});
+  try{AurumUpdateAPI.state.r243={version:'REV20.43-CONSOLIDATED-FINAL-UI',activatedAt:nowISO(),features:['SINGLE_MARKET_PORTAL_UI_RECOVERY_OWNER','LAST_VALID_UI_PERSISTS','NO_RECURSIVE_PAGE_RENDER','EMPTY_OUTPUT_NEVER_REPLACES_VALID_UI']}}catch{}
 })();
