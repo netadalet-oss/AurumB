@@ -1,0 +1,37 @@
+'use strict';
+(()=>{
+ if(globalThis.__AURUM_NL_PORTAL__)return;globalThis.__AURUM_NL_PORTAL__=true;
+ const KEY='aurum.nl.portal.v1',PERIOD=30*60*1000,MAXAGE=5*864e5;let active='Alles',busy=false,timer=null;
+ const cats=['Alles','Financiën & Beurs','Economie & Bedrijven','Politiek','Justitie & Veiligheid','Migratie & Asiel','Handel','Formule 1'];
+ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ const clean=s=>String(s||'').replace(/<[^>]+>/g,' ').replace(/&nbsp;/gi,' ').replace(/&amp;/gi,'&').replace(/&quot;/gi,'"').replace(/&#39;/gi,"'").replace(/\s+/g,' ').trim();
+ const load=()=>{try{return JSON.parse(localStorage.getItem(KEY)||'null')}catch{return null}},save=x=>{try{localStorage.setItem(KEY,JSON.stringify(x))}catch{}};
+ async function get(url,label){const r=await fetchWithTimeout(url,{headers:{Accept:'application/rss+xml,application/xml,text/xml,*/*'},cache:'no-store',__provider:label},12000);if(!r.ok)throw Error(label+' HTTP '+r.status);return r.text()}
+ function parse(xml,cat,origin){const d=new DOMParser().parseFromString(xml,'text/xml');return [...d.querySelectorAll('item')].slice(0,30).map(i=>{const title=clean(i.querySelector('title')?.textContent),link=clean(i.querySelector('link')?.textContent),source=clean(i.querySelector('source')?.textContent)||origin,desc=clean(i.querySelector('description')?.textContent),date=i.querySelector('pubDate')?.textContent||'';return{cat,title,link,source,summary:desc,publishedAt:Number.isFinite(Date.parse(date))?new Date(Date.parse(date)).toISOString():null,retrievedAt:new Date().toISOString()}}).filter(x=>x.title&&x.link)}
+ async function google(cat,q){return parse(await get('https://news.google.com/rss/search?q='+encodeURIComponent(q)+'&hl=nl&gl=NL&ceid=NL:nl','Google News NL'),cat,'Google News')}
+ async function nos(cat,url){return parse(await get(url,'NOS RSS'),cat,'NOS')}
+ const lanes=[
+  ['Financiën & Beurs',()=>google('Financiën & Beurs','Nederland AEX beurs financiële markten DNB AFM Euronext')],
+  ['Economie & Bedrijven',()=>google('Economie & Bedrijven','Nederland economie bedrijven ondernemingen kwartaalcijfers overname')],
+  ['Politiek',()=>google('Politiek','Nederland politiek kabinet Tweede Kamer regering')],
+  ['Justitie & Veiligheid',()=>google('Justitie & Veiligheid','Nederland politie justitie rechtbank OM misdaad veiligheid')],
+  ['Migratie & Asiel',()=>google('Migratie & Asiel','Nederland migratie asiel IND vluchtelingen arbeidsmigratie asielbeleid')],
+  ['Handel',()=>google('Handel','Nederland handel export import retail ondernemers haven Rotterdam Schiphol')],
+  ['Formule 1',()=>google('Formule 1','Nederland Formule 1 Verstappen Zandvoort')],
+  ['Justitie & Veiligheid',()=>nos('Justitie & Veiligheid','https://feeds.nos.nl/nosnieuwsbinnenland')],
+  ['Politiek',()=>nos('Politiek','https://feeds.nos.nl/nosnieuwspolitiek')],
+  ['Economie & Bedrijven',()=>nos('Economie & Bedrijven','https://feeds.nos.nl/nosnieuwseconomie')],
+  ['Formule 1',()=>nos('Formule 1','https://feeds.nos.nl/nossportformule1')],
+  ['Migratie & Asiel',()=>google('Migratie & Asiel','site:rijksoverheid.nl migratie asiel Nederland')],
+  ['Financiën & Beurs',()=>google('Financiën & Beurs','site:dnb.nl financiële markten Nederland')],
+  ['Financiën & Beurs',()=>google('Financiën & Beurs','site:afm.nl nieuws markt Nederland')]
+ ];
+ function dedupe(xs){const seen=new Set();return xs.filter(x=>{const k=(x.link||x.title).replace(/[?#].*$/,'').toLowerCase();if(seen.has(k))return false;seen.add(k);return !x.publishedAt||Date.now()-Date.parse(x.publishedAt)<MAXAGE}).sort((a,b)=>Date.parse(b.publishedAt||0)-Date.parse(a.publishedAt||0))}
+ async function refresh(manual=false){if(!manual)return load();if(busy)return load();busy=true;try{const rs=await Promise.allSettled(lanes.map(async([cat,fn])=>({cat,items:await fn()}))),items=[],status=[];rs.forEach((r,i)=>{if(r.status==='fulfilled'){items.push(...r.value.items);status.push({name:lanes[i][0],ok:true,count:r.value.items.length})}else status.push({name:lanes[i][0],ok:false,error:String(r.reason?.message||r.reason)})});const data={updatedAt:new Date().toISOString(),items:dedupe(items),sourceStatus:status};save(data);render(data);if(!timer)timer=setInterval(()=>refresh(true),PERIOD);return data}finally{busy=false}}
+ function card(x){const t=x.publishedAt?new Date(x.publishedAt).toLocaleString('nl-NL',{dateStyle:'short',timeStyle:'short'}):'tijd onbekend',sm=clean(x.summary).slice(0,260);return '<article class="r207-news-card"><div class="r207-news-card-top"><span class="r207-news-cat">'+esc(x.cat)+'</span><span class="r207-news-source">'+esc(x.source)+'</span></div><h3><a href="'+esc(x.link)+'" target="_blank" rel="noopener noreferrer">'+esc(x.title)+'</a></h3>'+(sm?'<p class="r223-news-preview">'+esc(sm)+'</p>':'')+'<div class="r207-news-meta"><span>Gepubliceerd: '+esc(t)+'</span></div><div class="r207-news-link"><a href="'+esc(x.link)+'" target="_blank" rel="noopener noreferrer">Naar bron ↗</a></div></article>'}
+ function markup(data=load()){const all=data?.items||[],rows=(active==='Alles'?all:all.filter(x=>x.cat===active)).slice(0,40),ok=(data?.sourceStatus||[]).filter(x=>x.ok).length,total=(data?.sourceStatus||[]).length;return '<div class="r207-news-portal"><div class="r207-news-toolbar"><div><h2>Nederland · Laatste nieuws</h2><p class="muted">Financiële markten, economie, bedrijven, politiek, justitie, migratie, handel en Formule 1.</p></div><button class="gold-btn" onclick="AurumNLPortal.refresh()">Nu vernieuwen</button></div><div class="r207-news-chips">'+cats.map(c=>'<button class="r207-news-chip '+(active===c?'active':'')+'" onclick="AurumNLPortal.filter(\''+c.replace(/'/g,"\\'")+'\')">'+c+'</button>').join('')+'</div><div class="r207-news-meta"><span>Bronnen: '+ok+'/'+total+'</span><span>Bijgewerkt: '+(data?.updatedAt?new Date(data.updatedAt).toLocaleString('nl-NL'):'nog niet vernieuwd')+'</span></div><div class="r207-news-grid">'+(rows.length?rows.map(card).join(''):'<div class="card notice"><b>Nog geen nieuws geladen.</b><p class="muted">Gebruik “Nu vernieuwen”. Daarna wordt elke 30 minuten automatisch vernieuwd zolang de app actief is.</p></div>')+'</div></div>'}
+ function render(data=load()){const h=document.getElementById('aurumNLPortal');if(h)h.innerHTML=markup(data)}
+ function show(which){document.querySelectorAll('.aurum-country-tab').forEach(b=>b.classList.toggle('active',b.dataset.country===which));const tr=document.querySelector('.r222-unified-portal');const nl=document.getElementById('aurumNLSection');if(tr)tr.style.display=which==='TR'?'':'none';if(nl)nl.style.display=which==='NL'?'':'none';if(which==='NL')render()}
+ const base=globalThis.marketPage;if(typeof base==='function')globalThis.marketPage=function(){let h=base();const tabs='<div class="r207-news-chips aurum-country-tabs"><button class="r207-news-chip aurum-country-tab active" data-country="TR" onclick="AurumNLPortal.show(\'TR\')">Türkiye</button><button class="r207-news-chip aurum-country-tab" data-country="NL" onclick="AurumNLPortal.show(\'NL\')">Nederland</button></div>';const nl='<section id="aurumNLSection" class="r207-portal-wrap" style="display:none"><div id="aurumNLPortal">'+markup()+'</div></section>';h=h.replace('<section class="r207-portal-wrap r222-unified-portal">',tabs+'<section class="r207-portal-wrap r222-unified-portal">')+nl;return h};
+ globalThis.AurumNLPortal={refresh:async()=>{await refresh(true);render()},filter:c=>{active=c;render()},show};
+})();
