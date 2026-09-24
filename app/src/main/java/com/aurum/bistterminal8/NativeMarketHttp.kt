@@ -15,6 +15,7 @@ object NativeMarketHttp {
     private val active = ConcurrentHashMap<String, HttpURLConnection>()
     private val allowedHosts = setOf(
         "www.isyatirim.com.tr", "isyatirim.com.tr",
+        "static.altinkaynak.com",
         "query1.finance.yahoo.com", "query2.finance.yahoo.com",
         "bigpara.hurriyet.com.tr", "www.bigpara.hurriyet.com.tr",
         "web-paragaranti-pubsub.foreks.com",
