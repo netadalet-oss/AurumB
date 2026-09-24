@@ -6192,6 +6192,8 @@ try{AurumUpdateAPI.state.r225={version:'REV20.25-RELIABILITY-FILL-NEWS',activate
       ['FOREKS',KEYS,foreks],
       ['GENELPARA',['USDTRY','EURTRY','GRAMTRY','GOLDUSD'],genelpara],
       ['ALTINKAYNAK',['USDTRY','EURTRY','GRAMTRY','GOLDUSD'],altinkaynak],
+      ['THEUNAT',['XU100','USDTRY','EURTRY','GOLDUSD'],theunat],
+      ['BISTCANLI',['XU100','USDTRY','EURTRY','GRAMTRY','GOLDUSD'],bistCanli],
       ['BIGPARA_BAND',['XU100','USDTRY','EURTRY','GRAMTRY'],bigparaBand],
       ['BIGPARA_EXTRA',['EURUSD','GOLDUSD'],bigparaExtra],
       ['YAHOO_Q1',['XU100','USDTRY','EURTRY','EURUSD','GOLDUSD'],()=>yahoo('query1.finance.yahoo.com')],
