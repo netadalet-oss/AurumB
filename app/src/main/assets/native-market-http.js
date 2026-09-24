@@ -12,7 +12,7 @@
     'stooq.com','www.stooq.com',
     'www.kap.org.tr','kap.org.tr',
     'www.borsaistanbul.com','borsaistanbul.com',
-    'news.google.com','www.tcmb.gov.tr','tcmb.gov.tr',
+    'news.google.com','feeds.nos.nl','www.tcmb.gov.tr','tcmb.gov.tr',
     'script.google.com','script.googleusercontent.com'
   ]);
   const canHandle=input=>{
