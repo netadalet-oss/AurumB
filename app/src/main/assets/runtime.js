@@ -6151,10 +6151,11 @@ try{AurumUpdateAPI.state.r225={version:'REV20.25-RELIABILITY-FILL-NEWS',activate
   }
   function cached(){return state.marketIndicators?.source==='REV20.40_DIRECT_PROVIDER'?state.marketIndicators:readLocal(KEY,null)}
   async function refresh(){
-    const rs=await Promise.allSettled([altinkaynak(),yahoo('query1.finance.yahoo.com'),yahoo('query2.finance.yahoo.com'),bigparaBand(),bigparaExtra()]),fields={},errors=[];
-    for(const r of rs){if(r.status==='fulfilled'){for(const [k,q] of Object.entries(r.value||{})){if(!q?.value||!valid(k,q.value))continue;if(!fields[k])fields[k]=q;else if(!Number.isFinite(Number(fields[k].changePct))&&Number.isFinite(Number(q.changePct)))fields[k]={...fields[k],changePct:Number(q.changePct),percentOrigin:q.percentOrigin||'PROVIDER_PUBLISHED',percentSource:q.source}}}else errors.push(String(r.reason?.message||r.reason))}
+    const fields={},errors=[],merge=src=>{for(const [k,q] of Object.entries(src||{})){if(!q?.value||!valid(k,q.value))continue;if(!fields[k])fields[k]=q;else if(!Number.isFinite(Number(fields[k].changePct))&&Number.isFinite(Number(q.changePct)))fields[k]={...fields[k],changePct:Number(q.changePct),percentOrigin:q.percentOrigin||'PROVIDER_PUBLISHED',percentSource:q.source}}};
+    const providers=[['ALTINKAYNAK',altinkaynak],['YAHOO_Q1',()=>yahoo('query1.finance.yahoo.com')],['YAHOO_Q2',()=>yahoo('query2.finance.yahoo.com')],['BIGPARA_BAND',bigparaBand],['BIGPARA_EXTRA',bigparaExtra]];
+    for(const [name,fn] of providers){try{merge(await fn())}catch(e){errors.push(name+': '+String(e?.message||e))}if(KEYS.every(k=>fields[k]?.value!=null&&Number.isFinite(Number(fields[k].changePct))))break}
     const old=cached()?.fields||{};for(const k of KEYS){if(!fields[k]&&old[k])fields[k]={...old[k],stale:true};else if(fields[k]&&!Number.isFinite(Number(fields[k].changePct))&&Number.isFinite(Number(old[k]?.changePct)))fields[k]={...fields[k],changePct:Number(old[k].changePct),percentOrigin:'LAST_VALID_PERCENT',percentSource:old[k].source||null}}
-    const payload={at:nowISO(),updatedAt:nowISO(),source:'REV20.40_DIRECT_PROVIDER',calculated:false,percentRule:'PROVIDER_PUBLISHED_SAME_RECORD_ONLY',fields,values:Object.fromEntries(KEYS.map(k=>[k,fields[k]?.value??null])),errors:errors.slice(0,8)};
+    const payload={at:nowISO(),updatedAt:nowISO(),source:'REV20.40_DIRECT_PROVIDER',calculated:false,percentRule:'ALTINKAYNAK_PRICE_FIRST_THEN_ALL_FALLBACKS',fields,values:Object.fromEntries(KEYS.map(k=>[k,fields[k]?.value??null])),errors:errors.slice(0,8)};
     state.marketIndicators=payload;writeLocal(KEY,payload);try{await dbPut('meta',{key:KEY,value:payload,updatedAt:nowISO()})}catch{}return payload;
   }
   function fmt(v,k){if(!Number.isFinite(Number(v)))return '—';const d=k==='XU100'?0:(k==='USDTRY'||k==='EURTRY'||k==='EURUSD'?4:2);return Number(v).toLocaleString('tr-TR',{minimumFractionDigits:d,maximumFractionDigits:d,useGrouping:true})}
