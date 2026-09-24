@@ -880,7 +880,6 @@ async function runManualData(mode='GENERAL'){
   if(state.syncing||state.calculating){showAurumNotice('Başka bir işlem sürüyor','info',2400);return false}
   const requested=normalizeMode(mode),normalized=requested==='GENERAL'?'FULL':requested;
   if(normalized==='LIVE'){const gate=liveCollectionGate();if(gate.mayCollectLiveData===false){showAurumNotice(`Canlı veri kapısı kapalı: ${gate.reason||'resmî seans doğrulanmadı'}`,'info',3200);return false;}}
-  try{const r=window.prompt(`aurum://native?${new URLSearchParams({cmd:'pipeline_start',mode:normalized})}`,'AURUM')||'';if(r==='OK'){showAurumNotice('Veri aktarımı arka plan servisine devredildi; uygulamadan ayrılsanız da devam eder.','success',4200);return true}}catch{}
   const job=await createJob('MANUAL','USER',null,'DATA');r221StartBudget(job);job.requestedDataMode=normalized;await saveJob(job);
   const ok=await prepareData(job,normalized);if(!ok){if(job.status!==JOB_STATUS.WAITING_FOR_NETWORK)operationFailureNotice(normalized==='REPAIR'?'Eksikleri Tamamla':'Verileri Güncelle',job,'Veri aktarımı tamamlanamadı');return false}
   const alreadyRan=normalized==='REPAIR'&&job.requestedDataMode!=='FULL'?1:0,completionOrigin=normalized==='REPAIR'?(job.requestedDataMode==='FULL'?'MANUAL_REPAIR_FULL':'MANUAL_REPAIR'):'MANUAL_MAIN',m=await r221SmartCompletion(job,{alreadyRan,origin:completionOrigin});
@@ -1295,11 +1294,7 @@ async function bootstrapClean(){
       writeLocal(PAUSE_KEY,{requested:false,jobId:null,requestedAt:null});
       await refreshTableMeta();
       setRuntime({status:JOB_STATUS.IDLE,message:'Hazır',done:0,total:0});
-      if(BACKGROUND_MANUAL_MODE){
-        const job=await createJob('MANUAL','FOREGROUND_SERVICE',null,'DATA');r221StartBudget(job);job.requestedDataMode=normalizeMode(BACKGROUND_MANUAL_MODE);await saveJob(job);
-        const ok=await resumeManualStage(job);
-        nativeComplete('MANUAL',ok,ok?'MANUAL_COMPLETED':(job.error||'MANUAL_FAILED'));
-      }else await scheduledEntry();
+      await scheduledEntry();
       return;
     }
 
