@@ -1304,8 +1304,7 @@ globalThis.recalculateSelectionTable=runManualS;
 globalThis.recalculateAllTables=()=>{showAurumNotice('Manuel modda tablolar ayrı ayrı ve sırayla çalıştırılır.','info',3200);return false};
 globalThis.AurumRuntime=Object.freeze({version:AURUM_RUNTIME_VERSION,status:currentRuntime,summary:dataSummary,manualSequence,manualData:runManualData,manualKn:runManualKn,manualHistorical:runManualHistorical,manualS:runManualS,resume:resumePendingJobs,scheduled:scheduledEntry,providerOrder,togglePause,command:operationCommand,tableTimePanel,operationStrip,jobStatus:JOB_STATUS});
 
-bootstrapClean();
-
+/* Startup is deferred until every embedded compatibility/revision layer below has installed.\n   Starting here races bootstrapClean() against later overview/render overrides and can leave #content empty. */\n
 
 /* Embedded R47 compatibility layer */
 /* AurumB R46 compatibility update for R45/R44-compatible appVersionCode 120.
@@ -6233,3 +6232,7 @@ try{AurumUpdateAPI.state.r225={version:'REV20.25-RELIABILITY-FILL-NEWS',activate
   globalThis.AurumPersistentMarketUI=Object.freeze({save,restore});
   try{AurumUpdateAPI.state.r243={version:'REV20.43-CONSOLIDATED-FINAL-UI',activatedAt:nowISO(),features:['SINGLE_MARKET_PORTAL_UI_RECOVERY_OWNER','LAST_VALID_UI_PERSISTS','NO_RECURSIVE_PAGE_RENDER','EMPTY_OUTPUT_NEVER_REPLACES_VALID_UI']}}catch{}
 })();
+
+/* All runtime layers are now installed; foreground bootstrap may render against the final renderer set. */
+bootstrapClean();
+
