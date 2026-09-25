@@ -18,5 +18,7 @@ class TriggerReceiver : BroadcastReceiver() {
             .putExtra("epoch", epoch)
             .putExtra("jobToken", jobToken)
         ContextCompat.startForegroundService(context, service)
+        // Every alarm is one-shot; immediately arm the next valid occurrence for this slot.
+        AurumScheduler.scheduleNextForTime(context, slotTime, java.time.Instant.ofEpochMilli(epoch).plusSeconds(1))
     }
 }
