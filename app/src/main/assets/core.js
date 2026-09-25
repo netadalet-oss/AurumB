@@ -1068,20 +1068,29 @@ async function importData(text,name){
       bundles=checkpoint.bundles;checkpoint.status='RUNNING';checkpoint.resumeCount=Number(checkpoint.resumeCount||0)+1;try{localStorage.setItem('aurum.operation.resumeCheckpoint.v3',JSON.stringify({version:3,kind:'IMPORT',status:'RUNNING',updatedAt:nowISO(),name:fileName,resumeCount:checkpoint.resumeCount}))}catch{};await saveCp(checkpoint);
     }
     const done=new Set((checkpoint.completedSymbols||[]).map(x=>String(x).toUpperCase()));let n=0;
+    const importMap=new Map(state.recordMap);
     let indexBundle=(await dbGet('meta','indexBundle'))?.value||{bars:[]};
     for(const b of bundles){
       const sym=String(b.symbol||b.sym||'').toUpperCase();if(sym&&done.has(sym))continue;
       const incoming=b.bars?{...b,symbol:sym||b.symbol}:{symbol:sym,bars:(b.series?.date||[]).map((d,i)=>({date:d,open:b.series.open?.[i],high:b.series.high?.[i],low:b.series.low?.[i],close:b.series.close?.[i],adjustedClose:b.series.calcClose?.[i],volume:b.series.volume?.[i],sources:{close:'IMPORT'}})),fundamentals:b.fundamentals||{},live:finite(b.livePrice)!=null?{price:finite(b.livePrice),provider:'IMPORT'}:null,actions:b.actions||[],providers:['IMPORT'],conflicts:[]};
       if(!incoming.symbol)continue;
       try{
-        const previous=state.recordMap.get(incoming.symbol),merged=previous?mergeBundles(incoming.symbol,[bundleFromRecord(previous),incoming]):incoming,rec=enrichBundle(merged,indexBundle);
-        await persistRecord(rec);state.recordMap.set(rec.sym,rec);done.add(rec.sym);delete checkpoint.failed?.[rec.sym];checkpoint.completedSymbols=[...done];checkpoint.lastCompletedSymbol=rec.sym;await saveCp(checkpoint);n++;
+        const previous=importMap.get(incoming.symbol),merged=previous?mergeBundles(incoming.symbol,[bundleFromRecord(previous),incoming]):incoming,rec=enrichBundle(merged,indexBundle);
+        importMap.set(rec.sym,rec);done.add(rec.sym);delete checkpoint.failed?.[rec.sym];checkpoint.completedSymbols=[...done];checkpoint.lastCompletedSymbol=rec.sym;await saveCp(checkpoint);n++;
       }catch(e){checkpoint.failed=checkpoint.failed||{};checkpoint.failed[incoming.symbol]={error:e?.message||String(e),at:nowISO()};checkpoint.status='INTERRUPTED';await saveCp(checkpoint);throw e;}
     }
-    state.records=[...state.recordMap.values()];
+    const candidateRecords=[...importMap.values()];
     const remaining=bundles.map(x=>String(x.symbol||x.sym||'').toUpperCase()).filter(Boolean).filter(x=>!done.has(x));
     if(remaining.length){checkpoint.status='INTERRUPTED';checkpoint.remaining=remaining;await saveCp(checkpoint);throw new Error(`${remaining.length} kayıt tamamlanamadı; mevcut veriler korunarak kontrol noktası kaydedildi`);}
-    checkpoint.status='COMPLETED';checkpoint.completedAt=nowISO();checkpoint.bundles=[];await saveCp(checkpoint);await dbDelete('meta',CP_KEY);try{const x=JSON.parse(localStorage.getItem('aurum.operation.resumeCheckpoint.v3')||'null');if(x?.kind==='IMPORT')localStorage.removeItem('aurum.operation.resumeCheckpoint.v3')}catch{};
+    const gateResult=globalThis.AurumFinalDataSafety?.check
+      ? globalThis.AurumFinalDataSafety.check(candidateRecords)
+      : (()=>{const summary=dataSummary(candidateRecords),gate=dataIntegrityGate(summary);if(!gate.ok)throw Object.assign(new Error('DATA_FILL_BELOW_70_KEEP_LAST_VALID_SNAPSHOT'),{code:'DATA_FILL_BELOW_70',gate,summary});return {summary,gate}})();
+    const transferredAt=nowISO(),previousSnapshot=(await dbGet('meta','activeDataSnapshot'))?.value||{},fingerprint=typeof dataTableFingerprint==='function'?dataTableFingerprint(candidateRecords):null;
+    const changedAt=fingerprint&&previousSnapshot.fingerprint===fingerprint&&previousSnapshot.changedAt?previousSnapshot.changedAt:transferredAt;
+    const snapshot={...previousSnapshot,snapshotId:uid(),jobId:'IMPORT:'+String(checkpoint.signature||fileName),mode:'IMPORT',completedAt:transferredAt,transferredAt,changedAt,fingerprint:fingerprint||previousSnapshot.fingerprint||null,publishedCount:candidateRecords.length,importedCount:n,integrity:gateResult?.summary||null};
+    await new Promise((resolve,reject)=>{const tx=state.db.transaction(['records','meta'],'readwrite'),rs=tx.objectStore('records'),ms=tx.objectStore('meta');rs.clear();for(const rec of candidateRecords)rs.put({key:rec.sym,value:rec,updatedAt:transferredAt});ms.put({key:'activeDataSnapshot',value:snapshot,updatedAt:transferredAt});ms.put({key:'lastSuccessfulSync',value:transferredAt,updatedAt:transferredAt});tx.oncomplete=()=>resolve(true);tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error)});
+    state.records=candidateRecords;state.recordMap=new Map(candidateRecords.map(x=>[x.sym,x]));state.lastSuccessfulSync=transferredAt;
+    checkpoint.status='COMPLETED';checkpoint.completedAt=transferredAt;checkpoint.bundles=[];await saveCp(checkpoint);await dbDelete('meta',CP_KEY);try{const x=JSON.parse(localStorage.getItem('aurum.operation.resumeCheckpoint.v3')||'null');if(x?.kind==='IMPORT')localStorage.removeItem('aurum.operation.resumeCheckpoint.v3')}catch{};
     const snapshotBatchId=await persistLiveSnapshots();/* R58: import updates Veriler only; Kn/K_Tarihsel/S remain explicit manual sequence steps. */await log('ok','Veri içe aktarıldı ve mevcut kayıtlarla birleştirildi',{file:fileName,records:n,total:done.size});render();showAurumNotice(`${n} kayıt içe aktarıldı; mevcut veriler korundu`);return true;
   }catch(e){try{const x=JSON.parse(localStorage.getItem('aurum.operation.resumeCheckpoint.v3')||'{}');if(x?.kind==='IMPORT'){x.status='INTERRUPTED';x.lastError=e?.message||String(e);x.updatedAt=nowISO();localStorage.setItem('aurum.operation.resumeCheckpoint.v3',JSON.stringify(x))}}catch{};await log('error','İçe aktarma kesildi; kontrol noktasından devam edilebilir',{error:e.message});showAurumNotice('İçe aktarma kesildi; mevcut veriler korundu ve devam noktası kaydedildi','error',4200);return false;}
 }
