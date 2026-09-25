@@ -5920,9 +5920,10 @@ try{AurumUpdateAPI.state.r225={version:'REV20.25-RELIABILITY-FILL-NEWS',activate
  /* Deliberately no immediate call. Loading, foregrounding, reconnecting, opening a tab or
     regaining access never starts network work. The first autonomous market/news request is
     exactly one cadence after this runtime starts; subsequent requests are cadence-only. */
- setInterval(()=>{void marketTick()},PERIOD);
+ // Market-indicators-revision.js exclusively owns the market 30-minute cadence.
+ // Keep only the independent finance-portal cadence here.
  setInterval(()=>{void portalTick()},PERIOD);
- globalThis.AurumPeriodicMarket=Object.freeze({periodMs:PERIOD,marketTick,portalTick,policy:'30M_TIMER_OR_EXPLICIT_MANUAL_ONLY'});
+ globalThis.AurumPeriodicMarket=Object.freeze({periodMs:PERIOD,marketTick,portalTick,policy:'MARKET_OWNER_EXTERNAL_PORTAL_30M'});
  try{AurumUpdateAPI.state.r232={version:'REV20.32-STRICT-TRIGGERS-NONBLOCKING-30M',activatedAt:nowISO(),features:[
    'NO_STARTUP_FETCH','NO_FOREGROUND_FETCH','NO_NETWORK_RESTORE_FETCH','NO_TAB_NAVIGATION_FETCH',
    'DATA_ONLY_DEFINED_SCHEDULER_OR_MANUAL','MARKET_INDICATORS_30M','FINANCE_PORTAL_30M',
