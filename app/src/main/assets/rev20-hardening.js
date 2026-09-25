@@ -61,7 +61,7 @@
 
   /* One market cadence: startup refresh arms the market module's own 30-minute timer.
      Do not create another interval here. */
-  setTimeout(()=>{try{globalThis.refreshMarketIndicators?.()}catch{}},15000);
+  setTimeout(()=>{try{globalThis.refreshAurumDataMarketStrip?.()}catch{}},15000);
 
   globalThis.AurumHardening=Object.freeze({version:'2026.09.25',minFill:MIN_FILL,logs:()=>{try{return JSON.parse(localStorage.getItem('aurum.hardening.log.v1')||'[]')}catch{return []}}});
 })();
