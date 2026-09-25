@@ -258,14 +258,20 @@ async function stagePut(jobId,sym,record){if(HARD_CANCELLED_JOBS.has(String(jobI
 async function stageRows(jobId){return (await dbAll('stagingRecords')).filter(x=>x.jobId===jobId)}
 async function clearStage(jobId){const rows=await stageRows(jobId);if(!rows.length)return;await new Promise((resolve,reject)=>{const tx=state.db.transaction('stagingRecords','readwrite'),s=tx.objectStore('stagingRecords');for(const x of rows)s.delete(x.id);tx.oncomplete=()=>resolve(true);tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);});}
 async function recoverOrphanStagingRecords(){
-  if(!state.db)return {recovered:0,retained:0};
-  const [rows,jobs]=await Promise.all([dbAll('stagingRecords'),dbAll('jobs')]),active=new Set(jobs.filter(j=>operationBusyStatus(String(j?.status||''))).map(j=>j.id)),orph=rows.filter(x=>!active.has(x.jobId));
-  if(!orph.length)return {recovered:0,retained:0};
-  const current=new Map((state.records||[]).map(r=>[r.sym,r])),publish=[];
-  for(const x of orph){const r=x?.record;if(!r?.sym||r.jobDataStatus!=='FRESH')continue;let valid=true;try{valid=validateRecord(r,r.sym).ok}catch{}if(!valid)continue;const old=current.get(r.sym),nt=Date.parse(r.marketDataAt||r.apiAccessedAt||r.storedAt||''),ot=Date.parse(old?.marketDataAt||old?.apiAccessedAt||old?.storedAt||'');if(!old||!Number.isFinite(ot)||!Number.isFinite(nt)||nt>=ot)publish.push(x);else publish.push({...x,__discardOnly:true});}
-  if(!publish.length)return {recovered:0,retained:orph.length};
-  await new Promise((resolve,reject)=>{const tx=state.db.transaction(['records','stagingRecords'],'readwrite'),rs=tx.objectStore('records'),ss=tx.objectStore('stagingRecords');for(const x of publish){if(!x.__discardOnly)rs.put({key:x.record.sym,value:{...x.record,tableTransferredAt:nowISO()},updatedAt:nowISO()});ss.delete(x.id);}tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error)});
-  const reread=(await dbAll('records')).map(x=>x.value);state.records=reread;state.recordMap=new Map(reread.map(x=>[x.sym,x]));try{await refreshTableMeta()}catch{}return {recovered:publish.filter(x=>!x.__discardOnly).length,retained:orph.length-publish.length};
+  if(!state.db)return {recovered:0,discarded:0,retained:0};
+  const [rows,jobs]=await Promise.all([dbAll('stagingRecords'),dbAll('jobs')]);
+  const active=new Set(jobs.filter(j=>operationBusyStatus(String(j?.status||''))).map(j=>j.id));
+  const orphan=rows.filter(x=>!active.has(x.jobId));
+  if(!orphan.length)return {recovered:0,discarded:0,retained:0};
+  // Orphan staging is never promoted directly into the active table. A crashed/incomplete job
+  // has no trustworthy whole-snapshot completeness proof. Keep the last valid snapshot intact.
+  await new Promise((resolve,reject)=>{
+    const tx=state.db.transaction('stagingRecords','readwrite'),s=tx.objectStore('stagingRecords');
+    for(const x of orphan)s.delete(x.id);
+    tx.oncomplete=()=>resolve(true);tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);
+  });
+  try{await log('warn','Yetim staging kayıtları aktif tabloya alınmadan temizlendi',{discarded:orphan.length})}catch{}
+  return {recovered:0,discarded:orphan.length,retained:0};
 }
 async function atomicPublish(job,universe){
   /* FINAL INVARIANT: no caller/late override may publish a sub-70% snapshot. */
