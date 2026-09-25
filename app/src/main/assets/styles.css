@@ -913,3 +913,29 @@ input[type="range"][id^="aurumScaleVal_"]{height:3px;accent-color:currentColor;v
 .r233-market-line{min-width:0;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"name pct" "value source";align-items:center;gap:1px 5px;padding:4px 2px;border-bottom:1px solid rgba(255,255,255,.045)}
 .r233-market-name{grid-area:name;font-size:8px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.r233-market-line strong{grid-area:value;font-size:10px;font-weight:650;font-variant-numeric:tabular-nums;white-space:nowrap}.r233-market-line .aurum-r205-market-pct{grid-area:pct;font-size:8px;text-align:right;white-space:nowrap}.r233-market-line small{grid-area:source;font-size:6.7px;color:#718097;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 @media(max-width:420px){.r233-market-card{padding:8px 34px 8px 8px}.r233-market-grid{gap:3px 5px}.r233-market-head small{font-size:7px}.r233-market-line strong{font-size:9.2px}.r233-market-name,.r233-market-line .aurum-r205-market-pct{font-size:7.4px}.r233-market-line small{font-size:6.2px}}
+
+
+/* Deep Parliament-blue card palette — 2026-09-25 */
+:root{--aurum-card-midnight:#071A3A;--aurum-card-midnight-2:#0A2148;--aurum-card-midnight-soft:#0D2854}
+#content .card,
+#content .metric,
+#content .quick-card,
+#content .settings-card,
+#content .operation-card,
+#content .aurum-data-status-card,
+#content .trait-card,
+#content .behavior-stat,
+#content .detail-cell,
+#content .weight-grid>div,
+#content .r233-market-card,
+#content .aurum-r205-market-card{
+  background:linear-gradient(145deg,rgba(10,33,72,.985),rgba(5,20,48,.998))!important;
+}
+#content .quick-card:active{
+  background:linear-gradient(145deg,rgba(13,42,88,.99),rgba(7,25,56,.998))!important;
+}
+#content .list-row,
+#content .stock-time-grid,
+#content .aurum-time-card{
+  background:linear-gradient(145deg,rgba(11,36,77,.96),rgba(6,22,51,.995))!important;
+}
