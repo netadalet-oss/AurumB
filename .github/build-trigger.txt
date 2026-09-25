@@ -1,0 +1,1 @@
+Build trigger for installable AurumB APK. No application source change.
