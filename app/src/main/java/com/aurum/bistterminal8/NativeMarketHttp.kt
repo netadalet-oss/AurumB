@@ -9,10 +9,10 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.ConcurrentHashMap
-import kotlin.concurrent.thread
+import java.util.concurrent.Executors
 
 object NativeMarketHttp {
-    private val active = ConcurrentHashMap<String, HttpURLConnection>()
+    private val active = ConcurrentHashMap<String, HttpURLConnection>()\n    private val executor = Executors.newFixedThreadPool(8)
     private val allowedHosts = setOf(
         "www.isyatirim.com.tr", "isyatirim.com.tr",
         "static.altinkaynak.com",
@@ -46,7 +46,7 @@ object NativeMarketHttp {
         timeoutMs: Int,
         callback: (String) -> Unit
     ) {
-        thread(name = "AurumMarketHttp-$id") {
+        executor.execute {
             var connection: HttpURLConnection? = null
             try {
                 val verb = method.uppercase()
