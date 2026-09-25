@@ -5,7 +5,7 @@
   const DEFAULTS=Object.freeze({
     uiScale:100,fontScale:10,tableFont:9,titleScale:12,helperScale:8,iconScale:100,
     cardPadding:100,gapScale:100,radiusScale:100,rowScale:100,cellPadding:100,
-    navScale:100,headerScale:100,density:'base',fontFamily:'system',fontWeight:'400',
+    navScale:100,headerScale:100,density:'base',fontFamily:'system',fontWeight:'400',fontStyle:'normal',
     accent:'',text:'',muted:'',background:'',cardBackground:'',tableBackground:'',tableHeader:'',positive:'',negative:''
   });
   const root=document.documentElement,styleId='aurumRev20PresentationRules';
@@ -13,11 +13,11 @@
   const clamp=(n,a,b)=>Math.max(a,Math.min(b,Number(n)||100));
   const load=()=>{try{const p={...DEFAULTS,...JSON.parse(localStorage.getItem(KEY)||'{}')};for(const k of ['fontScale','tableFont','titleScale','helperScale'])if(Number(p[k])>12)p[k]=k==='titleScale'?12:k==='helperScale'?8:k==='tableFont'?9:10;for(const k of ['uiScale','iconScale','cardPadding','gapScale','radiusScale','cellPadding','navScale','headerScale'])p[k]=clamp(p[k],80,110);return p}catch{return {...DEFAULTS}}};
   const save=x=>localStorage.setItem(KEY,JSON.stringify(x));
-  const family=v=>v==='serif'?"Georgia,'Times New Roman',serif":v==='mono'?"ui-monospace,SFMono-Regular,Menlo,Consolas,monospace":"Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif";
+  const family=v=>v==='serif'?"Georgia,'Times New Roman',serif":v==='mono'?"ui-monospace,SFMono-Regular,Menlo,Consolas,monospace":v==='classic'?"Arial,Helvetica,sans-serif":"Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif";
   function ensureRules(){
     if(document.getElementById(styleId))return;
     const st=document.createElement('style');st.id=styleId;st.textContent=`
-html[data-r20-custom="1"] #content{font-size:var(--r20-font,10px);font-family:var(--r20-family,inherit);font-weight:var(--r20-weight,400)}
+html[data-r20-custom="1"] #content{font-size:var(--r20-font,10px);font-family:var(--r20-family,inherit);font-weight:var(--r20-weight,400);font-style:var(--r20-style,normal)}
 html[data-r20-custom="1"] .section-head h2,html[data-r20-custom="1"] h1,html[data-r20-custom="1"] h2,html[data-r20-custom="1"] h3{font-size:var(--r20-title,12px)}
 html[data-r20-custom="1"] small,html[data-r20-custom="1"] .muted{font-size:var(--r20-helper,8px)}
 html[data-r20-custom="1"] table{font-size:var(--r20-table,9px);background:var(--r20-table-bg,rgba(2,7,24,.88))}
@@ -59,7 +59,7 @@ html[data-r20-custom="1"][data-r20-density="compact"] .card{padding-top:9px;padd
     const changed=Object.keys(DEFAULTS).some(k=>String(p[k])!==String(DEFAULTS[k]));if(!changed){resetStyles();return p}
     ensureRules();root.dataset.r20Custom='1';root.dataset.r20Density=p.density||'base';
     setVar('--r20-font',clamp(p.fontScale,5,12)+'px');setVar('--r20-table',clamp(p.tableFont,5,12)+'px');setVar('--r20-title',clamp(p.titleScale,5,12)+'px');setVar('--r20-helper',clamp(p.helperScale,5,12)+'px');setVar('--r20-icon',clamp(p.iconScale,80,110)/100);setVar('--r20-card-pad',clamp(p.cardPadding,80,110)/100);setVar('--r20-gap',clamp(p.gapScale,80,110)/100);setVar('--r20-radius',clamp(p.radiusScale,80,110)/100);setVar('--r20-cell',clamp(p.cellPadding,80,110)/100);setVar('--r20-nav',clamp(p.navScale,80,110)/100);setVar('--r20-header',clamp(p.headerScale,80,110)/100);root.style.zoom=clamp(p.uiScale,80,110)/100;
-    setVar('--r20-family',family(p.fontFamily));setVar('--r20-weight',String(Math.max(400,Math.min(800,Number(p.fontWeight)||700))));setVar('--gold2',p.accent||null);setVar('--text',p.text||null);setVar('--muted',p.muted||null);setVar('--r20-card-bg',p.cardBackground||null);setVar('--r20-table-bg',p.tableBackground||null);setVar('--r20-table-head',p.tableHeader||null);if(p.background)document.body.style.background=p.background;else document.body.style.removeProperty('background');setVar('--green',p.positive||null);setVar('--red',p.negative||null);return p
+    setVar('--r20-family',family(p.fontFamily));setVar('--r20-weight',String(Math.max(300,Math.min(800,Number(p.fontWeight)||400))));root.style.setProperty('--r20-style',p.fontStyle||'normal');setVar('--gold2',p.accent||null);setVar('--text',p.text||null);setVar('--muted',p.muted||null);setVar('--r20-card-bg',p.cardBackground||null);setVar('--r20-table-bg',p.tableBackground||null);setVar('--r20-table-head',p.tableHeader||null);if(p.background)document.body.style.background=p.background;else document.body.style.removeProperty('background');setVar('--green',p.positive||null);setVar('--red',p.negative||null);return p
   }
   const rangeLabel=id=>({r20_uiScale:'Genel UI ölçeği · Aurum',r20_fontScale:'Genel yazı · Aa 123',r20_tableFont:'Tablo yazısı · ABCD 123,45',r20_titleScale:'Başlıklar · Aurum BIST',r20_helperScale:'Yardımcı yazılar · açıklama',r20_iconScale:'Simgeler · ✦ ◇ Σ ↗',r20_cardPadding:'Kart iç boşluğu',r20_gapScale:'Kart / alan aralığı',r20_radiusScale:'Köşe yuvarlaklığı',r20_cellPadding:'Tablo hücre yoğunluğu',r20_navScale:'Alt navigasyon yüksekliği',r20_headerScale:'Üst başlık yüksekliği'}[id]||'Canlı ayar');
   const range=(id,label,v,min=80,max=110,def=100,unit='%')=>`<div class="field r20-live-control" data-r20-range="${id}" data-r20-unit="${unit}"><label><span class="r20-live-label">${rangeLabel(id)||label}</span><b data-r20-out="${id}">${v}${unit}</b></label><div class="r20-range-wrap"><input id="${id}" data-r20-pref type="range" min="${min}" max="${max}" step="1" value="${v}" aria-label="${label}"><button type="button" class="r20-default-arrow" data-r20-default="${id}" data-r20-value="${def}" title="Bu ayarı varsayılana döndür" aria-label="${label} varsayılanına dön">↶</button></div></div>`;
