@@ -314,14 +314,29 @@ function currentPendingRepairPlan(){return buildPendingRepairPlan(state.records,
 function repairFallbackRecord(prior,issues=[]){if(!prior)return makePlaceholder('',null,issues);const rec=JSON.parse(JSON.stringify(prior));rec.repairLastError=issues.join(' · ');rec.repairAttemptedAt=nowISO();return rec;}
 async function atomicRepairPublish(job,targetSymbols){
   if(HARD_CANCELLED_JOBS.has(String(job?.id))||cancelRequested(job))throw Object.assign(new Error('İşlem kullanıcı tarafından iptal edildi'),{code:'OPERATION_CANCELLED'});
-  const staged=await stageRows(job.id),byStage=new Map(staged.map(x=>[x.sym,x.record])),all=new Map((state.records||[]).map(r=>[r.sym,r])),changed=[];
-  const canonical=safeTime(job?.canonicalMarketAt);if(canonical==null)throw new Error('CANONICAL_MARKET_TIME_UNAVAILABLE');
-  for(const sym of targetSymbols){const rec=byStage.get(sym);if(!rec)continue;const chk=marketWindowCheck(rec,job.canonicalMarketAt);if(rec?.jobDataStatus==='FRESH'&&chk.ok){rec.marketWindowEligible=true;rec.marketWindowDeltaMinutes=chk.deltaMinutes;rec.unresolvedFields=bundleRecordMissingFields(rec);all.set(sym,rec);changed.push(sym);}else if(!all.has(sym)){all.set(sym,rec);changed.push(sym);}}
-  const universe=currentSymbols(),records=universe.map(sym=>all.get(sym)).filter(Boolean),eligibility=classifyDataCompleteness(records,universe),previous=(await dbGet('meta','activeDataSnapshot'))?.value||{},transferredAt=nowISO();
-  for(const rec of records){const e=eligibility.bySymbol.get(rec.sym);rec.emptyCellCount=e?.emptyCells??0;if(rec?.jobDataStatus==='FRESH'&&rec?.marketWindowEligible===true){rec.calculationEligible=!!e?.eligible;rec.calculationExclusionReasons=e?.reasons||[];}else rec.calculationEligible=false;rec.incompleteColumns=eligibility.incompleteColumns;}
-  const plan=buildPendingRepairPlan(records,universe),excludedSymbols=plan.items.filter(x=>x.fullSymbol).map(x=>({sym:x.sym,reason:x.reason||'REPAIR_PENDING'})),fingerprint=dataTableFingerprint(records),changedAt=previous.fingerprint===fingerprint&&previous.changedAt?previous.changedAt:transferredAt;
-  await new Promise((resolve,reject)=>{const tx=state.db.transaction(['records','meta'],'readwrite'),rs=tx.objectStore('records'),ms=tx.objectStore('meta');for(const sym of changed){const value=all.get(sym);if(value)rs.put({key:sym,value,updatedAt:transferredAt});}ms.put({key:'activeDataSnapshot',value:{...previous,snapshotId:job.dataSnapshotId,jobId:job.id,completedAt:transferredAt,transferredAt,changedAt,fingerprint,universeCount:universe.length,publishedCount:records.length,excludedSymbols,incompleteColumns:eligibility.incompleteColumns,repairOnly:true},updatedAt:transferredAt});ms.put({key:DATA_REPAIR_META_KEY,value:plan,updatedAt:transferredAt});tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error)});
-  const reread=(await dbAll('records')).map(x=>x.value);state.records=reread;state.recordMap=new Map(reread.map(x=>[x.sym,x]));return {records:reread,plan,changed};
+  const staged=await stageRows(job.id),byStage=new Map(staged.map(x=>[x.sym,x.record])),current=new Map((state.records||[]).map(r=>[r.sym,r]));
+  const universe=currentSymbols(),canonical=safeTime(job?.canonicalMarketAt);
+  if(canonical==null)throw new Error('CANONICAL_MARKET_TIME_UNAVAILABLE');
+  const targetSet=new Set(targetSymbols||[]);
+  for(const sym of targetSet){
+    const rec=byStage.get(sym);if(!rec)continue;
+    const chk=marketWindowCheck(rec,job.canonicalMarketAt);
+    if(rec?.jobDataStatus==='FRESH'&&chk.ok){
+      rec.marketWindowEligible=true;rec.marketWindowDeltaMinutes=chk.deltaMinutes;
+      rec.unresolvedFields=bundleRecordMissingFields(rec);current.set(sym,rec);
+    }
+  }
+  /* Repair is never a partial live-table write. Build one complete candidate snapshot in
+     staging, then pass through the exact same atomic publisher and integrity gate as FULL. */
+  await clearStage(job.id);
+  for(const sym of universe){
+    const rec=current.get(sym)||makePlaceholder(sym,null,['MISSING_ROW_AFTER_REPAIR']);
+    await stagePut(job.id,sym,rec);
+  }
+  await flushStageBatch(job.id);
+  const published=await atomicPublish(job,universe);
+  const plan=await persistPendingRepairPlan(published,universe);
+  return {records:published,plan,changed:[...targetSet]};
 }
 
 const V141225_BAND_KEY='aurum.v141225.band.v2';
