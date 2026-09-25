@@ -6,7 +6,7 @@
     uiScale:100,fontScale:10,tableFont:9,titleScale:12,helperScale:8,iconScale:100,
     cardPadding:100,gapScale:100,radiusScale:100,rowScale:100,cellPadding:100,
     navScale:100,headerScale:100,density:'base',fontFamily:'system',fontWeight:'400',fontStyle:'normal',
-    accent:'',text:'',muted:'',background:'',cardBackground:'',tableBackground:'',tableHeader:'',positive:'',negative:''
+    accent:'#f3d36f',text:'#f5f7fb',muted:'',background:'#01083B',cardBackground:'#071327',tableBackground:'#020718',tableHeader:'#071738',positive:'',negative:''
   });
   const root=document.documentElement,styleId='aurumRev20PresentationRules';
   const S=()=>globalThis.AurumUpdateAPI?.state||globalThis.state||null;
