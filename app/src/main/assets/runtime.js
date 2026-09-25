@@ -268,6 +268,14 @@ async function recoverOrphanStagingRecords(){
   const reread=(await dbAll('records')).map(x=>x.value);state.records=reread;state.recordMap=new Map(reread.map(x=>[x.sym,x]));try{await refreshTableMeta()}catch{}return {recovered:publish.filter(x=>!x.__discardOnly).length,retained:orph.length-publish.length};
 }
 async function atomicPublish(job,universe){
+  /* FINAL INVARIANT: no caller/late override may publish a sub-70% snapshot. */
+  const __candidateStage=(await stageRows(job.id)).map(x=>x.record);
+  const __candidateSummary=dataSummary(publishableStagedRecords(__candidateStage,job));
+  const __candidateGate=dataIntegrityGate(__candidateSummary);
+  if(!__candidateGate.ok){
+    const err=Object.assign(new Error('DATA_FILL_BELOW_70_KEEP_LAST_VALID_SNAPSHOT'),{code:'DATA_FILL_BELOW_70',gate:__candidateGate});
+    throw err;
+  }
   if(HARD_CANCELLED_JOBS.has(String(job?.id))||cancelRequested(job))throw Object.assign(new Error('İşlem kullanıcı tarafından iptal edildi'),{code:'OPERATION_CANCELLED'});
   const rows=await stageRows(job.id),by=new Map(rows.map(x=>[x.sym,x.record]));
   if(by.size!==universe.length)throw new Error(`STAGING_COUNT_MISMATCH:${by.size}/${universe.length}`);
