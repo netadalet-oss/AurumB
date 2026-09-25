@@ -4753,7 +4753,7 @@ try{AurumUpdateAPI.state.cleanREV20={version:'REV20.0-CLEAN',activatedAt:new Dat
   document.addEventListener('input',e=>{if(S?.page==='settings'&&e.target?.matches?.('input,select,textarea'))S.settingsDirty=true},true);
   document.addEventListener('change',e=>{if(S?.page==='settings'&&e.target?.matches?.('input,select,textarea'))S.settingsDirty=true},true);
 
-  const saveNames=['saveRuntimeSettings','saveDataQualitySettings','saveExecutionSettings','saveLearningSettings','saveBehaviorGenomeSettings','saveCalendarSettings','savePerformanceControlSettings','saveR44TransferSettings','saveExportPreferences'];
+  const saveNames=['saveRuntimeSettings','saveExecutionSettings','saveLearningSettings','saveBehaviorGenomeSettings','saveCalendarSettings','savePerformanceControlSettings','saveR44TransferSettings','saveExportPreferences'];
   for(const name of saveNames){
     const fn=globalThis[name];if(typeof fn!=='function'||fn.__rev20Confirm)continue;
     const wrapped=async function(...args){
