@@ -9,6 +9,9 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
 import android.os.IBinder
+import android.net.Uri
+import android.webkit.JsPromptResult
+import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceError
 import android.webkit.WebView
@@ -56,10 +59,55 @@ class PipelineService : Service() {
         webView = WebView(this).apply {
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
-            settings.databaseEnabled = true
             settings.allowFileAccess = false
             settings.allowContentAccess = false
             settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
+            webChromeClient = object : WebChromeClient() {
+                override fun onJsPrompt(
+                    view: WebView?, url: String?, message: String?, defaultValue: String?, result: JsPromptResult?
+                ): Boolean {
+                    if (message?.startsWith("aurum://native?") != true) {
+                        return super.onJsPrompt(view, url, message, defaultValue, result)
+                    }
+                    val uri = runCatching { Uri.parse(message) }.getOrNull()
+                    val response = when (uri?.getQueryParameter("cmd").orEmpty()) {
+                        "http_cancel" -> {
+                            val id = uri?.getQueryParameter("requestId").orEmpty()
+                            if (id.isBlank()) "ERR:MISSING_REQUEST_ID"
+                            else { NativeMarketHttp.cancel(id); "OK" }
+                        }
+                        "http_request" -> {
+                            val id = uri?.getQueryParameter("requestId").orEmpty()
+                            val rawUrl = uri?.getQueryParameter("url").orEmpty()
+                            if (id.isBlank()) "ERR:MISSING_REQUEST_ID"
+                            else if (rawUrl.isBlank()) "ERR:MISSING_URL"
+                            else {
+                                NativeMarketHttp.request(
+                                    this@PipelineService,
+                                    id,
+                                    uri?.getQueryParameter("method") ?: "GET",
+                                    rawUrl,
+                                    defaultValue.orEmpty(),
+                                    (uri?.getQueryParameter("timeout")?.toIntOrNull() ?: 15000).coerceIn(1000, 120000)
+                                ) { payload ->
+                                    watchdog.post {
+                                        webView?.evaluateJavascript(
+                                            "window.AurumNativeHTTP&&window.AurumNativeHTTP.resolve(" +
+                                                org.json.JSONObject.quote(id) + "," +
+                                                org.json.JSONObject.quote(payload) + ")",
+                                            null
+                                        )
+                                    }
+                                }
+                                "ACCEPTED"
+                            }
+                        }
+                        else -> "ERR:BACKGROUND_NATIVE_COMMAND_BLOCKED"
+                    }
+                    result?.confirm(response)
+                    return true
+                }
+            }
             webViewClient = object : WebViewClient() {
                 override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest) =
                     loader.shouldInterceptRequest(request.url)
