@@ -318,7 +318,7 @@ function defaultSettings(){return {
   providerConcurrency:{ISYATIRIM:5,ISYATIRIM_FINANCIALS:4,ISYATIRIM_LIVE:4,YAHOO:10,YAHOO_ALT:8,YAHOO_QUOTE:4,BIGPARA:6,BIGPARA_LIVE:6,FOREKS:5,STOOQ:5,KAP:4},providerHealthAdaptive:true,sourceHealthFlushEvery:8,circuitBreakerFailures:3,circuitBreakerCooldownMs:30000,rateLimitCooldownMs:60000,stageBatchSize:192,stageFlushMs:2,marketFreshMinutes:90,
   providerOrder:['ISYATIRIM','ISYATIRIM_LIVE','YAHOO','YAHOO_ALT','YAHOO_QUOTE','BIGPARA','BIGPARA_LIVE','FOREKS','STOOQ'],customProvidersJson:'[]',providerCredentialsJson:'{}',liveEnabled:true,mergeKapUniverse:true,aiRequireNewMarketBucket:true,aiMarketTimeBuckets:'08:20,12:20,18:20,21:30',
   commissionBps:8,slippageBps:12,maxParticipationPct:2,assumedPositionTRY:100000,minTurnoverM:5,minPrice:0.5,maxDailyMovePct:12.5,
-  qualityMin:60,evaluationDays:1,targetSessions:2,targetReturnPct:5,targetTopN:20,topN:20,crossSectionalTargetPct:.05,adaptiveSelection:true,minSelectionScore:58,minTargetProbability:.04,maxExecutionRisk:.70,sectorMaxPct:.20,pairwiseMaxCorr:.80,readyCoverageMin:.96,lockedTestPct:.20,archiveMaxRuns:1200,backtestDays:756,backtestStep:1,purgeEmbargoSessions:2,ohlcAmbiguityAdversePct:3,targetFillBufferPct:.15,
+  qualityMin:60,evaluationDays:1,targetSessions:2,targetReturnPct:5,targetTopN:20,topN:20,crossSectionalTargetPct:.05,adaptiveSelection:true,minSelectionScore:58,minTargetProbability:.04,maxExecutionRisk:.70,sectorMaxPct:.20,pairwiseMaxCorr:.80,lockedTestPct:.20,archiveMaxRuns:1200,backtestDays:756,backtestStep:1,purgeEmbargoSessions:2,ohlcAmbiguityAdversePct:3,targetFillBufferPct:.15,
   learningHalfLifeDays:40,weightDailyCapPct:.50,weightMin:.02,weightMax:.22,minWeightObservations:60,minCriterionPredictions:600,
   probationThreshold:42,shadowThreshold:32,promotionMargin:0.35,behaviorLookbackDays:252,behaviorMinSamples:40,behaviorLifetimeWeight:.30,
   genomeLookbackDays:252,genomeNearestNeighbors:40,genomeMinAnalogs:20,genomePriorStrength:16,genomeHistoryDays:400,
@@ -327,7 +327,7 @@ function defaultSettings(){return {
   aiMinAuditConfidenceForCandidate:.45,criterionModeDefault:'COMMON',calendarOverridesJson:'[]',
   nativeSchedulerEnabled:true,nativeSchedulerSlots:['00:30','04:30','08:20','09:20','10:20','11:20','12:20','13:20','14:20','15:20','16:20','17:20','18:20','19:20','20:30','21:30','22:30','23:30'].map(time=>({enabled:true,time})),
   exportTarget:'downloads',exportFormat:'json',exportMode:'separate',exportTables:['records','K1','K2','K3','K4','K5','K6','K7','K8','K9','K10','K11','K12','runs','selection'],
-  rowEmptyThreshold:60,columnEmptyThreshold:60,maxCalculationMissingColumns:50,symbolRepairRounds:3,marketRecoveryRounds:3,maxJobRetries:3,jobMaxAgeHours:48,minTableRows:500,minTableColumns:468,targetMaxMissingCells:10000,targetMinFillPct:96,sourceMismatchTolerancePct:35,minSourceTrustScore:35,minCalculationRows:20,maxBlockingMissingCells:10000,
+  symbolRepairRounds:3,marketRecoveryRounds:3,maxJobRetries:3,jobMaxAgeHours:48,
   settingsSchemaVersion:SETTINGS_SCHEMA_VERSION
 };}
 
@@ -362,7 +362,6 @@ async function loadState(){
   state.settings.aiAutoPromoteValidated=false;
   state.settings.targetTopN=state.settings.topN=Math.min(20,Math.max(1,Number(state.settings.targetTopN||state.settings.topN||20)));
   state.settings.targetSessions=2;
-  state.settings.readyCoverageMin=clamp(Number(state.settings.readyCoverageMin)||.95,.95,1);
   state.settings.minSelectionScore=clamp(Number(state.settings.minSelectionScore)||55,0,100);
   state.settings.minTargetProbability=clamp(Number(state.settings.minTargetProbability)||.03,0,1);
   state.settings.maxExecutionRisk=clamp(Number(state.settings.maxExecutionRisk)||.82,0,1);
@@ -383,17 +382,7 @@ async function loadState(){
   state.settings.exportFormat=['json','csv','xlsx','pdf'].includes(state.settings.exportFormat)?state.settings.exportFormat:'json';
   state.settings.exportMode=state.settings.exportMode==='bundle'?'bundle':'separate';
   if(!Array.isArray(state.settings.exportTables)||!state.settings.exportTables.length)state.settings.exportTables=['records','K1','K2','K3','K4','K5','K6','K7','K8','K9','K10','K11','K12','runs','selection'];
-  state.settings.rowEmptyThreshold=clamp(Number(state.settings.rowEmptyThreshold)||60,1,484);
-  state.settings.columnEmptyThreshold=clamp(Number(state.settings.columnEmptyThreshold)||60,1,100);
   state.settings.symbolRepairRounds=clamp(Number(state.settings.symbolRepairRounds)||3,1,5);
-  state.settings.minTableRows=clamp(Number(state.settings.minTableRows)||500,20,5000);
-  state.settings.minTableColumns=clamp(Number(state.settings.minTableColumns)||468,20,5000);
-  state.settings.targetMaxMissingCells=clamp(Number(state.settings.targetMaxMissingCells)||10000,0,10000000);
-  state.settings.targetMinFillPct=clamp(Number(state.settings.targetMinFillPct)||96,0,100);
-  state.settings.sourceMismatchTolerancePct=clamp(Number(state.settings.sourceMismatchTolerancePct)||35,1,100);
-  state.settings.minSourceTrustScore=clamp(Number(state.settings.minSourceTrustScore)||35,0,100);
-  state.settings.minCalculationRows=clamp(Number(state.settings.minCalculationRows)||20,1,5000);
-  state.settings.maxBlockingMissingCells=clamp(Number(state.settings.maxBlockingMissingCells)||10000,0,10000000);
   state.settings.marketRecoveryRounds=clamp(Number(state.settings.marketRecoveryRounds)||3,0,6);
   state.settings.maxJobRetries=clamp(Number(state.settings.maxJobRetries)||3,0,10);
   state.settings.jobMaxAgeHours=clamp(Number(state.settings.jobMaxAgeHours)||48,1,168);
@@ -906,7 +895,7 @@ async function evaluatePendingRuns(){
       if(out)outcomes.push({sym,entryDate,entryPrice,targetDates:dates,signalDayRank:e.signalDayRank,signalDayReturn:e.signalDayReturn,...out});
       for(const date of dates){const ret=dailyReturnOnDate(rec,date);if(Number.isFinite(ret))(dailyRanks[date]??=[]).push({sym,ret});}
     }
-    const minReady=Math.max(1,Math.ceil(truthSyms.length*Math.max(.95,Number(state.settings.readyCoverageMin)||.95)));run.readyCoverage=truthSyms.length?ready/truthSyms.length:0;if(ready<minReady)continue;
+    run.readyCoverage=truthSyms.length?ready/truthSyms.length:0;
     const reelTop=new Set(),reelByDate={};for(const [date,rows] of Object.entries(dailyRanks)){rows.sort((a,b)=>b.ret-a.ret);const n=Math.min(Number(run.targetTopN)||20,Math.max(1,Math.ceil(rows.length*(Number(state.settings?.crossSectionalTargetPct)||.05))));reelByDate[date]=rows.slice(0,n).map(x=>x.sym);reelByDate[date].forEach(sym=>reelTop.add(sym));}
     const outcomeMap=new Map(outcomes.map(x=>[x.sym,x])),topDatesFor=sym=>Object.entries(reelByDate).filter(([,syms])=>syms.includes(sym)).map(([d])=>d),qualifyingFor=sym=>qualifyingReelDates(run,entryMap.get(sym)?.signalDayRank,topDatesFor(sym));
     const strictTopSet=new Set(outcomes.filter(o=>qualifyingFor(o.sym).length).map(o=>o.sym)),actualDual=outcomes.filter(o=>qualifyingFor(o.sym).length&&o.fivePct).sort((a,b)=>b.maxNetReturn-a.maxNetReturn);
