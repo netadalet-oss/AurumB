@@ -96,3 +96,5 @@ const mk=runtime.indexOf("markup=String(fn()||'')",inv), adopt=runtime.indexOf('
 ok(inv>=0 && mk>inv && adopt>mk,'First render builds markup before R61 adopts content');
 
 ok(runtime.includes('if(!S.settings||!S.performance||!S.behaviorMemory)return baseOverview()'), 'Final overview falls back before canonical state initialization');
+
+ok(runtime.includes("if(page==='overview'){try{markup=String(quickAccess()||'')") && runtime.includes("if(page==='overview')markup='<div class=\"card\"><b>Aurum hazır</b></div>'"), 'Startup overview has an explicit non-empty emergency render');
