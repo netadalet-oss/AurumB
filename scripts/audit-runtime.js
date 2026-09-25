@@ -101,3 +101,5 @@ ok(runtime.includes("if(page==='overview'){try{markup=String(quickAccess()||'')"
 
 const startupFallback=runtime.indexOf("host.innerHTML=globalThis.overview()"), finalBootstrap=runtime.lastIndexOf('bootstrapClean();');
 ok(startupFallback>=0 && finalBootstrap>startupFallback, 'Startup fallback exists before bootstrap call');
+
+ok(runtime.indexOf('bootstrapClean();') < runtime.indexOf('/* Embedded R47 compatibility layer */'), 'Foreground bootstrap keeps last-known-working pre-compatibility launch order');
