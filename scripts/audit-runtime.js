@@ -43,9 +43,13 @@ ok(!/stagingRecords[\s\S]{0,500}calculate(?:Kn|S)\s*\(/.test(runtime), 'staging 
 ok(count(market, /setInterval\s*\(/g) === 1, 'market indicator module must own exactly one interval');
 ok(market.includes('30*60*1000') || market.includes('30 * 60 * 1000'), 'market interval is not 30 minutes');
 ok(market.includes('refresh({force:true})'), 'manual market refresh does not use the shared refresh engine');
+ok(market.includes("if(!f&&old[k])fields[k]={...old[k],stale:true}") && market.includes("else if(old.EURUSD)fields.EURUSD={...old.EURUSD,stale:true}") && market.includes("else if(old.GOLDUSD)fields.GOLDUSD={...old.GOLDUSD,stale:true}"), 'market failures do not preserve prior field values');
 
 ok(runtime.includes("restorePoint:*") || runtime.includes("startsWith('restorePoint:')") || runtime.includes('startsWith("restorePoint:")'), 'restore point archive preservation marker missing');
-ok(runtime.includes('UYGULAMA_SIFIRLAMA_ÖNCESİ'), 'pre-reset restore point missing');
+const restoreBlock = runtime.slice(runtime.indexOf('async function restoreRestorePoint'), runtime.indexOf('async function clearFromSettings'));
+ok(restoreBlock.includes("startsWith('restorePoint:')") && restoreBlock.includes("bulkPut(name,archive)"), 'restore flow does not preserve restorePoint archive');
+const resetBlock = runtime.slice(runtime.indexOf('async function resetApplicationR44'), runtime.indexOf('function restorePointsModule'));
+ok(resetBlock.includes("createRestorePoint('UYGULAMA_SIFIRLAMA_ÖNCESİ'") && resetBlock.includes("startsWith('restorePoint:')") && resetBlock.includes("bulkPut('meta',restoreArchive)"), 'full reset does not preserve pre-reset restore archive');
 
 for (const token of ['İnce','Normal','Kalın','İtalik','data-r20-color-default']) ok(appearance.includes(token), 'appearance control missing: '+token);
 ok(appearance.includes('data-r20-action="defaults"') && appearance.includes('Tümünü Varsayılana Döndür'), 'appearance reset-all control missing');
