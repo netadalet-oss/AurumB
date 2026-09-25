@@ -82,3 +82,6 @@ const bridgeDef=runtime.indexOf('function aurumUpdateApi('), bridgeUse=runtime.i
 ok(bridgeDef>=0 && bridgeUse>bridgeDef, 'Embedded runtime API bridge exists before R63 startup use');
 
 ok(runtime.includes("const s=Array.isArray(S.selection)?S.selection:[],records=Array.isArray(S.records)?S.records:[]") && runtime.includes("profiles=S.behaviorProfiles?.values?[...S.behaviorProfiles.values()]:[]"), 'R62 overview tolerates incomplete startup state');
+
+const bootCalls=[...runtime.matchAll(/bootstrapClean\(\);/g)].map(m=>m.index), finalLayer=runtime.indexOf('REV20.43 — CONSOLIDATED FINAL MARKET / PORTAL UI CONTRACT');
+ok(bootCalls.length===1 && bootCalls[0]>finalLayer, 'Foreground bootstrap runs once after all embedded runtime layers are installed');
