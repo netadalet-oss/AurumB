@@ -74,3 +74,6 @@ if (failures.length) {
   process.exit(1);
 }
 console.log('Aurum static contract audit passed.');
+
+// Startup UI regression: late page render must build non-empty markup before removing visible slots.
+ok(runtime.includes("markup=String(fn()||'')") && runtime.indexOf("markup=String(fn()||'')") < runtime.indexOf("for(const oldSlot of slots.values())oldSlot.remove()"), 'Late overview render preserves the visible page until replacement markup is ready');
