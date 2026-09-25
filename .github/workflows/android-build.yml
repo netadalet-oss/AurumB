@@ -1,7 +1,7 @@
 name: Android Build
 on:
   push:
-    branches: [ main ]
+    branches: [ main, full-hardening-2026-09-25 ]
   workflow_dispatch:
 jobs:
   assemble:
@@ -12,28 +12,28 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Validate JavaScript syntax
-        run: |
-          node --check app/src/main/assets/core.js
-          node --check app/src/main/assets/features.js
-          node --check app/src/main/assets/runtime.js
-          node --check app/src/main/assets/offline-first.js
-          node --check app/src/main/assets/rev20-customization.js
-          node --check app/src/main/assets/rev20-final-rules.js
-          node --check app/src/main/assets/market-indicators-revision.js
-          node --check app/src/main/assets/rev20-final-stability.js
-          node --check app/src/main/assets/native-market-http.js
-
-      - name: Assemble debug APK
-        run: gradle --no-daemon :app:assembleDebug --stacktrace
-      - name: Align and sign installable APK
+      - name: Validate all JavaScript syntax
         run: |
           set -euo pipefail
+          find app/src/main/assets -maxdepth 1 -name '*.js' -print0 | sort -z | xargs -0 -n1 node --check
+
+      - name: Assemble release APK
+        run: gradle --no-daemon :app:assembleRelease --stacktrace
+
+      - name: Align and sign installable APK with persistent release key
+        env:
+          AURUMB_KEYSTORE_B64: ${{ secrets.AURUMB_KEYSTORE_B64 }}
+          AURUMB_KEY_ALIAS: ${{ secrets.AURUMB_KEY_ALIAS }}
+          AURUMB_STORE_PASSWORD: ${{ secrets.AURUMB_STORE_PASSWORD }}
+          AURUMB_KEY_PASSWORD: ${{ secrets.AURUMB_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$AURUMB_KEYSTORE_B64" && test -n "$AURUMB_KEY_ALIAS" && test -n "$AURUMB_STORE_PASSWORD" && test -n "$AURUMB_KEY_PASSWORD"
+          printf '%s' "$AURUMB_KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/aurumb-release.jks"
           BUILD_TOOLS="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
-          UNSIGNED="$(find app/build/outputs/apk/debug -name '*.apk' | head -1)"
+          UNSIGNED="$(find app/build/outputs/apk/release -name '*.apk' | head -1)"
           "$BUILD_TOOLS/zipalign" -f -p 4 "$UNSIGNED" app/build/outputs/apk/AurumB-final-aligned.apk
-          keytool -genkeypair -v -keystore "$RUNNER_TEMP/aurumb-final.jks" -storepass AurumB2026 -keypass AurumB2026 -alias aurumb -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=AurumB Final,O=AurumB,C=TR"
-          "$BUILD_TOOLS/apksigner" sign --ks "$RUNNER_TEMP/aurumb-final.jks" --ks-key-alias aurumb --ks-pass pass:AurumB2026 --key-pass pass:AurumB2026 --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled true --out app/build/outputs/apk/AurumB-final-install.apk app/build/outputs/apk/AurumB-final-aligned.apk
+          "$BUILD_TOOLS/apksigner" sign --ks "$RUNNER_TEMP/aurumb-release.jks" --ks-key-alias "$AURUMB_KEY_ALIAS" --ks-pass env:AURUMB_STORE_PASSWORD --key-pass env:AURUMB_KEY_PASSWORD --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled true --out app/build/outputs/apk/AurumB-final-install.apk app/build/outputs/apk/AurumB-final-aligned.apk
           "$BUILD_TOOLS/apksigner" verify --verbose --print-certs app/build/outputs/apk/AurumB-final-install.apk
           "$BUILD_TOOLS/zipalign" -c -p 4 app/build/outputs/apk/AurumB-final-install.apk
       - name: Upload APK

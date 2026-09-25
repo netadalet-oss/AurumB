@@ -13,7 +13,8 @@
     'www.kap.org.tr','kap.org.tr',
     'www.borsaistanbul.com','borsaistanbul.com',
     'news.google.com','feeds.nos.nl','www.tcmb.gov.tr','tcmb.gov.tr',
-    'script.google.com','script.googleusercontent.com'
+    'script.google.com','script.googleusercontent.com',
+    'theunat.com','www.theunat.com','borsaistanbulcanli.com','www.borsaistanbulcanli.com','api.genelpara.com'
   ]);
   const canHandle=input=>{
     try{const u=new URL(String(input));return u.protocol==='https:'&&allowed.has(u.hostname.toLowerCase())}catch{return false}

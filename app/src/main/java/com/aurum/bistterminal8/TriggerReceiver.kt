@@ -14,11 +14,14 @@ class TriggerReceiver : BroadcastReceiver() {
         val epoch = intent.getLongExtra("epoch", 0L).takeIf { it > 0L }
             ?: System.currentTimeMillis()
         val jobToken = SchedulerLedger.begin(context, epoch, slotTime)
-        val service = Intent(context, PipelineService::class.java)
-            .putExtra("epoch", epoch)
-            .putExtra("jobToken", jobToken)
-        ContextCompat.startForegroundService(context, service)
-        // Every alarm is one-shot; immediately arm the next valid occurrence for this slot.
-        AurumScheduler.scheduleNextForTime(context, slotTime, java.time.Instant.ofEpochMilli(epoch).plusSeconds(1))
+        if (jobToken.isNotBlank()) {
+            val service = Intent(context, PipelineService::class.java)
+                .putExtra("epoch", epoch)
+                .putExtra("jobToken", jobToken)
+            ContextCompat.startForegroundService(context, service)
+        }
+        // Every alarm is one-shot. Rearm from actual delivery time so a late alarm
+        // can never schedule another occurrence in the past.
+        AurumScheduler.scheduleNextForTime(context, slotTime, java.time.Instant.now().plusSeconds(1))
     }
 }
