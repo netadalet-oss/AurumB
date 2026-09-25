@@ -90,3 +90,7 @@ const bootMarker='bootstrapClean();';
 const firstBoot=runtime.indexOf(bootMarker), lastBoot=runtime.lastIndexOf(bootMarker);
 ok(firstBoot>=0 && firstBoot===lastBoot, 'Foreground bootstrap is called exactly once');
 ok(firstBoot>runtime.indexOf('__AURUM_REV2043_FINAL_UI'), 'Foreground bootstrap runs after embedded revision layers');
+
+const inv=runtime.indexOf('function invalidateAndRenderCurrent');
+const mk=runtime.indexOf("markup=String(fn()||'')",inv), adopt=runtime.indexOf('adopt();',inv);
+ok(inv>=0 && mk>inv && adopt>mk,'First render builds markup before R61 adopts content');
