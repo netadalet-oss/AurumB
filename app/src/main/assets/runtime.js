@@ -1144,7 +1144,7 @@ async function restoreRestorePoint(id){
   const manifest=(await dbGet('meta',`restorePoint:${id}:manifest`))?.value;if(!manifest)throw new Error('Geri yükleme noktası bulunamadı');
   if(!confirm(`${new Date(manifest.createdAt).toLocaleString('tr-TR')} geri yükleme noktasına dönülsün mü? Mevcut durumun üzerine yazılacaktır.`))return false;
   await createRestorePoint('GERİ_YÜKLEME_ÖNCESİ_OTOMATİK',{skipConfirm:true});
-  for(const name of R44_RESTORE_STORES){const snap=(await dbGet('meta',`restorePoint:${id}:${name}`))?.value;if(!Array.isArray(snap))continue;await dbClear(name);if(snap.length)await bulkPut(name,snap);await r44Yield();}
+  for(const name of R44_RESTORE_STORES){const snap=(await dbGet('meta',`restorePoint:${id}:${name}`))?.value;if(!Array.isArray(snap))continue;if(name==='meta'){const archive=(await dbAll('meta')).filter(x=>String(x?.key||'').startsWith('restorePoint:'));await dbClear(name);if(snap.length)await bulkPut(name,snap);if(archive.length)await bulkPut(name,archive);}else{await dbClear(name);if(snap.length)await bulkPut(name,snap);}await r44Yield();}
   showAurumNotice('Geri yükleme tamamlandı; uygulama yeniden açılıyor','success',2500);setTimeout(()=>location.reload(),350);return true;
 }
 async function clearFromSettings(scope){
