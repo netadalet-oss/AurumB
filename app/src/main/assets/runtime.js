@@ -5102,6 +5102,41 @@ try{AurumUpdateAPI.state.r239={version:'REV20.39-STRICT-CADENCE-SAME-SOURCE-MARK
   queueMicrotask(async()=>{try{await applyCompletenessDefaults();await saveSettings()}catch{}});
 })();
 
+
+/* FINAL DATA SAFETY CONTRACT — this block is intentionally after all legacy publication overrides.
+   Every normal/repair publication must pass the same >=70% candidate gate. Failed candidates never
+   advance records, activeDataSnapshot or last-success timestamps. */
+(()=>{
+  if(globalThis.__AURUM_FINAL_DATA_SAFETY)return;globalThis.__AURUM_FINAL_DATA_SAFETY=true;
+  function finalCandidateGate(records){
+    const summary=dataSummary(Array.isArray(records)?records:[]);
+    const gate=dataIntegrityGate(summary);
+    if(!gate.ok){
+      const err=Object.assign(new Error('DATA_FILL_BELOW_70_KEEP_LAST_VALID_SNAPSHOT'),{code:'DATA_FILL_BELOW_70',gate,summary});
+      throw err;
+    }
+    return {summary,gate};
+  }
+  const publish=globalThis.atomicPublish;
+  if(typeof publish==='function')globalThis.atomicPublish=atomicPublish=async function finalSafeAtomicPublish(job,universe){
+    if(HARD_CANCELLED_JOBS.has(String(job?.id))||cancelRequested(job))throw Object.assign(new Error('İşlem kullanıcı tarafından iptal edildi'),{code:'OPERATION_CANCELLED'});
+    const staged=await stageRows(job?.id),by=new Map(staged.map(x=>[x.sym,x.record]));
+    if(by.size!==universe.length)throw new Error(`STAGING_COUNT_MISMATCH:${by.size}/${universe.length}`);
+    const candidate=universe.map(sym=>by.get(sym));
+    if(candidate.some(x=>!x))throw new Error('STAGING_SYMBOL_MISSING');
+    finalCandidateGate(candidate);
+    return publish(job,universe);
+  };
+  const repair=globalThis.atomicRepairPublish;
+  if(typeof repair==='function')globalThis.atomicRepairPublish=atomicRepairPublish=async function finalSafeAtomicRepair(job,targets){
+    const staged=await stageRows(job?.id),by=new Map(staged.map(x=>[x.sym,x.record])),target=new Set(targets||[]);
+    const candidate=(state.records||[]).map(old=>target.has(old.sym)&&by.get(old.sym)?by.get(old.sym):old);
+    finalCandidateGate(candidate);
+    return repair(job,targets);
+  };
+  globalThis.AurumFinalDataSafety={minFillPct:70,check:finalCandidateGate};
+})();
+
 /* REV20.5 MARKET DIRECT V2 — strict identity parsers and source-published changes only. */
 (()=>{
   if(globalThis.__AURUM_REV205_MARKET_DIRECT)return;globalThis.__AURUM_REV205_MARKET_DIRECT=true;
