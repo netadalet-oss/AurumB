@@ -6253,4 +6253,5 @@ try{
    entering the compatibility renderer chain; bootstrap will replace it on success. */
 (()=>{const c=document.getElementById('content');if(c&&!c.innerHTML.trim())c.innerHTML='<div class="card aurum-startup-fallback"><h2>Genel Bakış</h2><p class="muted">Aurum hazırlanıyor…</p></div>'})();
 
-
+/* Start only after every embedded runtime layer is installed. */
+bootstrapClean();
