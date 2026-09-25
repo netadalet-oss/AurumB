@@ -1308,6 +1308,8 @@ globalThis.AurumRuntime=Object.freeze({version:AURUM_RUNTIME_VERSION,status:curr
    Starting here races bootstrapClean() against later overview/render overrides and can leave #content empty. */
 
 
+bootstrapClean();
+
 /* Embedded R47 compatibility layer */
 /* AurumB R46 compatibility update for R45/R44-compatible appVersionCode 120.
    Scope: forward evaluation/learning, K10 audit contract, candidate gate reasons,
@@ -6254,5 +6256,5 @@ try{
 /* All runtime layers are now installed. Paint a guaranteed non-empty first frame before
    entering the compatibility renderer chain; bootstrap will replace it on success. */
 (()=>{const c=document.getElementById('content');if(c&&!c.innerHTML.trim())c.innerHTML='<div class="card aurum-startup-fallback"><h2>Genel Bakış</h2><p class="muted">Aurum hazırlanıyor…</p></div>'})();
-bootstrapClean();
+
 
