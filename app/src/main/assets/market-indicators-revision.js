@@ -11,7 +11,7 @@
   const KEYS=['XU100','USDTRY','EURTRY','EURUSD','GRAMTRY','GOLDUSD'];
   const LABELS={XU100:'BIST 100',USDTRY:'USD/TRY',EURTRY:'EUR/TRY',EURUSD:'EUR/USD',GRAMTRY:'Gram Altın',GOLDUSD:'Altın Ons'};
   const priorCached=globalThis.cachedMarketIndicators;
-  let armed=false,timer=null,running=null;
+  let timer=null,running=null;
 
   const num=v=>{if(typeof v==='number')return Number.isFinite(v)?v:null;let s=String(v??'').trim().replace(/\s/g,'');if(!s)return null;
     if(s.includes(',')&&s.includes('.'))s=s.lastIndexOf(',')>s.lastIndexOf('.')?s.replace(/\./g,'').replace(',','.'):s.replace(/,/g,'');
@@ -136,12 +136,14 @@
     const f=(cached()||{}).fields||{};
     return '<div class="aurum-r209-market-wrap" id="aurumDataMarketStrip"><button type="button" class="aurum-r209-market-refresh" title="Piyasa bilgilerini yenile" aria-label="Piyasa bilgilerini yenile" onclick="refreshAurumDataMarketStrip(event)"><span aria-hidden="true">↻</span></button><div class="aurum-r205-market">'+KEYS.map(k=>{const x=f[k]||{},p=x.stale?null:num(x.changePct),ok=p!=null,cls=ok?(p>0?'up':p<0?'down':'flat'):'flat',arrow=ok?(p>0?'↑':p<0?'↓':''):'',pt=ok?((p>0?'+':'')+p.toLocaleString('tr-TR',{minimumFractionDigits:2,maximumFractionDigits:2})+'%'):(x.stale?'eski':'—');return '<div class="aurum-r205-market-card" title="'+esc([x.source,x.providerAt,x.attempt?'Deneme '+x.attempt:''].filter(Boolean).join(' · '))+'"><span class="aurum-r205-market-label">'+LABELS[k]+'</span><strong class="aurum-r205-market-value">'+fmt(x.value,k)+'</strong><span class="aurum-r205-market-pct '+cls+'">'+(arrow?'<i class="aurum-market-dir" aria-hidden="true">'+arrow+'</i>':'')+pt+'</span></div>'}).join('')+'</div></div>';
   }
-  function arm(){if(armed)return;armed=true;timer=setInterval(()=>{void refresh({auto:true}).then(()=>rerender())},PERIOD)}
+  function arm(){if(timer)return;timer=setInterval(()=>{void refresh({auto:true}).then(()=>rerender())},PERIOD)}
   function rerender(){const h=document.getElementById('aurumDataMarketStrip');if(h)h.outerHTML=markup();if(state?.page==='market')try{renderCurrentPagePreservingView()}catch{}}
 
   globalThis.cachedMarketIndicators=cached;globalThis.refreshMarketIndicators=refresh;globalThis.marketIndicatorsMarkup=markup;
   try{refreshMarketIndicators=refresh;marketIndicatorsMarkup=markup}catch{}
-  globalThis.refreshAurumDataMarketStrip=async function(ev){const btn=ev?.currentTarget||document.querySelector('.aurum-r209-market-refresh');if(btn?.dataset.busy==='1')return false;try{if(btn){btn.dataset.busy='1';btn.disabled=true}arm();await refresh({force:true});rerender();return true}catch(e){globalThis.showAurumNotice?.('Piyasa bilgileri alınamadı: '+(e?.message||e),'error',2400);return false}finally{const b=document.querySelector('.aurum-r209-market-refresh');if(b){delete b.dataset.busy;b.disabled=false}}};
-  document.addEventListener('click',ev=>{const el=ev.target?.closest?.('button,[role="button"]');const t=(el?.textContent||'').trim().toLocaleLowerCase('tr-TR');if(t.includes('piyasayı yenile')||t.includes('piyasayi yenile')){arm();void refresh({force:true}).then(()=>rerender())}},true);
-  try{AurumUpdateAPI.state.r242={version:'REV20.42-RESILIENT-MARKET',activatedAt:now(),features:['NO_STARTUP_NETWORK','MANUAL_ARM','30M_AUTO_AFTER_MANUAL','INDEPENDENT_FIELDS','MAX_5_ATTEMPTS','ALTINKAYNAK','YAHOO_Q1_Q2','TCMB','BIGPARA','DERIVED_EURUSD','DERIVED_GOLDUSD']}}catch{}
+  globalThis.refreshAurumDataMarketStrip=async function(ev){const btn=ev?.currentTarget||document.querySelector('.aurum-r209-market-refresh');if(btn?.dataset.busy==='1')return false;try{if(btn){btn.dataset.busy='1';btn.disabled=true}await refresh({force:true});rerender();return true}catch(e){globalThis.showAurumNotice?.('Piyasa bilgileri alınamadı: '+(e?.message||e),'error',2400);return false}finally{const b=document.querySelector('.aurum-r209-market-refresh');if(b){delete b.dataset.busy;b.disabled=false}}};
+  document.addEventListener('click',ev=>{const el=ev.target?.closest?.('button,[role="button"]');const t=(el?.textContent||'').trim().toLocaleLowerCase('tr-TR');if(t.includes('piyasayı yenile')||t.includes('piyasayi yenile')){void refresh({force:true}).then(()=>rerender())}},true);
+  // One owner for the 30-minute cadence. Manual refresh does not create another timer.
+  arm();
+  try{AurumUpdateAPI.state.r242={version:'REV20.42-RESILIENT-MARKET',activatedAt:now(),features:['NO_STARTUP_NETWORK','SINGLE_30M_OWNER','MANUAL_REFRESH','INDEPENDENT_FIELDS','MAX_5_ATTEMPTS','ALTINKAYNAK','YAHOO_Q1_Q2','TCMB','BIGPARA','DERIVED_EURUSD','DERIVED_GOLDUSD']}}catch{}
 })();
