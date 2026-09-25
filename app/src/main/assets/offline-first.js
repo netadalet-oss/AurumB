@@ -28,7 +28,10 @@
   }
 
   function marketLive(){
-    try{return globalThis.state?.page === 'market';}catch{return false;}
+    try{
+      const s=globalThis.AurumUpdateAPI?.state;
+      return s?.page === 'market';
+    }catch{return false;}
   }
 
   function normalizeRelayUrl(value){
@@ -130,13 +133,13 @@
   // Persist architecture marker inside this app's own sandbox only.
   try{
     localStorage.setItem('aurum.offline.architecture','REV20');
-    localStorage.setItem('aurum.offline.package','com.aurum.rev20.standalone');
+    localStorage.setItem('aurum.offline.package','com.aurum.rev20.smartfastx');
   }catch{}
 
   // Visible diagnostic for settings/debugging without changing the UI layout.
   globalThis.AurumOfflinePolicy=Object.freeze({
-    version:'REV20.13',
-    packageId:'com.aurum.rev20.standalone',
+    version:'REV20.52',
+    packageId:'com.aurum.rev20.smartfastx',
     mode:'INDEPENDENT_OFFLINE_FIRST',
     networkAllowed:allowed,
     tradeRelayFetch,
