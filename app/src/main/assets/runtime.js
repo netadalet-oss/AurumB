@@ -5141,18 +5141,34 @@ try{AurumUpdateAPI.state.r239={version:'REV20.39-STRICT-CADENCE-SAME-SOURCE-MARK
   if(typeof publish==='function')globalThis.atomicPublish=atomicPublish=async function finalSafeAtomicPublish(job,universe){
     if(HARD_CANCELLED_JOBS.has(String(job?.id))||cancelRequested(job))throw Object.assign(new Error('İşlem kullanıcı tarafından iptal edildi'),{code:'OPERATION_CANCELLED'});
     const staged=await stageRows(job?.id),by=new Map(staged.map(x=>[x.sym,x.record]));
+    const before=(await dbGet('meta','activeDataSnapshot'))?.value||null;
     if(by.size!==universe.length)throw new Error(`STAGING_COUNT_MISMATCH:${by.size}/${universe.length}`);
     const candidate=universe.map(sym=>by.get(sym));
     if(candidate.some(x=>!x))throw new Error('STAGING_SYMBOL_MISSING');
     finalCandidateGate(candidate);
-    return publish(job,universe);
+    const out=await publish(job,universe);
+    const after=(await dbGet('meta','activeDataSnapshot'))?.value||before;
+    const successfulAt=after?.transferredAt||after?.completedAt||null;
+    if(successfulAt){
+      state.lastSuccessfulSync=successfulAt;
+      await dbPut('meta',{key:'lastSuccessfulSync',value:successfulAt,updatedAt:successfulAt});
+    }
+    return out;
   };
   const repair=globalThis.atomicRepairPublish;
   if(typeof repair==='function')globalThis.atomicRepairPublish=atomicRepairPublish=async function finalSafeAtomicRepair(job,targets){
     const staged=await stageRows(job?.id),by=new Map(staged.map(x=>[x.sym,x.record])),target=new Set(targets||[]);
+    const before=(await dbGet('meta','activeDataSnapshot'))?.value||null;
     const candidate=(state.records||[]).map(old=>target.has(old.sym)&&by.get(old.sym)?by.get(old.sym):old);
     finalCandidateGate(candidate);
-    return repair(job,targets);
+    const out=await repair(job,targets);
+    const after=(await dbGet('meta','activeDataSnapshot'))?.value||before;
+    const successfulAt=after?.transferredAt||after?.completedAt||null;
+    if(successfulAt){
+      state.lastSuccessfulSync=successfulAt;
+      await dbPut('meta',{key:'lastSuccessfulSync',value:successfulAt,updatedAt:successfulAt});
+    }
+    return out;
   };
   globalThis.AurumFinalDataSafety={minFillPct:70,check:finalCandidateGate};
 })();
