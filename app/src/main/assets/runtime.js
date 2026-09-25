@@ -1027,82 +1027,17 @@ async function refreshSchedulerStatus(){const rowsEl=document.getElementById('au
 globalThis.addSchedulerSlot=addSchedulerSlot;globalThis.removeSchedulerSlot=removeSchedulerSlot;globalThis.resetSchedulerDefaults=resetSchedulerDefaults;globalThis.schedulerForegroundHealthCheck=schedulerForegroundHealthCheck;
 
 
-function activeUpdateSlot(){return readLocal(AURUM_UPDATE_SLOT_KEY,null)}
-function updateHistory(){const x=readLocal(AURUM_UPDATE_HISTORY_KEY,[]);return Array.isArray(x)?x.slice(0,AURUM_UPDATE_MAX_HISTORY):[]}
-function writeUpdateHistory(rows){writeLocal(AURUM_UPDATE_HISTORY_KEY,(Array.isArray(rows)?rows:[]).slice(0,AURUM_UPDATE_MAX_HISTORY))}
-async function updatePayloadHash(code){const data=new TextEncoder().encode(String(code||'')),hash=await crypto.subtle.digest('SHA-256',data);return [...new Uint8Array(hash)].map(x=>x.toString(16).padStart(2,'0')).join('')}
-function validateUpdatePackage(pkg){
-  if(!pkg||typeof pkg!=='object'||Array.isArray(pkg))throw new Error('Güncelleme dosyası geçerli paket değil');
-  if(pkg.schema!==AURUM_UPDATE_SCHEMA)throw new Error(`Şema ${AURUM_UPDATE_SCHEMA} olmalıdır`);
-  if(!/^[A-Za-z0-9._+-]{1,48}$/.test(String(pkg.version||'')))throw new Error('Geçerli sürüm gerekli');
-  const min=Number(pkg.minAppVersionCode||0),max=Number(pkg.maxAppVersionCode||0);
-  if(min&&AURUM_APP_VERSION_CODE<min)throw new Error(`Bu güncelleme en az uygulama ${min} gerektiriyor`);
-  if(max&&AURUM_APP_VERSION_CODE>max)throw new Error(`Bu güncelleme en fazla uygulama ${max} ile uyumlu`);
-  if(typeof pkg.runtimeCode!=='string'||!pkg.runtimeCode.trim())throw new Error('runtimeCode gerekli');
-  if(pkg.runtimeCode.length>600000)throw new Error('Güncelleme kodu 600 KB sınırını aşıyor');
-  if(!/^[a-f0-9]{64}$/i.test(String(pkg.sha256||'')))throw new Error('SHA-256 alanı gerekli'); throw new Error('Executable runtime update devre dışı; yeni kod yalnız imzalı APK/AAB ile dağıtılır');
-}
-function updatePackageMeta(pkg){return {version:String(pkg?.version||''),title:String(pkg?.title||'Aurum güncellemesi'),sha256:String(pkg?.sha256||''),importedAt:pkg?.importedAt||null,activatedAt:pkg?.activatedAt||null}}
-function aurumUpdateApi(pkg){return Object.freeze({appVersionCode:AURUM_APP_VERSION_CODE,appVersionName:AURUM_APP_VERSION_NAME,packageMeta:updatePackageMeta(pkg),state,dbGet,dbPut,bulkPut,nowISO})}
-function rememberVerifiedUpdate(pkg,status='VERIFIED',message=''){const row={...pkg,status,message,historyAt:nowISO()};const rows=updateHistory().filter(x=>String(x?.sha256||'').toLowerCase()!==String(pkg?.sha256||'').toLowerCase());rows.unshift(row);writeUpdateHistory(rows);return row}
-async function verifyUpdatePackage(pkg){validateUpdatePackage(pkg);const hash=await updatePayloadHash(pkg.runtimeCode);if(hash.toLowerCase()!==String(pkg.sha256).toLowerCase())throw new Error('SHA-256 doğrulaması başarısız');return true}
-async function executeUpdatePackage(pkg){await verifyUpdatePackage(pkg);throw new Error('Executable runtime update devre dışı; imzalı uygulama güncellemesi gerekli')}
-function cleanupSupersededRuntimeResidue(){
+function cleanupDisabledRuntimeUpdateResidue(){
   try{
-    const stale=/^(?:R42|R46|R47|R53|R54|R55|B36(?:\.[0-5])?)(?:[._-]|$)/i;
-    const active=activeUpdateSlot();
-    if(active&&stale.test(String(active.version||'')))localStorage.removeItem(AURUM_UPDATE_SLOT_KEY);
-    const pending=readLocal(AURUM_UPDATE_PENDING_KEY,null);
-    if(pending&&stale.test(String(pending.version||'')))localStorage.removeItem(AURUM_UPDATE_PENDING_KEY);
-    const history=updateHistory().filter(x=>!stale.test(String(x?.version||'')));
-    writeUpdateHistory(history);
+    localStorage.removeItem(AURUM_UPDATE_SLOT_KEY);
+    localStorage.removeItem(AURUM_UPDATE_PENDING_KEY);
     localStorage.removeItem(AURUM_UPDATE_LAST_ERROR_KEY);
   }catch{}
 }
-cleanupSupersededRuntimeResidue();
-async function applyStoredAurumUpdates(){
-  const active=activeUpdateSlot();if(!active)return true;
-  if(/^(?:R42|R46|R47|R53|R54|R55|B36(?:\.[0-5])?)(?:[._-]|$)/i.test(String(active.version||''))){localStorage.removeItem(AURUM_UPDATE_SLOT_KEY);localStorage.removeItem(AURUM_UPDATE_PENDING_KEY);localStorage.removeItem(AURUM_UPDATE_LAST_ERROR_KEY);return true;}
-  try{await executeUpdatePackage(active);localStorage.removeItem(AURUM_UPDATE_LAST_ERROR_KEY);rememberVerifiedUpdate(active,'ACTIVE');return true}
-  catch(e){
-    const history=updateHistory(),fallback=history.find(x=>String(x?.sha256||'').toLowerCase()!==String(active?.sha256||'').toLowerCase()&&x?.status!=='REJECTED');
-    writeLocal(AURUM_UPDATE_LAST_ERROR_KEY,{at:nowISO(),version:active?.version||null,message:e?.message||String(e),fallback:fallback?.version||'EMBEDDED_CORE'});
-    rememberVerifiedUpdate(active,'REJECTED',e?.message||String(e));
-    if(fallback){try{await verifyUpdatePackage(fallback);writeLocal(AURUM_UPDATE_SLOT_KEY,{...fallback,activatedAt:nowISO()});console.error('Aurum update rejected; previous verified package restored',e);return false}catch{}}
-    localStorage.removeItem(AURUM_UPDATE_SLOT_KEY);console.error('Aurum update rejected; embedded core restored',e);return false;
-  }
-}
-async function importAurumUpdateFile(file){
-  if(!file)throw new Error('Güncelleme dosyası seçilmedi');
-  const raw=await file.text();let pkg;try{pkg=JSON.parse(raw)}catch{throw new Error('Güncelleme dosyası geçerli JSON kapsayıcı değil')}
-  await verifyUpdatePackage(pkg);
-  if(!confirm(`${pkg.title||pkg.version||'Güncelleme'} doğrulandı. Güncelleme etkinleştirilsin mi?\n\nBaşarılı etkinleştirme sonrasında otomatik geri yükleme noktası oluşturulacaktır.`))return false;
-  pkg={...pkg,importedAt:nowISO()};
-  writeLocal(AURUM_UPDATE_PENDING_KEY,pkg);const verify=readLocal(AURUM_UPDATE_PENDING_KEY,null);await verifyUpdatePackage(verify);
-  const current=activeUpdateSlot();if(current)rememberVerifiedUpdate(current,'VERIFIED');
-  rememberVerifiedUpdate(verify,'VERIFIED');
-  writeLocal(AURUM_UPDATE_SLOT_KEY,{...verify,activatedAt:nowISO()});localStorage.removeItem(AURUM_UPDATE_PENDING_KEY);localStorage.removeItem(AURUM_UPDATE_LAST_ERROR_KEY);
-  if(typeof createRestorePoint==='function')await createRestorePoint(`GÜNCELLEME SONRASI · ${pkg.version||'paket'}`,{skipConfirm:true});
-  showAurumNotice(`Güncelleme doğrulandı ve etkinleştirildi: ${pkg.title||pkg.version}`,'success',1800);setTimeout(()=>location.reload(),240);return true;
-}
-async function rollbackAurumUpdate(sha256){
-  if(!confirm('Bu güncelleme geri alınsın mı? Güncelleme geçmişinden kaldırılacak; kullanıcı verileri silinmeyecektir.'))return false;
-  const key=String(sha256||'').toLowerCase(),history=updateHistory(),target=history.find(x=>String(x?.sha256||'').toLowerCase()===key);if(!target)throw new Error('Geri alınacak güncelleme bulunamadı');
-  const active=activeUpdateSlot(),isActive=!!(active&&String(active?.sha256||'').toLowerCase()===key);
-  const remaining=history.filter(x=>String(x?.sha256||'').toLowerCase()!==key&&x?.status!=='REJECTED');
-  writeUpdateHistory(remaining);
-  if(isActive){
-    const fallback=remaining[0]||null;
-    if(fallback){await verifyUpdatePackage(fallback);writeLocal(AURUM_UPDATE_SLOT_KEY,{...fallback,activatedAt:nowISO()});}
-    else localStorage.removeItem(AURUM_UPDATE_SLOT_KEY);
-  }
-  localStorage.removeItem(AURUM_UPDATE_LAST_ERROR_KEY);
-  showAurumNotice(`Güncelleme geri alındı ve geçmişten kaldırıldı: ${target.title||target.version||''}`,'success',1800);
-  setTimeout(()=>location.reload(),220);return true;
-}
-function rollbackEmbeddedCore(){if(!confirm('Gömülü uygulama çekirdeğine dönülsün mü? Güncelleme paketi devre dışı kalacak; kullanıcı verileri korunacaktır.'))return false;const current=activeUpdateSlot();if(current)rememberVerifiedUpdate(current,'VERIFIED');localStorage.removeItem(AURUM_UPDATE_SLOT_KEY);localStorage.removeItem(AURUM_UPDATE_LAST_ERROR_KEY);setTimeout(()=>location.reload(),180);return true}
+cleanupDisabledRuntimeUpdateResidue();
+async function applyStoredAurumUpdates(){cleanupDisabledRuntimeUpdateResidue();return true}
 function aurumUpdateModule(){
-  return aurumSettingsCard('Uygulama Güncelleme','Yalnız imzalı APK/AAB dağıtımı',`<div class="list-row"><div><strong>Yerel uygulama ${html(AURUM_APP_VERSION_NAME)}</strong><small>Çalıştırılabilir JavaScript güncelleme paketleri güvenlik nedeniyle devre dışıdır.</small></div><span class="badge ok">v${AURUM_APP_VERSION_CODE}</span></div><p class="muted">Uygulama kodu yalnız imzalı Android APK/AAB sürümüyle güncellenir. Eski yerel runtime paketi seçme, etkinleştirme ve rollback yolu kullanılmaz; kullanıcı verileri ve geri yükleme noktaları uygulama veri katmanında korunur.</p>`,'aurumUpdateModule')
+  return aurumSettingsCard('Uygulama Güncelleme','Yalnız imzalı APK/AAB dağıtımı',`<div class="list-row"><div><strong>Yerel uygulama ${html(AURUM_APP_VERSION_NAME)}</strong><small>Çalıştırılabilir JavaScript güncelleme paketleri güvenlik nedeniyle devre dışıdır.</small></div><span class="badge ok">v${AURUM_APP_VERSION_CODE}</span></div><p class="muted">Uygulama kodu yalnız imzalı Android APK/AAB sürümüyle güncellenir. Eski yerel runtime paketleri otomatik temizlenir; kullanıcı verileri ve geri yükleme noktaları korunur.</p>`,'aurumUpdateModule')
 }
 
 function dataQualitySettingsModule(){return aurumSettingsCard('Tablo Oluşum Politikası','Sabit doluluk kademeleri',`<div class="aurum-source-policy"><b>Tek tablo politikası:</b> %95 → %90 → %80 → %70.<br><small>%70 ve üzeri: Kn, K_Tarihsel ve S yeni geçerli veriden hesaplanabilir. %70 altı: mevcut son geçerli türev tablolar ve zaman damgaları aynen korunur. Satır, sütun, eksik hücre, eksik sütun, kaynak güveni veya asgari hisse sayısı bağımsız tablo eşiği değildir.</small></div>`)}
