@@ -1842,6 +1842,8 @@ try{globalThis.AurumUpdateAPI.state.r51DataTransfer={version:'R51.0-DATA-CORRECT
 try{globalThis.AurumUpdateAPI.state.r52DataFetch={version:'R52.0-ACTUAL-FETCH',activatedAt:new Date().toISOString(),features:['HISTORY_FRESH_WITHOUT_LIVE_GATE','TARGETED_PROVIDER_WAVES','CANONICAL_TIME_BEST_EFFORT','SOURCE_RETRY_1','PROVIDER_HEALTH_THROUGHPUT']};}catch{}
 
 
+function aurumUpdateApi(pkg){return Object.freeze({appVersionCode:AURUM_APP_VERSION_CODE,appVersionName:AURUM_APP_VERSION_NAME,packageMeta:{version:String(pkg?.version||''),title:String(pkg?.title||'Aurum embedded runtime')},state,dbGet,dbPut,bulkPut,nowISO})}
+
 /* R63 embedded runtime bridge.
    Embedded compatibility/revision layers use the same API contract as .aurum packages.
    Earlier clean APKs omitted this global bridge, so those layers were present in the file
