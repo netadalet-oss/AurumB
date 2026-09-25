@@ -65,7 +65,6 @@ class MainActivity : AppCompatActivity() {
         setContentView(webView)
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
-        webView.settings.databaseEnabled = true
         webView.settings.allowFileAccess = false
         webView.settings.allowContentAccess = false
         webView.settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
