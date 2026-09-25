@@ -18,7 +18,8 @@ ok(runtime.includes('DATA_FILL_BELOW_70_KEEP_LAST_VALID_SNAPSHOT'), '70% rejecti
 ok(!/lastSuccessfulSync\s*=\s*nowISO\(\)/.test(runtime), 'successful timestamp can advance directly from wall clock');
 ok(runtime.includes('Display-only legacy recovery: never mutate activeDataSnapshot outside a successful gated publish.'), 'snapshot display-only recovery guard missing');
 ok(runtime.includes('DIRECT_RECORD_WRITE_DISABLED_USE_GATED_ATOMIC_PUBLISH'), 'legacy direct record writer is enabled');
-const orphan = runtime.slice(runtime.indexOf('async function recoverOrphanStagingRecords'), runtime.indexOf('async function atomicPublish'));\nok(orphan.includes("transaction('stagingRecords','readwrite')") && !orphan.includes("transaction(['records") && orphan.includes('discarded:orphan.length'), 'orphan staging cleanup contract missing');
+const orphan = runtime.slice(runtime.indexOf('async function recoverOrphanStagingRecords'), runtime.indexOf('async function atomicPublish'));
+ok(orphan.includes("transaction('stagingRecords','readwrite')") && !orphan.includes("transaction(['records") && orphan.includes('discarded:orphan.length'), 'orphan staging cleanup contract missing');
 
 const repair = runtime.slice(runtime.indexOf('async function repairLegacyCorruptRecordsLocal'), runtime.indexOf('const REPAIR_QUEUE_KEY'));
 ok(repair.includes('dataIntegrityGate'), 'legacy local repair is not gated');
@@ -46,8 +47,8 @@ ok(market.includes('refresh({force:true})'), 'manual market refresh does not use
 ok(runtime.includes("restorePoint:*") || runtime.includes("startsWith('restorePoint:')") || runtime.includes('startsWith("restorePoint:")'), 'restore point archive preservation marker missing');
 ok(runtime.includes('UYGULAMA_SIFIRLAMA_ÖNCESİ'), 'pre-reset restore point missing');
 
-for (const token of ['Thin','Normal','Bold','Italic','data-reset-tone']) ok(appearance.includes(token), 'appearance control missing: '+token);
-ok(appearance.includes('Reset All') || appearance.includes('Tümünü Sıfırla'), 'appearance reset-all control missing');
+for (const token of ['İnce','Normal','Kalın','İtalik','data-r20-color-default']) ok(appearance.includes(token), 'appearance control missing: '+token);
+ok(appearance.includes('data-r20-action="defaults"') && appearance.includes('Tümünü Varsayılana Döndür'), 'appearance reset-all control missing');
 
 for (const dead of ['fast-background-transfer.js','market-display-fix2.js','market-percent-portal-patch.js']) {
   ok(!fs.existsSync(path.join(root, 'app/src/main/assets', dead)), 'dead asset still present: '+dead);
