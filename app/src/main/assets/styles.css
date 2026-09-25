@@ -915,7 +915,7 @@ input[type="range"][id^="aurumScaleVal_"]{height:3px;accent-color:currentColor;v
 @media(max-width:420px){.r233-market-card{padding:8px 34px 8px 8px}.r233-market-grid{gap:3px 5px}.r233-market-head small{font-size:7px}.r233-market-line strong{font-size:9.2px}.r233-market-name,.r233-market-line .aurum-r205-market-pct{font-size:7.4px}.r233-market-line small{font-size:6.2px}}
 
 
-/* Approved logo-blue night-navy card palette — 2026-09-25 */
+/* Final approved matte, near-black night-navy cards — no light reflection. */
 #content .card,
 #content .metric,
 #content .quick-card,
@@ -931,8 +931,15 @@ input[type="range"][id^="aurumScaleVal_"]{height:3px;accent-color:currentColor;v
 #content .list-row,
 #content .stock-time-grid,
 #content .aurum-time-card{
-  background:linear-gradient(145deg,rgba(3,18,43,.985),rgba(1,8,24,.998))!important;
+  background:#020b18!important;
+  background-image:none!important;
+  box-shadow:none!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+  border-color:rgba(28,82,128,.42)!important;
 }
 #content .quick-card:active{
-  background:linear-gradient(145deg,rgba(5,25,57,.99),rgba(2,11,30,.999))!important;
+  background:#031021!important;
+  background-image:none!important;
+  box-shadow:none!important;
 }
