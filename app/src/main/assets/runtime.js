@@ -449,7 +449,7 @@ function normalizeCalculationRecord(rec){
   return rec;
 }
 function calculationGateStatus(){const summary=dataSummary(state.records),fillPct=Number(summary.fillPct||0),ok=fillPct>=70,gate={ok,missingSymbols:Number(summary.missingSymbolCount||0),missingColumns:(summary.incompleteColumns||summary.missingColumns||[]).length,rows:Number(summary.loadedSymbols||0),eligibleRows:Number(summary.calculationEligibleRows||0),fillPct,minFillPct:70,reason:ok?null:`Türev hesaplama kapısı: Veriler doluluğu %${fillPct.toFixed(2)} < %70; önceki Kn/K_Tarihsel/S/AL-SAT korunuyor`};return {summary,gate,reason:gate.reason};}
-function calculationRecords(){const status=calculationGateStatus();if(!status.gate.ok)return [];const classification=classifyDataCompleteness(state.records,currentSymbols()),bad=new Set(status.summary.incompleteColumns||classification.incompleteColumns||status.summary.missingColumns||[]),out=[];for(const source of state.records||[]){const rowGate=classification.bySymbol.get(source.sym);if(source?.calculationEligible===false||rowGate?.eligible===false)continue;const rec=cloneForCalculation(source);for(const key of bad)maskIncompleteColumn(rec,key);normalizeCalculationRecord(rec);rec.calculationEligible=true;out.push(rec);}return out;}
+function calculationRecords(){const status=calculationGateStatus();if(!status.gate.ok)return [];const out=[];for(const source of state.records||[]){const rec=cloneForCalculation(source);normalizeCalculationRecord(rec);rec.calculationEligible=true;out.push(rec);}return out;}
 globalThis.calculationRecords=calculationRecords;
 
 const LOCAL_REPAIR_V117_KEY='aurum.runtime.localRepair.v117';
@@ -717,7 +717,7 @@ function kh117PitRowForAnchor(anchor,calcRecords){
 async function kh117SeedPIT30(){
   if(state.syncing||state.calculating)throw new Error('Başka bir işlem sürüyor');
   const calcRecords=calculationRecords();
-  if(calcRecords.length<20)throw new Error(`PIT başlangıç arşivi için en az 20 doğrulanmış hisse gerekli; ${calcRecords.length} uygun hisse var`);
+  
   const current=kh117T0(),a=kh117ArchiveState(),existing=kh117NormalizeArchiveRows(a.rows,current.date);
   if(a.seed?.completed===true&&existing.length>=30){
     showAurumNotice('T1–T30 başlangıç arşivi daha önce 30/30 oluşturulmuş ve salt değere kilitlenmiş. Yeniden hesaplama yapılmaz.','info',3600);
@@ -1317,7 +1317,7 @@ async function bootstrapClean(){
 
 async function recoverOnlyExistingOnStartup(){return false}
 
-Object.assign(globalThis,{recoverOrphanStagingRecords,importAurumUpdateFile,rollbackAurumUpdate,rollbackEmbeddedCore,applyStoredAurumUpdates,aurumUpdateModule,openDB,fetchWithTimeout,mergeBundles,fetchSymbolBundle,calculationRecords,calculationGateStatus,classifyDataCompleteness,dataIntegrityGate,buildPendingRepairPlan,currentPendingRepairPlan,tableCalculationAudit,runTableCalculationAudit,tableAuditSettingsModule,repairLegacyCorruptRecordsLocal,startScheduler,generalSettingsModule,saveRuntimeSettings,settingsPage,dataTransferSettingsModule,dataQualitySettingsModule,saveDataQualitySettings,executionSettingsModule,saveExecutionSettings,learningSettingsModule,saveLearningSettings,behaviorGenomeSettingsModule,saveBehaviorGenomeSettings,calendarSettingsModule,saveCalendarSettings,aiApiSettingsModule,saveSchedulerSettings,dataPage,criteriaPage,historyPage,kHistoricalSub,selectionPage,render,goPage,filterRecords,setV141225Band,changeV141225Page,aurumDataSwipeStart,aurumDataSwipeEnd,schedulerSettingsModule,refreshSchedulerStatus,schedulerSnapshot,operationCommand,operationMiniControls,operationBlock,cancelActiveOperation,clearTableScope,createRestorePoint,restoreRestorePoint,clearFromSettings,resetApplicationR44,runRepairCenter,saveR44TransferSettings,startScheduler});
+Object.assign(globalThis,{recoverOrphanStagingRecords,importAurumUpdateFile,rollbackAurumUpdate,rollbackEmbeddedCore,applyStoredAurumUpdates,aurumUpdateModule,openDB,fetchWithTimeout,mergeBundles,fetchSymbolBundle,calculationRecords,calculationGateStatus,classifyDataCompleteness,dataIntegrityGate,buildPendingRepairPlan,currentPendingRepairPlan,tableCalculationAudit,runTableCalculationAudit,tableAuditSettingsModule,repairLegacyCorruptRecordsLocal,startScheduler,generalSettingsModule,saveRuntimeSettings,settingsPage,dataTransferSettingsModule,dataQualitySettingsModule,executionSettingsModule,saveExecutionSettings,learningSettingsModule,saveLearningSettings,behaviorGenomeSettingsModule,saveBehaviorGenomeSettings,calendarSettingsModule,saveCalendarSettings,aiApiSettingsModule,saveSchedulerSettings,dataPage,criteriaPage,historyPage,kHistoricalSub,selectionPage,render,goPage,filterRecords,setV141225Band,changeV141225Page,aurumDataSwipeStart,aurumDataSwipeEnd,schedulerSettingsModule,refreshSchedulerStatus,schedulerSnapshot,operationCommand,operationMiniControls,operationBlock,cancelActiveOperation,clearTableScope,createRestorePoint,restoreRestorePoint,clearFromSettings,resetApplicationR44,runRepairCenter,saveR44TransferSettings,startScheduler});
 globalThis.settingsSub=settingsPage;try{settingsSub=settingsPage}catch{}
 globalThis.syncProviderChain=opts=>runManualData(normalizeMode(opts?.mode||(opts?.full?'FULL':'GENERAL')));
 globalThis.runDataRefresh=mode=>runManualData(mode);
@@ -2016,7 +2016,7 @@ if(!globalThis.AurumUpdateAPI){
     try{
       await pauseCheckpoint(job,JOB_STATUS.K_TARIHSEL_RUNNING);
       const active=await activeCalculableSnapshot();
-      if(!active||active.count<20)throw new Error('K_Tarihsel için güncel doğrulanmış veri snapshotı yok');
+      if(!active)throw new Error('K_Tarihsel için güncel veri snapshotı yok');
       const kn=(await dbGet('meta','knSnapshot'))?.value||null;
       if(!kn||kn.dataSnapshotId!==job.dataSnapshotId)throw new Error('K_Tarihsel için aynı veri snapshotına ait Kn gerekli');
       kn117RequireTop20();
@@ -2803,7 +2803,7 @@ try{AurumUpdateAPI.state.cleanREV20={version:'REV20.0-CLEAN',activatedAt:new Dat
         await stagePut(job.id,sym,rec);completed++;if(success)validated++;else failed++;job.processedSymbols=completed;job.validatedSymbols=validated;job.failedSymbols=failed;setRuntime({status:JOB_STATUS.FETCHING_DATA,jobId:job.id,mode:job.mode,stage:'Veriler',done:completed,total:universe.length,validated,failed,message:success?`${sym} · doğrulanmış veri staging'e alındı`:`${sym} · kullanılabilir veri alınamadı`,symbol:sym,provider:null});if(completed%32===0)await saveJob(job);
       }};
       await Promise.all(Array.from({length:concurrency},worker));await flushStageBatch(job.id);if(!isOnline()){await transition(job,JOB_STATUS.WAITING_FOR_NETWORK,{error:'OFFLINE_AFTER_FETCH',message:'Ağ kesildi · staging korunuyor'});return false;}
-      const staged=(await stageRows(job.id)).map(x=>x.record),fresh=staged.filter(x=>x?.jobDataStatus==='FRESH'),usableFresh=fresh.filter(x=>Array.isArray(x?.series?.date)&&x.series.date.length>=20);const minimumFresh=Math.min(20,universe.length);if(usableFresh.length<minimumFresh){await transition(job,JOB_STATUS.FAILED,{error:'INSUFFICIENT_USABLE_FRESH_DATA_R24',message:`Kullanılabilir veri yetersiz · ${usableFresh.length}/${universe.length} hisse · önceki tablo korundu`});return false;}
+      const staged=(await stageRows(job.id)).map(x=>x.record);
       const published=await atomicPublish(job,universe),summary=dataSummary(published),repairPlan=await persistPendingRepairPlan(published,universe);summary.transferredFreshSymbols=published.filter(x=>x?.jobDataStatus==='FRESH').length;summary.singlePass=true;summary.scheduler='R24_CAPABILITY_ROUTED';summary.automaticRepairRounds=0;summary.pendingRepair=repairPlan;summary.integrityGate=dataIntegrityGate(summary);job.dataSummary=summary;job.pendingRepair=repairPlan;job.sourceStats={...state.sourceStats};state.lastSuccessfulSync=nowISO();await dbPut('meta',{key:'lastSuccessfulSync',value:state.lastSuccessfulSync,updatedAt:state.lastSuccessfulSync});await dbPut('meta',{key:'lastDataSummary',value:summary,updatedAt:nowISO()});await persistLiveSnapshots(job.dataSnapshotId);await pruneSnapshots();await clearStage(job.id);await refreshTableMeta();await transition(job,JOB_STATUS.DATA_COMPLETED,{message:`Veri çekimi tamamlandı · ${summary.transferredFreshSymbols}/${universe.length} doğrulanmış · ${repairPlan.symbolCount} onarım bekliyor`,done:universe.length,total:universe.length,validated:summary.transferredFreshSymbols,failed:Math.max(0,universe.length-summary.transferredFreshSymbols)});return true;
     }catch(e){job.error=e?.message||String(e);if(!isOnline()||/network|offline|failed to fetch|ERR_/i.test(job.error))await transition(job,JOB_STATUS.WAITING_FOR_NETWORK,{error:job.error,message:'Ağ bağlantısı bekleniyor · staging korunuyor'});else await transition(job,JOB_STATUS.FAILED,{error:job.error,message:'Hızlı veri çekimi başarısız · önceki tablo korundu'});return false;}
     finally{try{await flushStageBatch(job.id)}catch{}state.settings.sourceRetryCount=restore.retry;state.settings.maxProvider429Retries=restore.r429;state.settings.requestTimeoutMs=restore.timeout;state.settings.providerConcurrency=restore.pc;state.syncing=false;clearCancel(job.id);renderCurrentPagePreservingView();}
@@ -5596,7 +5596,7 @@ try{AurumUpdateAPI.state.r239={version:'REV20.39-STRICT-CADENCE-SAME-SOURCE-MARK
   if(globalThis.__AURUM_REV221_PIPELINE_PIT)return;globalThis.__AURUM_REV221_PIPELINE_PIT=true;
   async function rebuildPIT30R221(){
     if(state.syncing||state.calculating)throw new Error('Başka bir işlem sürüyor');
-    const calcRecords=calculationRecords();if(calcRecords.length<20)throw new Error(`T1–T30 yeniden hesaplama için en az 20 doğrulanmış hisse gerekli; ${calcRecords.length} uygun hisse var`);
+    const calcRecords=calculationRecords();
     const current=kh117T0(),anchors=kh117AnchorDates(calcRecords,current.date).slice(0,30);if(anchors.length<30)throw new Error(`T1–T30 için yalnız ${anchors.length} uygun point-in-time tarih bulundu`);
     if(!confirm(`T1–T30 geçmişi mevcut kriter/formüllerle yeniden hesaplanıp atomik olarak yenilensin mi?\n\nHer tarih için tahmin girdileri yalnız o tarih ve öncesindeki verilerden oluşturulur. Daha sonraki haber, öğrenme, AI/model state veya piyasa verisi tahmin girdisi olarak kullanılmaz. Reel d+1 yalnız sonuç/başarı ölçümü içindir.\n\n30/30 tamamlanmadan mevcut arşiv değiştirilmez.`))return false;
     const a=kh117ArchiveState(),oldLive=a.live?kh117CloneValue(a.live):null,oldShift=a.lastShift?kh117CloneValue(a.lastShift):null,staged=[],failures=[],job={id:makeId('KH_PIT_REBUILD'),stage:'K_Tarihsel'};
@@ -5650,7 +5650,7 @@ try{AurumUpdateAPI.state.r239={version:'REV20.39-STRICT-CADENCE-SAME-SOURCE-MARK
   function r222FormulaChanged(row){const v=String(row?.formulaVersion||'').trim();return !!v&&v!==String(MODEL_VERSION)}
   async function rebuildPIT30R222(){
     if(state.syncing||state.calculating)throw new Error('Başka bir işlem sürüyor');
-    const calcRecords=calculationRecords();if(calcRecords.length<20)throw new Error(`T1–T30 yeniden hesaplama için en az 20 doğrulanmış hisse gerekli; ${calcRecords.length} uygun hisse var`);
+    const calcRecords=calculationRecords();
     const current=kh117T0(),a=kh117ArchiveState(),existing=kh117NormalizeArchiveRows(a.rows,current.date),byDate=new Map(existing.map(x=>[String(x.date),x]));
     const anchors=[...new Set([...existing.map(x=>String(x.date)),...kh117AnchorDates(calcRecords,current.date)])].filter(Boolean).sort((x,y)=>y.localeCompare(x)).slice(0,30);
     if(anchors.length<30)throw new Error(`T1–T30 için yalnız ${anchors.length} uygun point-in-time tarih bulundu`);
