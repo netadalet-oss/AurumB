@@ -77,3 +77,6 @@ console.log('Aurum static contract audit passed.');
 
 // Startup UI regression: late page render must build non-empty markup before removing visible slots.
 ok(runtime.includes("markup=String(fn()||'')") && runtime.indexOf("markup=String(fn()||'')") < runtime.indexOf("for(const oldSlot of slots.values())oldSlot.remove()"), 'Late overview render preserves the visible page until replacement markup is ready');
+
+const bridgeDef=runtime.indexOf('function aurumUpdateApi('), bridgeUse=runtime.indexOf("globalThis.AurumUpdateAPI=aurumUpdateApi(");
+ok(bridgeDef>=0 && bridgeUse>bridgeDef, 'Embedded runtime API bridge exists before R63 startup use');
