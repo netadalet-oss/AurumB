@@ -915,7 +915,7 @@ input[type="range"][id^="aurumScaleVal_"]{height:3px;accent-color:currentColor;v
 @media(max-width:420px){.r233-market-card{padding:8px 34px 8px 8px}.r233-market-grid{gap:3px 5px}.r233-market-head small{font-size:7px}.r233-market-line strong{font-size:9.2px}.r233-market-name,.r233-market-line .aurum-r205-market-pct{font-size:7.4px}.r233-market-line small{font-size:6.2px}}
 
 
-/* Approved near-black sapphire/navy card palette — 2026-09-25 */
+/* Cards match the dark action-button/action-strip visual tone exactly. */
 #content .card,
 #content .metric,
 #content .quick-card,
@@ -927,14 +927,9 @@ input[type="range"][id^="aurumScaleVal_"]{height:3px;accent-color:currentColor;v
 #content .detail-cell,
 #content .weight-grid>div,
 #content .r233-market-card,
-#content .aurum-r205-market-card{
-  background:linear-gradient(145deg,rgba(3,13,31,.992),rgba(1,6,17,.999))!important;
-}
-#content .quick-card:active{
-  background:linear-gradient(145deg,rgba(5,20,44,.995),rgba(2,8,20,.999))!important;
-}
+#content .aurum-r205-market-card,
 #content .list-row,
 #content .stock-time-grid,
 #content .aurum-time-card{
-  background:linear-gradient(145deg,rgba(4,16,36,.975),rgba(1,6,17,.997))!important;
+  background:linear-gradient(145deg,rgba(4,13,38,.96),rgba(1,5,18,.995))!important;
 }
