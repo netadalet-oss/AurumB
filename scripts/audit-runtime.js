@@ -8,6 +8,10 @@ const runtime = read('app/src/main/assets/runtime.js');
 const core = read('app/src/main/assets/core.js');
 const market = read('app/src/main/assets/market-indicators-revision.js');
 const appearance = read('app/src/main/assets/rev20-customization.js');
+const acceleration = read('app/src/main/assets/safe-transfer-acceleration.js');
+const keepalive = read('app/src/main/assets/background-keepalive-only.js');
+const nativeAI = read('app/src/main/assets/native-secure-ai.js');
+const pipeline = read('app/src/main/java/com/aurum/bistterminal8/PipelineService.kt');
 
 const failures = [];
 const ok = (cond, msg) => { if (!cond) failures.push(msg); };
@@ -53,6 +57,12 @@ ok(resetBlock.includes("createRestorePoint('UYGULAMA_SIFIRLAMA_ÖNCESİ'") && re
 
 for (const token of ['İnce','Normal','Kalın','İtalik','data-r20-color-default']) ok(appearance.includes(token), 'appearance control missing: '+token);
 ok(appearance.includes('data-r20-action="defaults"') && appearance.includes('Tümünü Varsayılana Döndür'), 'appearance reset-all control missing');
+
+ok(!/(concurrency|wave|retries|provider|quality|atomicPublish)\s*=/.test(acceleration), 'safe transfer acceleration mutates transfer/data semantics');
+ok(!/(concurrency|wave|retries|provider|quality|atomicPublish)\s*=/.test(keepalive), 'background keepalive mutates transfer/data semantics');
+ok(nativeAI.includes("nativePrompt('openai_request'") && !/apiKey|authorization/i.test(nativeAI), 'web AI bridge exposes or handles API credentials');
+const promptBlock = pipeline.slice(pipeline.indexOf('override fun onJsPrompt'), pipeline.indexOf('webViewClient = object'));
+ok(promptBlock.includes('"http_request"') && promptBlock.includes('"http_cancel"') && promptBlock.includes('ERR:BACKGROUND_NATIVE_COMMAND_BLOCKED'), 'background WebView native bridge is broader than required HTTP commands');
 
 for (const dead of ['fast-background-transfer.js','market-display-fix2.js','market-percent-portal-patch.js']) {
   ok(!fs.existsSync(path.join(root, 'app/src/main/assets', dead)), 'dead asset still present: '+dead);
