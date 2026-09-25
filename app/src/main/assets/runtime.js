@@ -1304,7 +1304,7 @@ globalThis.recalculateSelectionTable=runManualS;
 globalThis.recalculateAllTables=()=>{showAurumNotice('Manuel modda tablolar ayrı ayrı ve sırayla çalıştırılır.','info',3200);return false};
 globalThis.AurumRuntime=Object.freeze({version:AURUM_RUNTIME_VERSION,status:currentRuntime,summary:dataSummary,manualSequence,manualData:runManualData,manualKn:runManualKn,manualHistorical:runManualHistorical,manualS:runManualS,resume:resumePendingJobs,scheduled:scheduledEntry,providerOrder,togglePause,command:operationCommand,tableTimePanel,operationStrip,jobStatus:JOB_STATUS});
 
-/* Startup is deferred until every embedded compatibility/revision layer below has installed. */
+bootstrapClean();
 
 /* Embedded R47 compatibility layer */
 /* AurumB R46 compatibility update for R45/R44-compatible appVersionCode 120.
@@ -6249,9 +6249,3 @@ try{
   if(host&&!host.innerHTML.trim())host.innerHTML='<div class="card"><h2>Genel Bakış</h2><p class="muted">Arayüz başlatılıyor…</p></div>';
 }
 
-/* All runtime layers are now installed. Paint a guaranteed non-empty first frame before
-   entering the compatibility renderer chain; bootstrap will replace it on success. */
-(()=>{const c=document.getElementById('content');if(c&&!c.innerHTML.trim())c.innerHTML='<div class="card aurum-startup-fallback"><h2>Genel Bakış</h2><p class="muted">Aurum hazırlanıyor…</p></div>'})();
-
-/* Start only after every embedded runtime layer is installed. */
-bootstrapClean();
