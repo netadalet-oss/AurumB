@@ -85,3 +85,8 @@ ok(runtime.includes("const s=Array.isArray(S.selection)?S.selection:[],records=A
 
 const bootCalls=[...runtime.matchAll(/bootstrapClean\(\);/g)].map(m=>m.index), finalLayer=runtime.indexOf('REV20.43 — CONSOLIDATED FINAL MARKET / PORTAL UI CONTRACT');
 ok(bootCalls.length===1 && bootCalls[0]>finalLayer, 'Foreground bootstrap runs once after all embedded runtime layers are installed');
+
+const bootMarker='bootstrapClean();';
+const firstBoot=runtime.indexOf(bootMarker), lastBoot=runtime.lastIndexOf(bootMarker);
+ok(firstBoot>=0 && firstBoot===lastBoot, 'Foreground bootstrap is called exactly once');
+ok(firstBoot>runtime.indexOf('__AURUM_REV2043_FINAL_UI'), 'Foreground bootstrap runs after embedded revision layers');
