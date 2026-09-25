@@ -37,6 +37,12 @@ class PipelineService : Service() {
             ?: run { stopSelf(startId); return START_NOT_STICKY }
         val jobToken = intent.getStringExtra("jobToken")
             ?: run { stopSelf(startId); return START_NOT_STICKY }
+        val watchdog = android.os.Handler(mainLooper)
+        val watchdogTask = Runnable {
+            SchedulerLedger.complete(this, jobToken, "FAILED", "PIPELINE_TIMEOUT")
+            stopSelf(startId)
+        }
+        watchdog.postDelayed(watchdogTask, 2 * 60 * 60 * 1000L)
 
         val loader = WebViewAssetLoader.Builder()
             .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
@@ -57,7 +63,10 @@ class PipelineService : Service() {
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                     val uri = request.url
                     if (uri.scheme == "aurum" && uri.host == "complete") {
-                        SchedulerLedger.complete(this@PipelineService, jobToken, "COMPLETED", "")
+                        val ok = uri.getQueryParameter("ok") != "0"
+                        val detail = uri.getQueryParameter("detail").orEmpty()
+                        watchdog.removeCallbacks(watchdogTask)
+                        SchedulerLedger.complete(this@PipelineService, jobToken, if (ok) "COMPLETED" else "FAILED", detail)
                         stopSelf(startId)
                         return true
                     }
