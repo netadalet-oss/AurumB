@@ -80,3 +80,5 @@ ok(runtime.includes("markup=String(fn()||'')") && runtime.indexOf("markup=String
 
 const bridgeDef=runtime.indexOf('function aurumUpdateApi('), bridgeUse=runtime.indexOf("globalThis.AurumUpdateAPI=aurumUpdateApi(");
 ok(bridgeDef>=0 && bridgeUse>bridgeDef, 'Embedded runtime API bridge exists before R63 startup use');
+
+ok(runtime.includes("const s=Array.isArray(S.selection)?S.selection:[],records=Array.isArray(S.records)?S.records:[]") && runtime.includes("profiles=S.behaviorProfiles?.values?[...S.behaviorProfiles.values()]:[]"), 'R62 overview tolerates incomplete startup state');
