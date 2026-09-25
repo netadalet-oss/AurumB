@@ -958,7 +958,8 @@ function schedulerNativeHealth(){return readLocal(AURUM_SCHEDULER_NATIVE_HEALTH_
 function schedulerWriteNativeHealth(v){const x={...(v||{}),at:v?.at||nowISO()};writeLocal(AURUM_SCHEDULER_NATIVE_HEALTH_KEY,x);return x}
 function schedulerNativeInstall(enabled,times,reason='USER'){
   try{
-    const r=window.prompt(`aurum://native?${new URLSearchParams({cmd:'schedule',enabled:enabled?'1':'0',times:(times||[]).join(',')})}`,'AURUM')||'';
+    const cfg=schedulerConfig(),params={cmd:'schedule',enabled:enabled?'1':'0',times:(times||[]).join(','),weekday:(cfg.weekday||[]).join(','),weekend:(cfg.holiday||[]).join(',')};
+    const r=window.prompt(`aurum://native?${new URLSearchParams(params)}`,'AURUM')||'';
     const ok=r==='OK';schedulerWriteNativeHealth({ok,response:r||'NO_RESPONSE',reason,at:nowISO()});return {ok,response:r||'NO_RESPONSE'};
   }catch(e){const response=e?.message||String(e)||'PROMPT_FAILED';schedulerWriteNativeHealth({ok:false,response,reason,at:nowISO()});return {ok:false,response}}
 }
