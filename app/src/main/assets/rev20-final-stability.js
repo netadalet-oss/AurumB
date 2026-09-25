@@ -29,6 +29,8 @@
 `;document.head.appendChild(st)}
  globalThis.AurumStability=Object.freeze({health,marketRefresh,logs:()=>{try{return JSON.parse(localStorage.getItem(KEY)||'[]')}catch{return []}}});
  compactMarketCss();installHealthModule();health();
- setInterval(health,HEALTH); setTimeout(marketRefresh,15000); setInterval(marketRefresh,PERIOD);
+ setInterval(health,HEALTH);
+ // Market cadence is owned exclusively by market-indicators-revision.js.
+ // Stability observes health only; it must not create startup or duplicate market requests.
  event('info','REV2050_ACTIVE','Nihai süreklilik katmanı etkin');
 })();
