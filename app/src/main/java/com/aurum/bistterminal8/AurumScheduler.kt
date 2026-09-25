@@ -26,6 +26,7 @@ object AurumScheduler {
     )
     private val weekendDefaults = listOf("12:30")
     private val defaults = (weekdayDefaults + weekendDefaults).distinct().sorted()
+    private const val DEFAULT_PROFILE_KEY = "defaultProfile"
 
     fun configuredTimes(context: Context): List<String> {
         val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -42,6 +43,7 @@ object AurumScheduler {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putBoolean("enabled", enabled)
             .putString("times", clean.joinToString(","))
+            .putBoolean(DEFAULT_PROFILE_KEY, clean.toSet() == defaults.toSet())
             .apply()
         if (!enabled) return true
         val now = Instant.now()
@@ -62,8 +64,10 @@ object AurumScheduler {
         var target = ZonedDateTime.of(after.atZone(zone).toLocalDate(), localTime, zone)
         if (!target.toInstant().isAfter(after.plusSeconds(1))) target = target.plusDays(1)
 
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val configured = configuredTimes(context).toSet()
-        if (configured == defaults.toSet()) {
+        val useDefaultCalendar = prefs.getBoolean(DEFAULT_PROFILE_KEY, configured == defaults.toSet())
+        if (useDefaultCalendar) {
             while (true) {
                 val allowed = if (target.dayOfWeek == DayOfWeek.SATURDAY ||
                     target.dayOfWeek == DayOfWeek.SUNDAY) weekendDefaults else weekdayDefaults
