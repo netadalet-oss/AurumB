@@ -103,3 +103,6 @@ const startupFallback=runtime.indexOf("host.innerHTML=globalThis.overview()"), f
 ok(startupFallback>=0 && finalBootstrap>startupFallback, 'Startup fallback exists before bootstrap call');
 
 ok(runtime.indexOf('bootstrapClean();') < runtime.indexOf('/* Embedded R47 compatibility layer */'), 'Foreground bootstrap keeps last-known-working pre-compatibility launch order');
+
+const bootstrapCalls=(runtime.match(/bootstrapClean\s*\(\s*\)\s*;/g)||[]).length;
+ok(bootstrapCalls===1 && runtime.trimEnd().endsWith('bootstrapClean();'), 'Foreground bootstrap is invoked exactly once after all runtime layers');
