@@ -94,3 +94,5 @@ ok(firstBoot>runtime.indexOf('__AURUM_REV2043_FINAL_UI'), 'Foreground bootstrap 
 const inv=runtime.indexOf('function invalidateAndRenderCurrent');
 const mk=runtime.indexOf("markup=String(fn()||'')",inv), adopt=runtime.indexOf('adopt();',inv);
 ok(inv>=0 && mk>inv && adopt>mk,'First render builds markup before R61 adopts content');
+
+ok(runtime.includes('if(!S.settings||!S.performance||!S.behaviorMemory)return baseOverview()'), 'Final overview falls back before canonical state initialization');
