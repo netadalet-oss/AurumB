@@ -2,7 +2,7 @@
 /* REV20.50 final stability layer: non-destructive health, market auto refresh and compact appearance strips. */
 (()=>{
  if(globalThis.__AURUM_REV2050__)return; globalThis.__AURUM_REV2050__=true;
- const PERIOD=30*60*1000, HEALTH=5*60*1000, KEY='aurum.r250.health.v1';
+ const HEALTH=5*60*1000, KEY='aurum.r250.health.v1';
  const iso=()=>new Date().toISOString(), n=v=>{const x=Number(v);return Number.isFinite(x)?x:null};
  function event(level,code,message,extra={}){try{const a=JSON.parse(localStorage.getItem(KEY)||'[]');a.unshift({at:iso(),level,code,message,...extra});localStorage.setItem(KEY,JSON.stringify(a.slice(0,240)))}catch{}}
  function marketRefresh(){try{return Promise.resolve(globalThis.refreshMarketIndicators?.({auto:true})).then(()=>{try{const h=document.getElementById('aurumDataMarketStrip');if(h&&globalThis.marketIndicatorsMarkup)h.outerHTML=globalThis.marketIndicatorsMarkup()}catch{};event('info','MARKET_REFRESH','Piyasa göstergeleri yenilendi')}).catch(e=>event('warn','MARKET_REFRESH_FAILED',String(e?.message||e)))}catch(e){event('warn','MARKET_REFRESH_FAILED',String(e?.message||e));return Promise.resolve()}}
@@ -29,6 +29,6 @@
 `;document.head.appendChild(st)}
  globalThis.AurumStability=Object.freeze({health,marketRefresh,logs:()=>{try{return JSON.parse(localStorage.getItem(KEY)||'[]')}catch{return []}}});
  compactMarketCss();installHealthModule();health();
- setInterval(health,HEALTH); setTimeout(marketRefresh,15000); setInterval(marketRefresh,PERIOD);
+ setInterval(health,HEALTH);
  event('info','REV2050_ACTIVE','Nihai süreklilik katmanı etkin');
 })();
