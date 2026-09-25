@@ -1304,7 +1304,9 @@ globalThis.recalculateSelectionTable=runManualS;
 globalThis.recalculateAllTables=()=>{showAurumNotice('Manuel modda tablolar ayrı ayrı ve sırayla çalıştırılır.','info',3200);return false};
 globalThis.AurumRuntime=Object.freeze({version:AURUM_RUNTIME_VERSION,status:currentRuntime,summary:dataSummary,manualSequence,manualData:runManualData,manualKn:runManualKn,manualHistorical:runManualHistorical,manualS:runManualS,resume:resumePendingJobs,scheduled:scheduledEntry,providerOrder,togglePause,command:operationCommand,tableTimePanel,operationStrip,jobStatus:JOB_STATUS});
 
-/* Startup is deferred until every embedded compatibility/revision layer below has installed.\n   Starting here races bootstrapClean() against later overview/render overrides and can leave #content empty. */\n
+/* Startup is deferred until every embedded compatibility/revision layer below has installed.
+   Starting here races bootstrapClean() against later overview/render overrides and can leave #content empty. */
+
 
 /* Embedded R47 compatibility layer */
 /* AurumB R46 compatibility update for R45/R44-compatible appVersionCode 120.
@@ -2244,7 +2246,7 @@ try{AurumUpdateAPI.state.cleanREV20={version:'REV20.0-CLEAN',activatedAt:new Dat
   if(globalThis.AURUM_R62_VIRTUAL_PORTFOLIO)return;
   globalThis.AURUM_R62_VIRTUAL_PORTFOLIO='R66.0';
   const S=AurumUpdateAPI.state;
-  // Startup-safe R62 defaults: this layer is evaluated after bootstrapClean() is invoked but before its second render.
+  // Startup-safe R62 defaults: normalize persisted state before the final bootstrap renders this layer.
   if(!Array.isArray(S.selection))S.selection=[];if(!Array.isArray(S.records))S.records=[];if(!(S.behaviorProfiles instanceof Map))S.behaviorProfiles=new Map();if(!S.behaviorMemory||typeof S.behaviorMemory!=='object')S.behaviorMemory={coverage:0,totalEvents:0,latestEvidenceId:null};if(!S.performance||typeof S.performance!=='object')S.performance={weights:{},raw:{}};if(!S.settings)S.settings=defaultSettings();
   const CACHE_KEY='aurum.virtualPortfolio.r62.cache';
   const DB_NAME='aurum-virtual-portfolio-r62';
