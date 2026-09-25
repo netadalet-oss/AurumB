@@ -491,17 +491,31 @@ function recordNeedsLocalIntegrityRepair(rec){
 }
 async function repairLegacyCorruptRecordsLocal(){
   const memo=readLocal(LOCAL_REPAIR_V117_KEY,null);if(memo?.complete)return memo;
-  const candidates=(state.records||[]).filter(recordNeedsLocalIntegrityRepair);if(!candidates.length){const done={complete:true,at:nowISO(),repaired:0,failed:0};writeLocal(LOCAL_REPAIR_V117_KEY,done);return done;}
-  const indexBundle=(await dbGet('meta','indexBundle'))?.value||{bars:[]},changedAt=nowISO();let repairedCount=0,failed=0;
+  const candidates=(state.records||[]).filter(recordNeedsLocalIntegrityRepair);
+  if(!candidates.length){const done={complete:true,at:nowISO(),repaired:0,failed:0};writeLocal(LOCAL_REPAIR_V117_KEY,done);return done;}
+  const indexBundle=(await dbGet('meta','indexBundle'))?.value||{bars:[]},changedAt=nowISO(),candidateRecords=(state.records||[]).map(r=>JSON.parse(JSON.stringify(r)));
+  const by=new Map(candidateRecords.map(r=>[r.sym,r]));let repairedCount=0,failed=0;
   for(const old of candidates){try{
     const rebuilt=enrichBundle(bundleFromRecord(old),indexBundle),next={...old,...rebuilt};
     for(const k of ['marketDataAt','liveAt','marketTimeVerified','marketTimeProvider','apiAccessedAt','tableTransferredAt','datasetMarketAt','dataSnapshotId','jobId','jobMode','jobDataStatus','marketWindowEligible','marketWindowDeltaMinutes','providers','source','sourceAttempts','providerAttempts','provenance','companyCard','companyCardHistory','crossValidation','enrichmentMetrics','behaviorProfile','behaviorScore','behaviorType','genomeProfile','genomeScore','genomeProbability','genomeType'])if(k in old)next[k]=old[k];
     next.recordChangedAt=changedAt;next.provenance={...(old.provenance||{}),recordChangedAt:changedAt,localIntegrityRepair:'V117'};next.recordFingerprint=dataRecordFingerprint(next);
-    await dbPut('records',{key:next.sym,value:next,updatedAt:changedAt});const ix=state.records.findIndex(x=>x.sym===next.sym);if(ix>=0)state.records[ix]=next;repairedCount++;
+    by.set(next.sym,next);repairedCount++;
   }catch(e){failed++;try{await log('warn',`${old.sym}: yerel bütünlük onarımı başarısız`,{error:e?.message||String(e)})}catch{}}}
-  state.recordMap=new Map(state.records.map(x=>[x.sym,x]));
-  const classification=classifyDataCompleteness(state.records,currentSymbols());for(const rec of state.records){const e=classification.bySymbol.get(rec.sym);rec.emptyCellCount=e?.emptyCells??0;rec.calculationEligible=!!e?.eligible;rec.calculationExclusionReasons=e?.reasons||[];rec.incompleteColumns=classification.incompleteColumns;}
-  if(repairedCount){const meta=(await dbGet('meta','activeDataSnapshot'))?.value||null;if(meta){meta.changedAt=changedAt;meta.fingerprint=dataTableFingerprint(state.records);meta.incompleteColumns=classification.incompleteColumns;await dbPut('meta',{key:'activeDataSnapshot',value:meta,updatedAt:changedAt});}for(const rec of state.records.filter(r=>candidates.some(c=>c.sym===r.sym)))await dbPut('records',{key:rec.sym,value:rec,updatedAt:changedAt});}
+  const repaired=candidateRecords.map(r=>by.get(r.sym)||r),classification=classifyDataCompleteness(repaired,currentSymbols());
+  const gate=dataIntegrityGate(dataSummary(repaired));
+  if(!gate.ok){const done={complete:false,at:nowISO(),repaired:0,failed:candidates.length,reason:'DATA_FILL_BELOW_70'};return done;}
+  for(const rec of repaired){const e=classification.bySymbol.get(rec.sym);rec.emptyCellCount=e?.emptyCells??0;rec.calculationEligible=!!e?.eligible;rec.calculationExclusionReasons=e?.reasons||[];rec.incompleteColumns=classification.incompleteColumns;}
+  if(repairedCount){
+    const meta=(await dbGet('meta','activeDataSnapshot'))?.value||null;
+    const fingerprint=dataTableFingerprint(repaired);
+    await new Promise((resolve,reject)=>{
+      const tx=state.db.transaction(['records','meta'],'readwrite'),rs=tx.objectStore('records'),ms=tx.objectStore('meta');
+      rs.clear();for(const rec of repaired)rs.put({key:rec.sym,value:rec,updatedAt:changedAt});
+      if(meta)ms.put({key:'activeDataSnapshot',value:{...meta,changedAt,fingerprint,incompleteColumns:classification.incompleteColumns},updatedAt:changedAt});
+      tx.oncomplete=()=>resolve(true);tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);
+    });
+    state.records=repaired;state.recordMap=new Map(repaired.map(x=>[x.sym,x]));
+  }
   const done={complete:failed===0,at:nowISO(),repaired:repairedCount,failed};if(done.complete)writeLocal(LOCAL_REPAIR_V117_KEY,done);return done;
 }
 
