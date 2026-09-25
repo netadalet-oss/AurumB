@@ -6235,6 +6235,8 @@ try{AurumUpdateAPI.state.r225={version:'REV20.25-RELIABILITY-FILL-NEWS',activate
   try{AurumUpdateAPI.state.r243={version:'REV20.43-CONSOLIDATED-FINAL-UI',activatedAt:nowISO(),features:['SINGLE_MARKET_PORTAL_UI_RECOVERY_OWNER','LAST_VALID_UI_PERSISTS','NO_RECURSIVE_PAGE_RENDER','EMPTY_OUTPUT_NEVER_REPLACES_VALID_UI']}}catch{}
 })();
 
-/* All runtime layers are now installed; foreground bootstrap may render against the final renderer set. */
+/* All runtime layers are now installed. Paint a guaranteed non-empty first frame before
+   entering the compatibility renderer chain; bootstrap will replace it on success. */
+(()=>{const c=document.getElementById('content');if(c&&!c.innerHTML.trim())c.innerHTML='<div class="card aurum-startup-fallback"><h2>Genel Bakış</h2><p class="muted">Aurum hazırlanıyor…</p></div>'})();
 bootstrapClean();
 
