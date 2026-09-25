@@ -87,18 +87,17 @@
       ()=>yahooChart('^XU100',key,'query2.finance.yahoo.com')
     ],errors);
     if(key==='USDTRY')return first(key,[
-      ()=>altCurrency('USD'),()=>yahooChart('TRY=X',key,'query1.finance.yahoo.com'),()=>yahooChart('TRY=X',key,'query2.finance.yahoo.com'),
-      ()=>tcmb('USD'),async()=>{const x=(await bigpara()).USDTRY;if(!x)throw Error('Bigpara USD yok');return {...x,source:'BIGPARA'}}
+      ()=>yahooChart('TRY=X',key,'query1.finance.yahoo.com'),()=>yahooChart('TRY=X',key,'query2.finance.yahoo.com'),
+      async()=>{const x=(await bigpara()).USDTRY;if(!x)throw Error('Bigpara USD yok');return {...x,source:'BIGPARA'}},()=>altCurrency('USD'),()=>tcmb('USD')
     ],errors);
     if(key==='EURTRY')return first(key,[
-      ()=>altCurrency('EUR'),()=>yahooChart('EURTRY=X',key,'query1.finance.yahoo.com'),()=>yahooChart('EURTRY=X',key,'query2.finance.yahoo.com'),
-      ()=>tcmb('EUR'),async()=>{const x=(await bigpara()).EURTRY;if(!x)throw Error('Bigpara EUR yok');return {...x,source:'BIGPARA'}}
+      ()=>yahooChart('EURTRY=X',key,'query1.finance.yahoo.com'),()=>yahooChart('EURTRY=X',key,'query2.finance.yahoo.com'),
+      async()=>{const x=(await bigpara()).EURTRY;if(!x)throw Error('Bigpara EUR yok');return {...x,source:'BIGPARA'}},()=>altCurrency('EUR'),()=>tcmb('EUR')
     ],errors);
     if(key==='GRAMTRY')return first(key,[
-      ()=>altGold('GA'),()=>altGold('CH_T'),
-      async()=>{const g=await yahooChart('GC=F',key,'query1.finance.yahoo.com'),u=await yahooChart('TRY=X',key,'query1.finance.yahoo.com');return {value:g.value*u.value/OZ,previousClose:g.previousClose&&u.previousClose?g.previousClose*u.previousClose/OZ:null,source:'YAHOO_DERIVED'}},
-      async()=>{const g=await yahooChart('GC=F',key,'query2.finance.yahoo.com'),u=await yahooChart('TRY=X',key,'query2.finance.yahoo.com');return {value:g.value*u.value/OZ,previousClose:g.previousClose&&u.previousClose?g.previousClose*u.previousClose/OZ:null,source:'YAHOO_DERIVED'}},
-      async()=>{const x=(await bigpara()).GRAMTRY;if(!x)throw Error('Bigpara gram yok');return {...x,source:'BIGPARA'}}
+      async()=>{const g=await yahooChart('GC=F',key,'query1.finance.yahoo.com'),u=await yahooChart('TRY=X',key,'query1.finance.yahoo.com');return {value:g.value*u.value/OZ,previousClose:g.previousClose&&u.previousClose?g.previousClose*u.previousClose/OZ:null,changePct:(g.changePct!=null&&u.changePct!=null)?((1+g.changePct/100)*(1+u.changePct/100)-1)*100:null,source:'YAHOO_DERIVED',providerAt:g.providerAt||u.providerAt}},
+      async()=>{const g=await yahooChart('GC=F',key,'query2.finance.yahoo.com'),u=await yahooChart('TRY=X',key,'query2.finance.yahoo.com');return {value:g.value*u.value/OZ,previousClose:g.previousClose&&u.previousClose?g.previousClose*u.previousClose/OZ:null,changePct:(g.changePct!=null&&u.changePct!=null)?((1+g.changePct/100)*(1+u.changePct/100)-1)*100:null,source:'YAHOO_DERIVED',providerAt:g.providerAt||u.providerAt}},
+      async()=>{const x=(await bigpara()).GRAMTRY;if(!x)throw Error('Bigpara gram yok');return {...x,source:'BIGPARA'}},()=>altGold('GA'),()=>altGold('CH_T')
     ],errors);
   }
 
@@ -124,14 +123,14 @@
         const direct=await first('GOLDUSD',[()=>altGold('XAUUSD'),()=>yahooChart('GC=F','GOLDUSD','query1.finance.yahoo.com'),()=>yahooChart('GC=F','GOLDUSD','query2.finance.yahoo.com')],errors);
         if(direct)fields.GOLDUSD=direct;else if(old.GOLDUSD)fields.GOLDUSD={...old.GOLDUSD,stale:true};
       }
-      const payload={at:now(),updatedAt:now(),source:'REV20.42_RESILIENT_MARKET',fields,errors:errors.slice(-20),policy:'INDEPENDENT_FIELDS_MAX_5_ATTEMPTS'};
+      for(const k of KEYS){const x=fields[k];if(x&&x.changePct==null)x.changePct=null;} const payload={at:now(),updatedAt:now(),source:'REV20.51_CONSISTENT_MARKET',fields,errors:errors.slice(-20),policy:'SAME_PROVIDER_VALUE_PREVCLOSE_PERCENT_FIRST'};
       state.marketIndicators=payload;try{writeLocal(KEY,payload);writeLocal('marketIndicatorsREV2041',payload);writeLocal('marketIndicatorsREV2040',payload)}catch{}
       try{await dbPut('meta',{key:KEY,value:payload,updatedAt:now()})}catch{}
       return payload;
     })();
     try{return await running}finally{running=null}
   }
-  function cached(){return state.marketIndicators?.source==='REV20.42_RESILIENT_MARKET'?state.marketIndicators:readLocal(KEY,null)||readLocal('marketIndicatorsREV2041',null)||(typeof priorCached==='function'?priorCached():null)||null}
+  function cached(){return state.marketIndicators?.fields?state.marketIndicators:readLocal(KEY,null)||readLocal('marketIndicatorsREV2041',null)||(typeof priorCached==='function'?priorCached():null)||null}
   function fmt(v,k){if(num(v)==null)return '—';const d=k==='XU100'?0:(['USDTRY','EURTRY','EURUSD'].includes(k)?4:2);return Number(v).toLocaleString('tr-TR',{minimumFractionDigits:d,maximumFractionDigits:d,useGrouping:true})}
   function markup(){
     const f=(cached()||{}).fields||{};
