@@ -18,7 +18,7 @@ ok(runtime.includes('DATA_FILL_BELOW_70_KEEP_LAST_VALID_SNAPSHOT'), '70% rejecti
 ok(!/lastSuccessfulSync\s*=\s*nowISO\(\)/.test(runtime), 'successful timestamp can advance directly from wall clock');
 ok(runtime.includes('Display-only legacy recovery: never mutate activeDataSnapshot outside a successful gated publish.'), 'snapshot display-only recovery guard missing');
 ok(runtime.includes('DIRECT_RECORD_WRITE_DISABLED_USE_GATED_ATOMIC_PUBLISH'), 'legacy direct record writer is enabled');
-ok(runtime.includes('orphan staging cleaned; active Veriler preserved'), 'orphan staging cleanup contract missing');
+const orphan = runtime.slice(runtime.indexOf('async function recoverOrphanStagingRecords'), runtime.indexOf('async function atomicPublish'));\nok(orphan.includes("transaction('stagingRecords','readwrite')") && !orphan.includes("transaction(['records") && orphan.includes('discarded:orphan.length'), 'orphan staging cleanup contract missing');
 
 const repair = runtime.slice(runtime.indexOf('async function repairLegacyCorruptRecordsLocal'), runtime.indexOf('const REPAIR_QUEUE_KEY'));
 ok(repair.includes('dataIntegrityGate'), 'legacy local repair is not gated');
@@ -27,7 +27,7 @@ ok(repair.includes("transaction(['records','meta'],'readwrite')"), 'legacy local
 const finalSafety = runtime.slice(runtime.indexOf('function finalCandidateGate'), runtime.indexOf('/* ===== REV20.27'));
 ok(finalSafety.includes('dataIntegrityGate'), 'final publish gate missing');
 ok(finalSafety.includes('globalThis.atomicPublish'), 'final atomic publish wrapper missing');
-ok(finalSafety.includes("key:'activeDataSnapshot'"), 'snapshot update missing from final publish contract');
+ok(finalSafety.includes("dbGet('meta','activeDataSnapshot')") && finalSafety.includes('const out=await publish(job,universe)'), 'final wrapper does not derive success from published snapshot');
 ok(finalSafety.includes("key:'lastSuccessfulSync'"), 'successful timestamp update missing from final publish contract');
 
 const importBlock = core.slice(core.indexOf('const importMap='), core.indexOf('showToast', core.indexOf('const importMap=')));
@@ -41,7 +41,7 @@ ok(!/stagingRecords[\s\S]{0,500}calculate(?:Kn|S)\s*\(/.test(runtime), 'staging 
 
 ok(count(market, /setInterval\s*\(/g) === 1, 'market indicator module must own exactly one interval');
 ok(market.includes('30*60*1000') || market.includes('30 * 60 * 1000'), 'market interval is not 30 minutes');
-ok(market.includes('forceNetwork:true'), 'manual market refresh does not use the shared refresh engine');
+ok(market.includes('refresh({force:true})'), 'manual market refresh does not use the shared refresh engine');
 
 ok(runtime.includes("restorePoint:*") || runtime.includes("startsWith('restorePoint:')") || runtime.includes('startsWith("restorePoint:")'), 'restore point archive preservation marker missing');
 ok(runtime.includes('UYGULAMA_SIFIRLAMA_ÖNCESİ'), 'pre-reset restore point missing');
