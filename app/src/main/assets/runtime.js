@@ -2464,18 +2464,7 @@ try{AurumUpdateAPI.state.cleanREV20={version:'REV20.0-CLEAN',activatedAt:new Dat
      concurrent writes into short foreground batches, while every stagePut promise still
      resolves only after the transaction commits. Atomic publish, integrity gates, retries,
      source fallback and orphan recovery are untouched. */
-  queueMicrotask(async()=>{try{
-    const key='aurum.r21.safe-fast.migrated.v1';if(readLocal(key,false)!==true){
-      state.settings.adaptiveConcurrency=true;state.settings.providerHealthAdaptive=true;state.settings.richParallelAllProviders=true;state.settings.fastFailoverEnabled=true;
-      state.settings.concurrency=Math.max(28,Math.min(32,Number(state.settings.concurrency||32)));state.settings.maxGlobalConcurrency=32;
-      state.settings.providerWaveSize=Math.max(8,Math.min(10,Number(state.settings.providerWaveSize||10)));
-      state.settings.sourceRetryCount=Math.max(1,Math.min(3,Number(state.settings.sourceRetryCount||1)));
-      state.settings.stageBatchSize=Math.max(192,Math.min(320,Number(state.settings.stageBatchSize||256)));
-      state.settings.stageFlushMs=Math.max(3,Math.min(8,Number(state.settings.stageFlushMs||4)));
-      await saveSettings();writeLocal(key,true);
-    }
-    try{AurumUpdateAPI.state.r21={version:'R21.0',activatedAt:nowISO(),features:['S_AL_SAT_NOTIFICATION_HISTORY','S_CHANGE_DEDUP','NATIVE_NOTIFICATION_BRIDGE_ATTEMPT','BACKGROUND_COMPLETION_S_DETAIL','SAFE_FOREGROUND_STAGE_BATCHING','ATOMIC_PUBLISH_PRESERVED','SOURCE_RETRY_PRESERVED']}}catch{}
-  }catch{}});
+  queueMicrotask(()=>{try{AurumUpdateAPI.state.r21={version:'R21.0',activatedAt:nowISO(),features:['USER_TRANSFER_POLICY_PRESERVED','S_AL_SAT_NOTIFICATION_HISTORY','S_CHANGE_DEDUP','NATIVE_NOTIFICATION_BRIDGE_ATTEMPT','BACKGROUND_COMPLETION_S_DETAIL','SAFE_FOREGROUND_STAGE_BATCHING','ATOMIC_PUBLISH_PRESERVED','SOURCE_RETRY_PRESERVED']}}catch{}});
 })();
 
 
@@ -2696,10 +2685,7 @@ try{AurumUpdateAPI.state.cleanREV20={version:'REV20.0-CLEAN',activatedAt:new Dat
 
   /* These settings describe the acquisition contract, not a speed hack: source/provider
      semaphores and staging integrity remain intact. */
-  queueMicrotask(async()=>{try{
-    state.settings.sourceRetryCount=0;state.settings.maxProvider429Retries=0;state.settings.symbolRepairRounds=1;state.settings.marketRecoveryRounds=0;state.settings.richParallelAllProviders=true;state.settings.providerWaveSize=Math.max(12,Number(state.settings.providerWaveSize||12));state.settings.strictFreshSnapshot=false;
-    await saveSettings();try{AurumUpdateAPI.state.r23={version:R23_VERSION,activatedAt:nowISO(),features:['ONE_GENERAL_PASS_ONLY','NO_AUTO_ROUND_2_3','SYMBOL_PROVIDER_ONCE_PER_PASS','FIELD_LEVEL_MULTI_SOURCE_MERGE','PARALLEL_PROVIDER_MATRIX','EXPLICIT_REPAIR_ONLY_SECOND_ATTEMPT','TARGETED_REPAIR_PROVIDER_SET','STAGING_ATOMIC_PUBLISH_PRESERVED','CALC_EXCLUDES_STALE_UNAVAILABLE','BACKGROUND_STAGE_RESUME_PRESERVED']}}catch{}
-  }catch{}});
+  queueMicrotask(()=>{try{AurumUpdateAPI.state.r23={version:R23_VERSION,activatedAt:nowISO(),features:['USER_TRANSFER_POLICY_PRESERVED','ONE_GENERAL_PASS_ONLY','NO_AUTO_ROUND_2_3','SYMBOL_PROVIDER_ONCE_PER_PASS','FIELD_LEVEL_MULTI_SOURCE_MERGE','EXPLICIT_REPAIR_ONLY_SECOND_ATTEMPT','TARGETED_REPAIR_PROVIDER_SET','STAGING_ATOMIC_PUBLISH_PRESERVED','CALC_EXCLUDES_STALE_UNAVAILABLE','BACKGROUND_STAGE_RESUME_PRESERVED']}}catch{}});
   globalThis.prepareGeneralData=prepareGeneralData;globalThis.prepareMissingData=prepareMissingData;
 })();
 
