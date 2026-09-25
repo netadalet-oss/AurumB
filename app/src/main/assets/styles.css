@@ -915,8 +915,8 @@ input[type="range"][id^="aurumScaleVal_"]{height:3px;accent-color:currentColor;v
 @media(max-width:420px){.r233-market-card{padding:8px 34px 8px 8px}.r233-market-grid{gap:3px 5px}.r233-market-head small{font-size:7px}.r233-market-line strong{font-size:9.2px}.r233-market-name,.r233-market-line .aurum-r205-market-pct{font-size:7.4px}.r233-market-line small{font-size:6.2px}}
 
 
-/* Near-black blue midnight card palette — 2026-09-25 */
-:root{--aurum-card-midnight:#020817;--aurum-card-midnight-2:#030b20;--aurum-card-midnight-soft:#04102a}
+/* Deep Parliament-blue card palette — 2026-09-25 */
+:root{--aurum-card-midnight:#071A3A;--aurum-card-midnight-2:#0A2148;--aurum-card-midnight-soft:#0D2854}
 #content .card,
 #content .metric,
 #content .quick-card,
@@ -929,13 +929,13 @@ input[type="range"][id^="aurumScaleVal_"]{height:3px;accent-color:currentColor;v
 #content .weight-grid>div,
 #content .r233-market-card,
 #content .aurum-r205-market-card{
-  background:linear-gradient(145deg,rgba(3,11,32,.985),rgba(2,8,23,.998))!important;
+  background:linear-gradient(145deg,rgba(10,33,72,.985),rgba(5,20,48,.998))!important;
 }
 #content .quick-card:active{
-  background:linear-gradient(145deg,rgba(5,17,43,.99),rgba(2,9,25,.998))!important;
+  background:linear-gradient(145deg,rgba(13,42,88,.99),rgba(7,25,56,.998))!important;
 }
 #content .list-row,
 #content .stock-time-grid,
 #content .aurum-time-card{
-  background:linear-gradient(145deg,rgba(4,16,42,.94),rgba(2,8,23,.992))!important;
+  background:linear-gradient(145deg,rgba(11,36,77,.96),rgba(6,22,51,.995))!important;
 }
