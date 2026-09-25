@@ -915,7 +915,7 @@ input[type="range"][id^="aurumScaleVal_"]{height:3px;accent-color:currentColor;v
 @media(max-width:420px){.r233-market-card{padding:8px 34px 8px 8px}.r233-market-grid{gap:3px 5px}.r233-market-head small{font-size:7px}.r233-market-line strong{font-size:9.2px}.r233-market-name,.r233-market-line .aurum-r205-market-pct{font-size:7.4px}.r233-market-line small{font-size:6.2px}}
 
 
-/* Final approved matte, near-black night-navy cards — no light reflection. */
+/* Approved dashboard-reference card tone: deep matte night navy, no glare. */
 #content .card,
 #content .metric,
 #content .quick-card,
@@ -931,15 +931,15 @@ input[type="range"][id^="aurumScaleVal_"]{height:3px;accent-color:currentColor;v
 #content .list-row,
 #content .stock-time-grid,
 #content .aurum-time-card{
-  background:#020b18!important;
+  background:#03182d!important;
   background-image:none!important;
   box-shadow:none!important;
   backdrop-filter:none!important;
   -webkit-backdrop-filter:none!important;
-  border-color:rgba(28,82,128,.42)!important;
+  border-color:rgba(22,86,139,.58)!important;
 }
 #content .quick-card:active{
-  background:#031021!important;
+  background:#041d36!important;
   background-image:none!important;
   box-shadow:none!important;
 }
