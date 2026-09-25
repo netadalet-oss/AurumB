@@ -10,12 +10,16 @@ import android.app.Service
 import android.content.Intent
 import android.os.IBinder
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceError
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.webkit.WebViewAssetLoader
 
 class PipelineService : Service() {
     private var webView: WebView? = null
+    private val watchdog = android.os.Handler(android.os.Looper.getMainLooper())
+    private var watchdogTask: Runnable? = null
+    private var activeToken: String? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -37,12 +41,12 @@ class PipelineService : Service() {
             ?: run { stopSelf(startId); return START_NOT_STICKY }
         val jobToken = intent.getStringExtra("jobToken")
             ?: run { stopSelf(startId); return START_NOT_STICKY }
-        val watchdog = android.os.Handler(mainLooper)
-        val watchdogTask = Runnable {
+        activeToken = jobToken
+        watchdogTask?.let(watchdog::removeCallbacks)
+        watchdogTask = Runnable {
             SchedulerLedger.complete(this, jobToken, "FAILED", "PIPELINE_TIMEOUT")
             stopSelf(startId)
-        }
-        watchdog.postDelayed(watchdogTask, 2 * 60 * 60 * 1000L)
+        }.also { watchdog.postDelayed(it, 2 * 60 * 60 * 1000L) }
 
         val loader = WebViewAssetLoader.Builder()
             .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
@@ -60,12 +64,22 @@ class PipelineService : Service() {
                 override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest) =
                     loader.shouldInterceptRequest(request.url)
 
+                override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
+                    if (request.isForMainFrame) {
+                        watchdogTask?.let(watchdog::removeCallbacks)
+                        watchdogTask = null
+                        SchedulerLedger.complete(this@PipelineService, jobToken, "FAILED", "WEBVIEW_LOAD: " + error.description)
+                        stopSelf(startId)
+                    }
+                }
+
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                     val uri = request.url
                     if (uri.scheme == "aurum" && uri.host == "complete") {
                         val ok = uri.getQueryParameter("ok") != "0"
                         val detail = uri.getQueryParameter("detail").orEmpty()
-                        watchdog.removeCallbacks(watchdogTask)
+                        watchdogTask?.let(watchdog::removeCallbacks)
+                        watchdogTask = null
                         SchedulerLedger.complete(this@PipelineService, jobToken, if (ok) "COMPLETED" else "FAILED", detail)
                         stopSelf(startId)
                         return true
@@ -78,7 +92,17 @@ class PipelineService : Service() {
         return START_NOT_STICKY
     }
 
+    override fun onTimeout(startId: Int, fgsType: Int) {
+        activeToken?.let { SchedulerLedger.complete(this, it, "FAILED", "ANDROID_FGS_TIMEOUT") }
+        watchdogTask?.let(watchdog::removeCallbacks)
+        watchdogTask = null
+        stopSelf(startId)
+    }
+
     override fun onDestroy() {
+        watchdogTask?.let(watchdog::removeCallbacks)
+        watchdogTask = null
+        activeToken = null
         webView?.apply {
             stopLoading()
             loadUrl("about:blank")
