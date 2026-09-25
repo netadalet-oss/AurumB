@@ -2080,12 +2080,8 @@ if(!globalThis.AurumUpdateAPI){
 
   /* Import path: do not rewrite a compatibility record when its stable payload is identical. */
   const basePersistRecord=globalThis.r21PersistRecord;
-  globalThis.r21PersistRecord=async function r55PersistRecord(rec){
-    const prev=S.recordMap?.get?.(rec?.sym)||null,fp=String(rec?.recordFingerprint||'')||((typeof dataRecordFingerprint==='function')?dataRecordFingerprint(rec):r55Hash(rec));
-    rec.recordFingerprint=fp;
-    const pfp=prev?(String(prev.recordFingerprint||'')||((typeof dataRecordFingerprint==='function')?dataRecordFingerprint(prev):r55Hash(prev))):null;
-    if(!prev||pfp!==fp)await AurumUpdateAPI.dbPut('records',{key:rec.sym,value:rec,updatedAt:AurumUpdateAPI.nowISO()});
-    await r55QueueCanonical(rec,{force:!prev});dataGeneration++;r55InvalidateCaches();return rec;
+  globalThis.r21PersistRecord=async function r55PersistRecord(){
+    throw Object.assign(new Error('DIRECT_RECORD_WRITE_DISABLED_USE_GATED_ATOMIC_PUBLISH'),{code:'DIRECT_RECORD_WRITE_DISABLED'});
   };
 
   /* Atomic Veriler publication: replace the old clear+rewrite-all transaction with a
