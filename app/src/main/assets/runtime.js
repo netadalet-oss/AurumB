@@ -1755,7 +1755,7 @@ bootstrapClean();
     function renderNews(a,empty){return `<div class="card list">${a?.length?a.map(x=>`<div class="list-row"><div><strong>${esc(x.title)}</strong><small>${esc([x.sym,x.source].filter(Boolean).join(' · '))}</small><small>${x.publishedAt?`Yayın: ${esc(x.publishedAt)}`:`Yayın zamanı: kaynakta yok · Alınma: ${esc(new Date(x.retrievedAt).toLocaleString('tr-TR'))}`}</small></div></div>`).join(''):`<p class="muted">${esc(empty)}</p>`}</div>`;}
     function render(d){const m=d.indicators||cachedMarketIndicators();return `<div class="section-head"><div class="section-title"><h2>Döviz · Altın · Borsa</h2></div><small>Son doğrulanmış değerler</small></div>${marketIndicatorsMarkup()}<div class="grid two-col"><div><div class="section-head"><h2>Piyasa Haberleri</h2></div>${renderNews(d.marketNews,'Güncel piyasa haberi ayrıştırılamadı.')}</div><div><div class="section-head"><h2>Şirket Haberleri</h2></div>${renderNews(d.companyNews,'Güncel şirket haberi ayrıştırılamadı.')}</div></div><div class="card notice aurum-brief-notice"><b>Kaynaklar</b><small>Bigpara · Yahoo Finance · Foreks açık servis · yalnız doğrudan yayımlanan fiyat/yüzde</small><small>Son yenileme: ${esc(new Date(d.updatedAt).toLocaleString('tr-TR'))}</small>${d.errors?.length?`<small>${d.errors.length} kaynak yanıt vermedi.</small>`:''}</div>`;}
     globalThis.refreshAurumMarketSummary=async function refreshAurumMarketSummaryR47(force=false){const host=document.querySelector('#aurumMarketSummaryBody');if(!host)return;const cached=load();if(cached)host.innerHTML=render(cached);if(!force&&cached&&Date.now()-Date.parse(cached.updatedAt)<TTL)return;if(globalThis.__aurumMarketSummaryLoading)return;globalThis.__aurumMarketSummaryLoading=true;try{const retrievedAt=nowISO(),rs=await Promise.allSettled(Object.entries(URLS).map(async([k,u])=>[k,await text(u)])),all=[],errors=[];for(const r of rs){if(r.status==='fulfilled'){const [k,t]=r.value;all.push(...headlines(doc(t),k==='news'?'İş Yatırım':k==='bigpara'?'Bigpara':'İş Yatırım',retrievedAt))}else errors.push(String(r.reason?.message||r.reason))}const c=classify(all);const indicators=await refreshMarketIndicators();const d={updatedAt:nowISO(),marketNews:c.market,companyNews:c.company,indicators,errors};save(d);if(state.page==='market'&&document.querySelector('#aurumMarketSummaryBody'))document.querySelector('#aurumMarketSummaryBody').innerHTML=render(d);}catch(e){if(!cached)host.innerHTML=`<div class="card notice"><b>Piyasa özeti yüklenemedi</b><p>${esc(e?.message||e)}</p></div>`}finally{globalThis.__aurumMarketSummaryLoading=false}};
-    globalThis.marketPage=function marketPageR47(){const cached=load();setTimeout(()=>globalThis.refreshAurumMarketSummary?.(false),0);return `<div class="actions" style="margin-bottom:12px"><button class="ghost-btn" type="button" onclick="goPage('overview')">← Genel Bakışa Dön</button><button class="gold-btn" type="button" onclick="refreshAurumMarketSummary(true)">Yenile</button></div><div class="section-head"><div class="section-title"><h2>Piyasa Özeti</h2></div><small>Haber · şirket · döviz · altın · borsa</small></div><div id="aurumMarketSummaryBody">${cached?render(cached):'<div class="card"><p class="muted">Piyasa özeti yükleniyor…</p></div>'}</div>`;};
+    globalThis.marketPage=function marketPageR47(){const cached=load();return `<div class="actions" style="margin-bottom:12px"><button class="ghost-btn" type="button" onclick="goPage('overview')">← Genel Bakışa Dön</button><button class="gold-btn" type="button" onclick="refreshAurumMarketSummary(true)">Yenile</button></div><div class="section-head"><div class="section-title"><h2>Piyasa Özeti</h2></div><small>Haber · şirket · döviz · altın · borsa</small></div><div id="aurumMarketSummaryBody">${cached?render(cached):'<div class="card"><p class="muted">Piyasa özeti yükleniyor…</p></div>'}</div>`;};
   })();
 
   try{globalThis.AurumUpdateAPI.state.r47Revision={version:'R47.0',activatedAt:new Date().toISOString(),features:['KH_ROW_HIT_AVG_X20','MARKET_INDICATOR_VERIFIED_LAST','KN_S_EXACT_INTERSECTION','T0_CLOSE_FINALIZATION','S_HISTORY_RECENCY','MARKET_SUMMARY_TIMESTAMPS','MEMBERSHIP_NOTIFICATION_BEST_EFFORT']};}catch{}
@@ -5430,7 +5430,6 @@ try{AurumUpdateAPI.state.r239={version:'REV20.39-STRICT-CADENCE-SAME-SOURCE-MARK
   const baseMarketPage=globalThis.marketPage;
   if(typeof baseMarketPage==='function')globalThis.marketPage=function marketPageR214WithPortal(){
     const c=load();
-    setTimeout(()=>{refreshAurumFinancePortal(false);schedule()},0);
     return baseMarketPage()+`<section class="r207-portal-wrap"><div id="aurumFinancePortal">${c?render(c):'<div class="card"><b>Finans portalı hazırlanıyor…</b><p class="muted">Açık kaynak akışları eşzamanlı taranıyor.</p></div>'}</div></section>`;
   };
 })();
@@ -5920,12 +5919,10 @@ try{AurumUpdateAPI.state.r225={version:'REV20.25-RELIABILITY-FILL-NEWS',activate
  /* Deliberately no immediate call. Loading, foregrounding, reconnecting, opening a tab or
     regaining access never starts network work. The first autonomous market/news request is
     exactly one cadence after this runtime starts; subsequent requests are cadence-only. */
- setInterval(()=>{void marketTick()},PERIOD);
- setInterval(()=>{void portalTick()},PERIOD);
- globalThis.AurumPeriodicMarket=Object.freeze({periodMs:PERIOD,marketTick,portalTick,policy:'30M_TIMER_OR_EXPLICIT_MANUAL_ONLY'});
+ globalThis.AurumPeriodicMarket=Object.freeze({periodMs:null,marketTick,portalTick,policy:'DATA_TRIGGER_ONLY'});
  try{AurumUpdateAPI.state.r232={version:'REV20.32-STRICT-TRIGGERS-NONBLOCKING-30M',activatedAt:nowISO(),features:[
    'NO_STARTUP_FETCH','NO_FOREGROUND_FETCH','NO_NETWORK_RESTORE_FETCH','NO_TAB_NAVIGATION_FETCH',
-   'DATA_ONLY_DEFINED_SCHEDULER_OR_MANUAL','MARKET_INDICATORS_30M','FINANCE_PORTAL_30M',
+   'DATA_ONLY_DEFINED_SCHEDULER_OR_MANUAL','MARKET_INDICATORS_DATA_TRIGGER_ONLY','FINANCE_PORTAL_DATA_TRIGGER_ONLY',
    'PROVIDER_PUBLISHED_PERCENT_ONLY','VALUE_AND_PERCENT_SAME_PROVIDER_RECORD',
    'NO_APP_PERCENT_CALCULATION','PERCENT_HIDDEN_WHEN_PROVIDER_OMITS',
    'IDLE_SCHEDULED_NETWORK_START','ASYNC_DOM_PAINT','NO_UI_THREAD_WAIT_FOR_NETWORK'
