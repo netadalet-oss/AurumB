@@ -938,3 +938,27 @@ input[type="range"][id^="aurumScaleVal_"]{height:3px;accent-color:currentColor;v
   -webkit-backdrop-filter:none!important;
   border-color:rgba(181,194,210,.14)!important;
 }
+
+
+/* AurumF Color Studio — isolated theme overrides; inactive until the user previews/saves a color. */
+html[data-af-color-theme="1"],html[data-af-color-theme="1"] body{background:var(--af-theme-bg)!important;color:var(--af-theme-text)!important}
+html[data-af-color-theme="1"] .card:not(.bottom-nav),html[data-af-color-theme="1"] .panel:not(.bottom-nav),html[data-af-color-theme="1"] .status-card,html[data-af-color-theme="1"] .settings-card{background-color:var(--af-theme-card)!important;border-color:var(--af-theme-border)!important}
+html[data-af-color-theme="1"] .topbar{background:var(--af-theme-header)!important}
+html[data-af-color-theme="1"] .bottom-nav{background:var(--af-theme-nav)!important}
+html[data-af-color-theme="1"] table thead th{background:var(--af-theme-table-head)!important}
+html[data-af-color-theme="1"] table tbody td{background-color:var(--af-theme-table-body)!important}
+html[data-af-color-theme="1"] input:not([type=range]):not([type=color]),html[data-af-color-theme="1"] select,html[data-af-color-theme="1"] textarea{background-color:var(--af-theme-input)!important}
+html[data-af-color-theme="1"]{--text:var(--af-theme-text);--muted:var(--af-theme-muted);--gold:var(--af-theme-accent);--gold2:var(--af-theme-accent);--green:var(--af-theme-positive);--red:var(--af-theme-negative)}
+.af-color-studio{overflow:hidden!important}.af-color-summary{display:flex;flex-direction:column;min-width:0;gap:3px}.af-color-summary small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.af-color-body{max-height:min(58vh,520px);overflow-y:auto!important;overflow-x:hidden!important;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+.af-color-body>small{display:block;opacity:.72;font-size:.78em;margin:1px 2px 8px}
+.af-color-row{display:grid;grid-template-columns:minmax(78px,1fr) 12px minmax(70px,1.35fr) minmax(62px,.72fr) minmax(43px,.52fr);gap:4px;align-items:center;min-height:34px;border-bottom:1px solid rgba(150,160,185,.075);min-width:0}
+.af-color-name{font-size:.72em!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}.af-color-preview{width:12px;height:12px;min-width:12px;border-radius:50%;background:var(--pv);box-shadow:0 0 0 1px rgba(255,255,255,.16)}
+.af-color-hue{appearance:none;-webkit-appearance:none;width:100%;min-width:0;height:12px;background:transparent;margin:0;padding:0}.af-color-hue::-webkit-slider-runnable-track{height:3px;border-radius:4px;background:linear-gradient(90deg,#f33,#ff3,#3f3,#3ff,#33f,#f3f,#f33)}.af-color-hue::-webkit-slider-thumb{-webkit-appearance:none;width:9px;height:9px;border-radius:50%;background:#e8edf8;border:1px solid rgba(0,0,0,.5);margin-top:-3px}
+.af-color-def,.af-color-save{box-sizing:border-box!important;width:100%!important;min-width:0!important;height:26px!important;min-height:26px!important;padding:0 2px!important;border-radius:7px!important;font-size:8px!important;line-height:1!important;white-space:nowrap!important;overflow:hidden!important}.af-color-save.ok{opacity:1;transform:scale(.94)}
+.af-color-all{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:9px}.af-color-all button{min-height:30px;font-size:.72em;border-radius:8px}
+@media(max-width:390px){.af-color-row{grid-template-columns:minmax(68px,.9fr) 11px minmax(58px,1.15fr) minmax(57px,.7fr) minmax(40px,.5fr);gap:3px}.af-color-name{font-size:10px!important}.af-color-def,.af-color-save{font-size:7.5px!important}}
+
+/* Vertical scroll remains authoritative inside the copied color studio. */
+.af-color-studio,.af-color-body,.af-color-row{touch-action:pan-y}
+.af-color-hue{touch-action:pan-y}
