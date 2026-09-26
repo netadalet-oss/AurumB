@@ -18,11 +18,7 @@
  const busy=()=>{try{const r=typeof currentRuntime==='function'?currentRuntime():null;return !!(r&&typeof operationBusyStatus==='function'&&operationBusyStatus(r.status))}catch{return false}};
  let held=false;
  const sync=()=>{const b=busy();if(b!==held){held=b;keep(b)}};
- queueMicrotask(apply);
- setInterval(sync,2000);
- document.addEventListener('visibilitychange',sync,{passive:true});
- window.addEventListener('pagehide',sync,{passive:true});
- window.addEventListener('pageshow',sync,{passive:true});
+ /* No startup, polling or lifecycle trigger. Transfer policy is applied only by an authorized data job. */
  const old=globalThis.AurumRuntime?.manualData;
  if(typeof old==='function'){
   globalThis.AurumRuntime.manualData=async function(...a){await apply();keep(true);held=true;try{return await old.apply(this,a)}finally{keep(false);held=false}};
