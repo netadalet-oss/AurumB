@@ -129,7 +129,20 @@
    globalThis.prepareMissingData=w;try{prepareMissingData=w}catch{}
   }
   const moduleFns={};for(const name of ['refreshMarketIndicators','refreshAurumFinancePortal','refreshAurumMarketSummary','refreshAurumRMarketIntel']){const fn=globalThis[name];if(typeof fn==='function')moduleFns[name]=fn}
-  globalThis.AurumMarketModuleRefresh=async function(){try{const out={};if(moduleFns.refreshMarketIndicators)out.indicators=await moduleFns.refreshMarketIndicators({force:true,manual:true});if(moduleFns.refreshAurumFinancePortal)out.portal=await moduleFns.refreshAurumFinancePortal(true);if(moduleFns.refreshAurumMarketSummary)out.summary=await moduleFns.refreshAurumMarketSummary(true);if(moduleFns.refreshAurumRMarketIntel)out.intel=await moduleFns.refreshAurumRMarketIntel(true);audit('MODULE_REFRESH','Piyasa modülü kullanıcı komutuyla yenilendi',{module:'market'});return out}catch(e){audit('MODULE_REFRESH_FAILED','Piyasa modülü yenilenemedi',{error:e?.message||String(e)});throw e}};
+  globalThis.AurumMarketModuleRefresh=async function(){
+   /* Hard module boundary: an explicit market refresh owns only market indicators + finance portal.
+      It must never enter Veriler, completion/repair, Kn, K_Tarihsel, S, trade or unrelated portal modules. */
+   try{
+    const out={};
+    centralDepth++;
+    try{
+     if(moduleFns.refreshMarketIndicators)out.indicators=await moduleFns.refreshMarketIndicators({force:true,manual:true});
+     if(moduleFns.refreshAurumFinancePortal)out.portal=await moduleFns.refreshAurumFinancePortal(true);
+    }finally{centralDepth=Math.max(0,centralDepth-1)}
+    audit('MODULE_REFRESH','Piyasa göstergeleri ve finans portalı kullanıcı komutuyla yenilendi',{module:'market',scope:['indicators','financePortal']});
+    return out
+   }catch(e){audit('MODULE_REFRESH_FAILED','Piyasa modülü yenilenemedi',{error:e?.message||String(e)});throw e}
+  };
   for(const name of Object.keys(moduleFns)){const fn=moduleFns[name];globalThis[name]=async function(){if(!centralAllowed()){audit('CENTRAL_NETWORK_DENIED',name+' merkez tetik dışında engellendi');return name==='refreshMarketIndicators'?globalThis.cachedMarketIndicators?.()||null:null}return fn.apply(this,arguments)};try{if(name==='refreshMarketIndicators')refreshMarketIndicators=globalThis[name]}catch{}}
   const marketArrow=globalThis.refreshAurumDataMarketStrip;globalThis.refreshAurumDataMarketStrip=async function(ev){const btn=ev?.currentTarget||document.querySelector('.aurum-r209-market-refresh');if(btn?.dataset.busy==='1')return false;try{if(btn){btn.dataset.busy='1';btn.disabled=true}await globalThis.AurumMarketModuleRefresh();try{const host=document.getElementById('aurumDataMarketStrip');if(host&&typeof globalThis.marketIndicatorsMarkup==='function')host.outerHTML=globalThis.marketIndicatorsMarkup()}catch{}globalThis.showAurumNotice?.('Piyasa modülü yenilendi','success',1500);return true}catch(e){globalThis.showAurumNotice?.('Piyasa modülü yenilenemedi: '+(e?.message||e),'error',2600);return false}finally{const b=document.querySelector('.aurum-r209-market-refresh');if(b){delete b.dataset.busy;b.disabled=false}}};
  }catch(e){audit('CENTRAL_TRIGGER_INSTALL_FAILED','Tek merkez tetik zinciri kurulamadı',{error:e?.message||String(e)})}
