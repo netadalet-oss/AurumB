@@ -99,16 +99,13 @@
   if(scheduler&&scheduler.ok===false&&typeof globalThis.startScheduler==='function'&&!globalThis.operationBusyStatus?.(String(rt.status||''))){
    try{schedulerRepair=!!(await globalThis.startScheduler());scheduler=await globalThis.r73SchedulerDiagnostic?.().catch?.(()=>scheduler)}catch(e){schedulerRepair=false}
   }
-  const marketAge=marketAt&&Number.isFinite(Date.parse(marketAt))?Date.now()-Date.parse(marketAt):Infinity;
-  if(marketAge>35*60*1000&&navigator.onLine!==false&&typeof globalThis.AurumPeriodicMarket?.marketTick==='function'){
-   try{marketRepair=!!(await globalThis.AurumPeriodicMarket.marketTick())}catch(e){marketRepair=false}
-  }
   const report={at:iso(),fillPct:fill,snapshotAt:meta?.value?.changedAt||meta?.value?.transferredAt||null,runtime:rt.status||'IDLE',scheduler,schedulerRepair,market:globalThis.cachedMarketIndicators?.()?.updatedAt||marketAt,marketRepair};
   try{localStorage.setItem('aurum.r226.health.latest',JSON.stringify(report))}catch{}return report
  }
  async function centralCompanionRun(context='DATA'){
   const out={at:iso(),context,market:false,portal:false,diagnostics:false};
-  try{out.market=!!(await globalThis.refreshMarketIndicators?.({trigger:'DATA',context}))}catch(e){audit('CENTRAL_MARKET_FAILED','Veriler zincirindeki piyasa göstergeleri güncellenemedi',{error:e?.message||String(e)})}
+  /* Market indicators are already acquired inside the Veriler data phase; do not fetch them twice. */
+  out.market=!!globalThis.cachedMarketIndicators?.()?.updatedAt;
   try{out.portal=!!(await globalThis.refreshAurumFinancePortal?.(true))}catch(e){audit('CENTRAL_PORTAL_FAILED','Veriler zincirindeki finans portalı güncellenemedi',{error:e?.message||String(e)})}
   try{await globalThis.refreshAurumRMarketIntel?.(true)}catch(e){audit('CENTRAL_INTEL_FAILED','Veriler zincirindeki piyasa istihbaratı güncellenemedi',{error:e?.message||String(e)})}
   try{await health();out.diagnostics=true}catch(e){audit('CENTRAL_DIAGNOSTIC_FAILED','Veriler zincirindeki tanı çalışması tamamlanamadı',{error:e?.message||String(e)})}
