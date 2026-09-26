@@ -8,7 +8,7 @@
    const jobs=[];
    if(typeof globalThis.refreshAurumFinancePortal==='function')jobs.push(globalThis.refreshAurumFinancePortal(true));
    if(typeof globalThis.refreshAurumFundMarketIntel==='function')jobs.push(globalThis.refreshAurumFundMarketIntel(true));
-   if(typeof globalThis.AurumNLPortal?.refresh==='function'){} // NL portal is its own module; do not cross-trigger.
+   if(typeof globalThis.AurumNLPortal?.refresh==='function')jobs.push(globalThis.AurumNLPortal.refresh()); // same Piyasa Özeti manual/scheduled market refresh
    return Promise.allSettled(jobs);
  }
  async function market(manual=false){
