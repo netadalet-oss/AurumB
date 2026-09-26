@@ -18,13 +18,16 @@ jobs:
           node --check app/src/main/assets/features.js
           node --check app/src/main/assets/runtime.js
           node --check app/src/main/assets/offline-first.js
-          node --check app/src/main/assets/presentation-settings.js\n          node --check app/src/main/assets/netherlands-news-portal.js\n          node --check app/src/main/assets/scheduler-settings.js\n          node --check app/src/main/assets/trigger-contract.js
+          node --check app/src/main/assets/presentation-settings.js
+          node --check app/src/main/assets/netherlands-news-portal.js
+          node --check app/src/main/assets/scheduler-settings.js
+          node --check app/src/main/assets/trigger-contract.js
           node --check app/src/main/assets/rev20-final-rules.js
           node --check app/src/main/assets/market-indicators-revision.js
           node --check app/src/main/assets/rev20-final-stability.js
+          node --check app/src/main/assets/final-hardening.js
           node --check app/src/main/assets/native-market-http.js
           node --check app/src/main/assets/market-rebuilt.js
-
       - name: Assemble debug APK
         run: gradle --no-daemon :app:assembleDebug --stacktrace
       - name: Align and sign installable APK
