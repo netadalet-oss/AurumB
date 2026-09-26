@@ -5889,38 +5889,15 @@ try{AurumUpdateAPI.state.r225={version:'REV20.25-RELIABILITY-FILL-NEWS',activate
 })();
 
 
-/* ===== REV20.32 — STRICT TRIGGER POLICY + NON-BLOCKING 30M MARKET/PORTAL CADENCE ===== */
+/* ===== REV20.32 — CENTRAL TRIGGER COMPATIBILITY MARKER ===== */
 (function installR232StrictCadence(){
  if(globalThis.__AURUM_R232_STRICT_CADENCE)return;globalThis.__AURUM_R232_STRICT_CADENCE=true;
- const PERIOD=30*60*1000;
- let marketBusy=false,portalBusy=false;
- const idle=fn=>new Promise(resolve=>{
-   const run=()=>Promise.resolve().then(fn).then(resolve,()=>resolve(false));
-   if(typeof requestIdleCallback==='function')requestIdleCallback(run,{timeout:2500});else setTimeout(run,0);
- });
- async function marketTick(){
-   if(marketBusy)return false;marketBusy=true;
-   try{
-     const data=await idle(()=>globalThis.refreshMarketIndicators?.());
-     const host=document.getElementById('aurumDataMarketStrip');
-     if(host&&typeof globalThis.marketIndicatorsMarkup==='function')requestAnimationFrame(()=>{try{const h=document.getElementById('aurumDataMarketStrip');if(h)h.outerHTML=globalThis.marketIndicatorsMarkup()}catch{}});
-     return !!data;
-   }finally{marketBusy=false}
- }
- async function portalTick(){
-   if(portalBusy)return false;portalBusy=true;
-   try{return !!(await idle(()=>globalThis.refreshAurumFinancePortal?.(true)))}finally{portalBusy=false}
- }
- /* Deliberately no immediate call. Loading, foregrounding, reconnecting, opening a tab or
-    regaining access never starts network work. The first autonomous market/news request is
-    exactly one cadence after this runtime starts; subsequent requests are cadence-only. */
- globalThis.AurumPeriodicMarket=Object.freeze({periodMs:null,marketTick,portalTick,policy:'DATA_TRIGGER_ONLY'});
- try{AurumUpdateAPI.state.r232={version:'REV20.32-STRICT-TRIGGERS-NONBLOCKING-30M',activatedAt:nowISO(),features:[
+ /* Legacy independent market/portal cadence was removed by R226.3.
+    No timer/tick function remains here; Veriler MANUAL/AUTO is the only work owner. */
+ globalThis.AurumPeriodicMarket=Object.freeze({periodMs:null,policy:'REMOVED_USE_VERILER_TRIGGER'});
+ try{AurumUpdateAPI.state.r232={version:'REV20.32-R226.3-CENTRALIZED',activatedAt:nowISO(),features:[
    'NO_STARTUP_FETCH','NO_FOREGROUND_FETCH','NO_NETWORK_RESTORE_FETCH','NO_TAB_NAVIGATION_FETCH',
-   'DATA_ONLY_DEFINED_SCHEDULER_OR_MANUAL','MARKET_INDICATORS_DATA_TRIGGER_ONLY','FINANCE_PORTAL_DATA_TRIGGER_ONLY',
-   'PROVIDER_PUBLISHED_PERCENT_ONLY','VALUE_AND_PERCENT_SAME_PROVIDER_RECORD',
-   'NO_APP_PERCENT_CALCULATION','PERCENT_HIDDEN_WHEN_PROVIDER_OMITS',
-   'IDLE_SCHEDULED_NETWORK_START','ASYNC_DOM_PAINT','NO_UI_THREAD_WAIT_FOR_NETWORK'
+   'NO_INDEPENDENT_MARKET_TIMER','NO_INDEPENDENT_PORTAL_TIMER','DATA_ONLY_DEFINED_SCHEDULER_OR_MANUAL'
  ]}}catch{}
 })();
 
