@@ -11,6 +11,7 @@ import androidx.core.content.ContextCompat
 class TriggerReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val slotTime = intent.getStringExtra("slotTime") ?: return
+        val kind = intent.getStringExtra("pipelineKind").let { if (it == "market") "market" else "data" }
         val epoch = intent.getLongExtra("epoch", 0L).takeIf { it > 0L }
             ?: System.currentTimeMillis()
         val jobToken = SchedulerLedger.begin(context, epoch, slotTime)
