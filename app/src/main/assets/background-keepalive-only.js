@@ -7,8 +7,5 @@
  const busy=()=>{try{const r=typeof currentRuntime==='function'?currentRuntime():null;return !!(r&&typeof operationBusyStatus==='function'&&operationBusyStatus(r.status))}catch{return false}};
  let held=false;
  const sync=()=>{const b=busy();if(b!==held){held=b;keep(b)}};
- setInterval(sync,2000);
- document.addEventListener('visibilitychange',sync,{passive:true});
- window.addEventListener('pagehide',sync,{passive:true});
- window.addEventListener('pageshow',sync,{passive:true});
+ /* No polling/lifecycle trigger: keepalive is controlled by the authorized Veriler job itself. */
 })();
