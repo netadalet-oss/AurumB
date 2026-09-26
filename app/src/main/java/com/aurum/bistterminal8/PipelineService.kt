@@ -73,7 +73,7 @@ class PipelineService : Service() {
                     return uri.scheme != "https" || uri.host != "appassets.androidplatform.net"
                 }
             }
-            loadUrl("https://appassets.androidplatform.net/assets/index.html?background=1&epoch=$epoch")
+            loadUrl("https://appassets.androidplatform.net/assets/index.html?background=1&epoch=$epoch&pipeline=$kind")
         }
         return START_NOT_STICKY
     }
