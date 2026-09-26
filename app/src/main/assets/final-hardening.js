@@ -93,12 +93,12 @@
  try{
   const base=globalThis.prepareGeneralData;
   if(typeof base==='function'){
-   const w=async function(job,mode){const allowed=['MANUAL','AUTO'].includes(String(job?.mode||'').toUpperCase());if(allowed)centralDepth++;try{const ok=await base.apply(this,arguments);if(ok&&allowed)await centralCompanionRun(String(job.mode).toUpperCase());return ok}finally{if(allowed)centralDepth=Math.max(0,centralDepth-1)}};
+   const w=async function(job,mode){const allowed=['MANUAL','AUTO'].includes(String(job?.mode||'').toUpperCase());if(allowed)centralDepth++;try{const ok=await base.apply(this,arguments);return ok}finally{if(allowed)centralDepth=Math.max(0,centralDepth-1)}};
    globalThis.prepareGeneralData=w;try{prepareGeneralData=w}catch{}
   }
   const repair=globalThis.prepareMissingData;
   if(typeof repair==='function'){
-   const w=async function(job){const allowed=['MANUAL','AUTO'].includes(String(job?.mode||'').toUpperCase());if(allowed)centralDepth++;try{const ok=await repair.apply(this,arguments);if(ok&&allowed)await centralCompanionRun(String(job.mode).toUpperCase()+'_REPAIR');return ok}finally{if(allowed)centralDepth=Math.max(0,centralDepth-1)}};
+   const w=async function(job){const allowed=['MANUAL','AUTO'].includes(String(job?.mode||'').toUpperCase());if(allowed)centralDepth++;try{const ok=await repair.apply(this,arguments);return ok}finally{if(allowed)centralDepth=Math.max(0,centralDepth-1)}};
    globalThis.prepareMissingData=w;try{prepareMissingData=w}catch{}
   }
   const moduleFns={};for(const name of ['refreshMarketIndicators','refreshAurumFinancePortal','refreshAurumMarketSummary','refreshAurumRMarketIntel']){const fn=globalThis[name];if(typeof fn==='function')moduleFns[name]=fn}
