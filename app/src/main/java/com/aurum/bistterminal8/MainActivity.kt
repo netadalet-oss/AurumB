@@ -211,12 +211,10 @@ class MainActivity : AppCompatActivity() {
             )
             "schedule" -> {
                 val enabled = uri.getQueryParameter("enabled") != "0"
-                val times = uri.getQueryParameter("times").orEmpty()
-                    .split(',').map(String::trim).filter(String::isNotEmpty)
-                if (enabled && (times.isEmpty() || times.any { !AurumScheduler.valid(it) })) {
-                    "ERR:INVALID_SCHEDULE"
-                } else if (AurumScheduler.install(this, enabled, times)) "OK"
-                else "ERR:INVALID_SCHEDULE"
+                val kind = uri.getQueryParameter("kind").orEmpty().let { if (it == "market") "market" else "data" }
+                val times = uri.getQueryParameter("times").orEmpty().split(',').map(String::trim).filter(String::isNotEmpty)
+                if (enabled && (times.isEmpty() || times.any { !AurumScheduler.valid(it) })) "ERR:INVALID_SCHEDULE"
+                else if (AurumScheduler.install(this, enabled, times, kind)) "OK" else "ERR:INVALID_SCHEDULE"
             }
             else -> "ERR:UNSUPPORTED_NATIVE_COMMAND"
         }
