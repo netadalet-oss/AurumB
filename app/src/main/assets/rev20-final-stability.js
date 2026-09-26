@@ -29,6 +29,18 @@
 `;document.head.appendChild(st)}
  globalThis.AurumStability=Object.freeze({health,marketRefresh,logs:()=>{try{return JSON.parse(localStorage.getItem(KEY)||'[]')}catch{return []}}});
  compactMarketCss();installHealthModule();health();
+ function ensureVisibleApp(){
+  try{
+   const content=document.getElementById('content');
+   if(!content)return false;
+   const visible=[...content.children].some(el=>getComputedStyle(el).display!=='none'&&String(el.innerHTML||el.textContent||'').trim());
+   if(!visible&&typeof globalThis.render==='function'){globalThis.render();event('warn','UI_EMPTY_RECOVERED','Boş ana içerik güvenli biçimde yeniden çizildi');}
+   return true;
+  }catch(e){event('warn','UI_RECOVERY_FAILED',String(e?.message||e));return false}
+ }
+ queueMicrotask(ensureVisibleApp);
+ window.addEventListener('pageshow',ensureVisibleApp,{passive:true});
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden)ensureVisibleApp()},{passive:true});
  setInterval(health,HEALTH);
  // Market cadence is owned exclusively by market-indicators-revision.js.
  // Stability observes health only; it must not create startup or duplicate market requests.
