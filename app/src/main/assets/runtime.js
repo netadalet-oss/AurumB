@@ -1304,6 +1304,9 @@ globalThis.recalculateSelectionTable=runManualS;
 globalThis.recalculateAllTables=()=>{showAurumNotice('Manuel modda tablolar ayrı ayrı ve sırayla çalıştırılır.','info',3200);return false};
 globalThis.AurumRuntime=Object.freeze({version:AURUM_RUNTIME_VERSION,status:currentRuntime,summary:dataSummary,manualSequence,manualData:runManualData,manualKn:runManualKn,manualHistorical:runManualHistorical,manualS:runManualS,resume:resumePendingJobs,scheduled:scheduledEntry,providerOrder,togglePause,command:operationCommand,tableTimePanel,operationStrip,jobStatus:JOB_STATUS});
 
+try{
+  if(typeof globalThis.overview==='function' && globalThis.overview!==overview)overview=globalThis.overview;
+}catch(e){}
 bootstrapClean();
 
 /* Embedded R47 compatibility layer */
