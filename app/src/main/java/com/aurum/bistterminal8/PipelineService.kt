@@ -37,6 +37,7 @@ class PipelineService : Service() {
             ?: run { stopSelf(startId); return START_NOT_STICKY }
         val jobToken = intent.getStringExtra("jobToken")
             ?: run { stopSelf(startId); return START_NOT_STICKY }
+        val kind = intent.getStringExtra("pipelineKind").let { if (it == "market") "market" else "data" }
         val watchdog = android.os.Handler(mainLooper)
         val watchdogTask = Runnable {
             SchedulerLedger.complete(this, jobToken, "FAILED", "PIPELINE_TIMEOUT")
