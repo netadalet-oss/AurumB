@@ -50,6 +50,16 @@
  new MutationObserver(mount).observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['class']});queueMicrotask(mount);
 
  /* Scroll-intent guard: a vertical swipe never becomes a color action. */
+ function installHueGuards(){
+  document.querySelectorAll('.af-color-row .af-color-hue').forEach(el=>{
+   if(el.dataset.afTouchGuard)return;el.dataset.afTouchGuard='1';let x=0,y=0,armed=false;const row=el.closest('.af-color-row');
+   row?.addEventListener('pointerdown',e=>{if(e.pointerType==='mouse'){el.classList.add('af-hue-armed');return}x=e.clientX;y=e.clientY;armed=false},{passive:true});
+   row?.addEventListener('pointermove',e=>{if(e.pointerType==='mouse'||armed)return;const dx=Math.abs(e.clientX-x),dy=Math.abs(e.clientY-y);if(dx>10&&dx>dy*1.35){armed=true;el.classList.add('af-hue-armed');try{el.setPointerCapture(e.pointerId)}catch{}}},{passive:true});
+   const end=()=>{armed=false;el.classList.remove('af-hue-armed')};row?.addEventListener('pointerup',end,{passive:true});row?.addEventListener('pointercancel',end,{passive:true});
+  });
+ }
+ new MutationObserver(()=>installHueGuards()).observe(document.documentElement,{subtree:true,childList:true});queueMicrotask(installHueGuards);
+
  let scrollGesture=false,sx=0,sy=0;
  document.addEventListener('pointerdown',e=>{if(!e.target.closest?.('.af-color-studio'))return;scrollGesture=false;sx=e.clientX;sy=e.clientY},{capture:true,passive:true});
  document.addEventListener('pointermove',e=>{if(!e.target.closest?.('.af-color-studio'))return;if(Math.abs(e.clientY-sy)>8&&Math.abs(e.clientY-sy)>Math.abs(e.clientX-sx)){scrollGesture=true}}, {capture:true,passive:true});
