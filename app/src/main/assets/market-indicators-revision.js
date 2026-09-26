@@ -1,6 +1,6 @@
 'use strict';
 /* REV20.42 — resilient independent market indicators.
-   No network request on app start. First manual refresh arms the 30-minute timer.
+   No immediate network request on app start. The 30-minute timer is armed at load; manual refresh remains available.
    Each base field is resolved independently; one provider failure never blanks other fields.
    Maximum five provider attempts per base field. */
 (()=>{
@@ -143,5 +143,6 @@
   try{refreshMarketIndicators=refresh;marketIndicatorsMarkup=markup}catch{}
   globalThis.refreshAurumDataMarketStrip=async function(ev){const btn=ev?.currentTarget||document.querySelector('.aurum-r209-market-refresh');if(btn?.dataset.busy==='1')return false;try{if(btn){btn.dataset.busy='1';btn.disabled=true}arm();await refresh({force:true});rerender();return true}catch(e){globalThis.showAurumNotice?.('Piyasa bilgileri alınamadı: '+(e?.message||e),'error',2400);return false}finally{const b=document.querySelector('.aurum-r209-market-refresh');if(b){delete b.dataset.busy;b.disabled=false}}};
   document.addEventListener('click',ev=>{const el=ev.target?.closest?.('button,[role="button"]');const t=(el?.textContent||'').trim().toLocaleLowerCase('tr-TR');if(t.includes('piyasayı yenile')||t.includes('piyasayi yenile')){arm();void refresh({force:true}).then(()=>rerender())}},true);
-  try{AurumUpdateAPI.state.r242={version:'REV20.42-RESILIENT-MARKET',activatedAt:now(),features:['NO_STARTUP_NETWORK','MANUAL_ARM','30M_AUTO_AFTER_MANUAL','INDEPENDENT_FIELDS','MAX_5_ATTEMPTS','ALTINKAYNAK','YAHOO_Q1_Q2','TCMB','BIGPARA','DERIVED_EURUSD','DERIVED_GOLDUSD']}}catch{}
+  arm();
+  try{AurumUpdateAPI.state.r242={version:'REV20.42-RESILIENT-MARKET',activatedAt:now(),features:['NO_IMMEDIATE_STARTUP_NETWORK','30M_AUTO_TIMER','MANUAL_REFRESH','INDEPENDENT_FIELDS','MAX_5_ATTEMPTS','ALTINKAYNAK','YAHOO_Q1_Q2','TCMB','BIGPARA','DERIVED_EURUSD','DERIVED_GOLDUSD']}}catch{}
 })();
