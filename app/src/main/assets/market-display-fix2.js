@@ -28,6 +28,6 @@
   });
  }
  const b=globalThis.refreshAurumDataMarketStrip;if(typeof b==='function')globalThis.refreshAurumDataMarketStrip=async function(ev){const ok=await b(ev);await complete();paint();return ok};
- const oldMarkup=globalThis.marketIndicatorsMarkup;if(typeof oldMarkup==='function')globalThis.marketIndicatorsMarkup=function(){const h=oldMarkup();setTimeout(async()=>{await complete();paint()},0);return h};
- setTimeout(async()=>{await complete();paint()},0);
+ const oldMarkup=globalThis.marketIndicatorsMarkup;if(typeof oldMarkup==='function')globalThis.marketIndicatorsMarkup=function(){const h=oldMarkup();queueMicrotask(paint);return h};
+ globalThis.AurumMarketDisplayComplete=async()=>{await complete();paint();return true};
 })();
