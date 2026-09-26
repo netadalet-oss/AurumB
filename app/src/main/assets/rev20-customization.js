@@ -23,7 +23,7 @@ html[data-r20-custom="1"] small,html[data-r20-custom="1"] .muted{font-size:var(-
 html[data-r20-custom="1"] table{font-size:var(--r20-table,9px);background:var(--r20-table-bg,rgba(2,7,24,.88))}
 html[data-r20-custom="1"] th{background:var(--r20-table-head,#071738)!important}
 html[data-r20-custom="1"] th,html[data-r20-custom="1"] td{padding:calc(10px * var(--r20-cell,1))}
-html[data-r20-custom="1"] .card{padding:calc(13px * var(--r20-card-pad,1));border-radius:calc(var(--ref-radius,14px) * var(--r20-radius,1));background:var(--r20-card-bg,linear-gradient(145deg,var(--panel),rgba(1,4,15,.985)))}
+html[data-r20-custom="1"] .card{padding:calc(13px * var(--r20-card-pad,1));border-radius:calc(var(--ref-radius,14px) * var(--r20-radius,1));background:var(--r20-card-bg,linear-gradient(145deg,rgba(4,13,38,.99),rgba(1,4,15,.998)))}
 html[data-r20-custom="1"] .grid,html[data-r20-custom="1"] .form-grid{gap:calc(12px * var(--r20-gap,1))}
 html[data-r20-custom="1"] .bottom-nav{height:calc(72px * var(--r20-nav,1))}
 html[data-r20-custom="1"] .topbar{min-height:calc(84px * var(--r20-header,1))}
