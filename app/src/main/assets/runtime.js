@@ -595,7 +595,7 @@ async function prepareMissingData(job){
   }finally{try{await flushStageBatch(job.id)}catch{}state.syncing=false;clearCancel(job.id);renderCurrentPagePreservingView();}
 }
 
-async function prepareData(job,mode='GENERAL'){const normalized=normalizeMode(mode);return normalized==='REPAIR'?prepareMissingData(job):prepareGeneralData(job,normalized);}
+async function prepareData(job,mode='GENERAL'){const normalized=normalizeMode(mode),attemptAt=nowISO();job.lastAttemptAt=attemptAt;try{await dbPut('meta',{key:'lastAttemptAt',value:attemptAt,jobId:job?.id||null,mode:normalized,updatedAt:attemptAt});}catch{}const ok=normalized==='REPAIR'?await prepareMissingData(job):await prepareGeneralData(job,normalized);if(ok){try{const active=(await dbGet('meta','activeDataSnapshot'))?.value||null,publishedAt=active?.transferredAt||active?.completedAt||null;if(publishedAt){job.lastSuccessfulPublishAt=publishedAt;await dbPut('meta',{key:'lastSuccessfulPublishAt',value:publishedAt,snapshotId:active?.snapshotId||null,jobId:job?.id||null,updatedAt:publishedAt});}}catch{}}return ok;}
 
 function activeSnapshot(){return readLocal('aurum.runtime.active.snapshot.v1',null)||(state.db?null:null)}
 async function currentSnapshotMeta(){return (await dbGet('meta','activeDataSnapshot'))?.value||null}
