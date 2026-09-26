@@ -23,6 +23,7 @@ jobs:
           node --check app/src/main/assets/market-indicators-revision.js
           node --check app/src/main/assets/rev20-final-stability.js
           node --check app/src/main/assets/native-market-http.js
+          node --check app/src/main/assets/market-rebuilt.js
 
       - name: Assemble debug APK
         run: gradle --no-daemon :app:assembleDebug --stacktrace
