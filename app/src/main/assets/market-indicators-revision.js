@@ -142,7 +142,7 @@
 
   globalThis.cachedMarketIndicators=cached;globalThis.refreshMarketIndicators=refresh;globalThis.marketIndicatorsMarkup=markup;
   try{refreshMarketIndicators=refresh;marketIndicatorsMarkup=markup}catch{}
-  globalThis.refreshAurumDataMarketStrip=async function(ev){return globalThis.AurumMarketModuleRefresh?.(ev)};
-  document.addEventListener('click',ev=>{const el=ev.target?.closest?.('button,[role="button"]');const t=(el?.textContent||'').trim().toLocaleLowerCase('tr-TR');if(t.includes('piyasayı yenile')||t.includes('piyasayi yenile')){globalThis.showAurumNotice?.('Piyasa göstergeleri Veriler çalışmasıyla birlikte güncellenir.','info',2400)}},true);
+  globalThis.refreshAurumDataMarketStrip=async function(){return false};
+  
   try{AurumUpdateAPI.state.r242={version:'REV20.42-RESILIENT-MARKET',activatedAt:now(),features:['NO_STARTUP_NETWORK','RUNTIME_OWNS_30M_AUTO','MANUAL_REFRESH','INDEPENDENT_FIELDS','MAX_5_ATTEMPTS','ALTINKAYNAK','YAHOO_Q1_Q2','TCMB','BIGPARA','DERIVED_EURUSD','DERIVED_GOLDUSD']}}catch{}
 })();
