@@ -65,7 +65,6 @@ class MainActivity : AppCompatActivity() {
         setContentView(webView)
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
-        webView.settings.databaseEnabled = true
         webView.settings.allowFileAccess = false
         webView.settings.allowContentAccess = false
         webView.settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
@@ -213,9 +212,14 @@ class MainActivity : AppCompatActivity() {
                 val enabled = uri.getQueryParameter("enabled") != "0"
                 val times = uri.getQueryParameter("times").orEmpty()
                     .split(',').map(String::trim).filter(String::isNotEmpty)
-                if (enabled && (times.isEmpty() || times.any { !AurumScheduler.valid(it) })) {
+                val weekdays = uri.getQueryParameter("weekday").orEmpty()
+                    .split(',').map(String::trim).filter(String::isNotEmpty)
+                val weekends = uri.getQueryParameter("weekend").orEmpty()
+                    .split(',').map(String::trim).filter(String::isNotEmpty)
+                val invalid = (times + weekdays + weekends).any { !AurumScheduler.valid(it) }
+                if (enabled && (times.isEmpty() || invalid)) {
                     "ERR:INVALID_SCHEDULE"
-                } else if (AurumScheduler.install(this, enabled, times)) "OK"
+                } else if (AurumScheduler.install(this, enabled, times, weekdays, weekends)) "OK"
                 else "ERR:INVALID_SCHEDULE"
             }
             else -> "ERR:UNSUPPORTED_NATIVE_COMMAND"

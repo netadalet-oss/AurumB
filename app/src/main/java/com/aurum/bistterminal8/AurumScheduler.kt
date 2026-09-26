@@ -26,6 +26,8 @@ object AurumScheduler {
     )
     private val weekendDefaults = listOf("12:30")
     private val defaults = (weekdayDefaults + weekendDefaults).distinct().sorted()
+    private const val WEEKDAY_KEY = "weekdayTimes"
+    private const val WEEKEND_KEY = "weekendTimes"
 
     fun configuredTimes(context: Context): List<String> {
         val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -34,14 +36,24 @@ object AurumScheduler {
         return if (parsed.isEmpty()) defaults else parsed
     }
 
-    fun install(context: Context, enabled: Boolean, times: List<String>): Boolean {
+    fun install(
+        context: Context,
+        enabled: Boolean,
+        times: List<String>,
+        weekdayTimes: List<String> = emptyList(),
+        weekendTimes: List<String> = emptyList()
+    ): Boolean {
         val clean = times.map(String::trim).filter(::valid).distinct().sorted()
+        val weekdays = weekdayTimes.map(String::trim).filter(::valid).distinct().sorted()
+        val weekends = weekendTimes.map(String::trim).filter(::valid).distinct().sorted()
         if (enabled && clean.isEmpty()) return false
         val previous = configuredTimes(context)
         cancelTimes(context, previous)
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putBoolean("enabled", enabled)
             .putString("times", clean.joinToString(","))
+            .putString(WEEKDAY_KEY, weekdays.joinToString(","))
+            .putString(WEEKEND_KEY, weekends.joinToString(","))
             .apply()
         if (!enabled) return true
         val now = Instant.now()
@@ -62,14 +74,18 @@ object AurumScheduler {
         var target = ZonedDateTime.of(after.atZone(zone).toLocalDate(), localTime, zone)
         if (!target.toInstant().isAfter(after.plusSeconds(1))) target = target.plusDays(1)
 
-        val configured = configuredTimes(context).toSet()
-        if (configured == defaults.toSet()) {
-            while (true) {
-                val allowed = if (target.dayOfWeek == DayOfWeek.SATURDAY ||
-                    target.dayOfWeek == DayOfWeek.SUNDAY) weekendDefaults else weekdayDefaults
-                if (time in allowed) break
-                target = target.plusDays(1)
-            }
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        fun stored(key: String, fallback: List<String>): Set<String> {
+            val raw = prefs.getString(key, null)
+            return raw?.split(',')?.map(String::trim)?.filter(::valid)?.toSet() ?: fallback.toSet()
+        }
+        val weekdays = stored(WEEKDAY_KEY, weekdayDefaults)
+        val weekends = stored(WEEKEND_KEY, weekendDefaults)
+        while (true) {
+            val isWeekend = target.dayOfWeek == DayOfWeek.SATURDAY || target.dayOfWeek == DayOfWeek.SUNDAY
+            val allowed = if (isWeekend) weekends else weekdays
+            if (time in allowed) break
+            target = target.plusDays(1)
         }
 
         val epoch = target.toInstant().toEpochMilli()

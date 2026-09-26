@@ -107,7 +107,7 @@ function knTableFingerprint(){const parts=[];for(const k of CRITERIA){parts.push
 function historyTableFingerprint(){const rows=(state.runs||[]).filter(r=>/K_TARIHSEL|BACKFILL_K_TARIHSEL_30D/.test(String(r?.kind||''))).slice().sort((a,b)=>String(a?.signalTradingDate||a?.createdAt||'').localeCompare(String(b?.signalTradingDate||b?.createdAt||''))),parts=[];for(const r of rows){parts.push(r.kind||'',r.signalTradingDate||'',stableScalar(r.evaluated),stableScalar(r.metrics||{}));for(const x of r.selection||[])parts.push(x.sym,stableScalar(x.score??x.totalScore),stableScalar(x.targetProbability),stableScalar(x.dualHit),stableScalar(x.realizedReturn));}return rollingFingerprint(parts);}
 function selectionTableFingerprint(){const parts=[];for(const x of state.selection||[])parts.push(x.sym,stableScalar(x.totalScore),stableScalar(x.targetProbability),stableScalar(x.entryStatus),stableScalar(x.entryPrice),stableScalar(x.livePrice),stableScalar(x.currentReturn),stableScalar(x.maxPotential));return rollingFingerprint(parts);}
 function formatTableTime(value){const t=safeTime(value);if(!Number.isFinite(t))return '—';return new Intl.DateTimeFormat('tr-TR',{timeZone:'Europe/Istanbul',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'}).format(new Date(t));}
-async function refreshTableMeta(){const [active,kn,historical,selection,lastSummary,persistedTimes]=await Promise.all([dbGet('meta','activeDataSnapshot'),dbGet('meta','knSnapshot'),dbGet('meta','historicalSnapshot'),dbGet('meta','selectionSnapshot'),dbGet('meta','lastDataSummary'),dbGet('meta','lastValidTableTimes')]);const a=active?.value||{},sv=selection?.value||{},lastValid=persistedTimes?.value||{};state.tableMetrics=state.tableMetrics||{};state.tableMetrics.s={...(state.tableMetrics.s||{}),gln:Array.isArray(sv.gln)?sv.gln.join(' · '):(sv.gln??null),gdn:Array.isArray(sv.gdn)?sv.gdn.join(' · '):(sv.gdn??null),glnChangedAt:sv.glnChangedAt||null,gdnChangedAt:sv.gdnChangedAt||null};let market=a.marketAt||null;if(!market){const stored=verifiedMarketEpoch(state.records);if(stored!=null){market=new Date(stored).toISOString();/* Upgrade migration: only already-stored, source-verified time is recovered. No app-open network request is made. */if(active?.value){a.marketAt=market;a.marketTimeBasis='SOURCE_REPORTED_VERIFIED_RECOVERED';try{await dbPut('meta',{key:'activeDataSnapshot',value:a,updatedAt:nowISO()})}catch{}}}}const dataTransfer=a.transferredAt||a.completedAt||state.lastSuccessfulSync||null;const candidate={data:{market,transfer:dataTransfer,changed:a.changedAt||dataTransfer,summary:lastSummary?.value||dataSummary(),excludedSymbols:a.excludedSymbols||[]},kn:{market,transfer:kn?.value?.transferredAt||kn?.value?.at||null,changed:kn?.value?.changedAt||kn?.value?.transferredAt||kn?.value?.at||null},history:{market,transfer:historical?.value?.transferredAt||historical?.value?.at||null,changed:historical?.value?.changedAt||historical?.value?.transferredAt||historical?.value?.at||null},s:{market,transfer:selection?.value?.transferredAt||selection?.value?.at||null,changed:selection?.value?.changedAt||selection?.value?.transferredAt||selection?.value?.at||null}};const keep=(kind,key,value)=>Number.isFinite(safeTime(value))?value:(lastValid?.[kind]?.[key]||TABLE_META?.[kind]?.[key]||null);TABLE_META={data:{...candidate.data,market:keep('data','market',candidate.data.market),transfer:keep('data','transfer',candidate.data.transfer),changed:keep('data','changed',candidate.data.changed)},kn:{...candidate.kn,market:keep('kn','market',candidate.kn.market),transfer:keep('kn','transfer',candidate.kn.transfer),changed:keep('kn','changed',candidate.kn.changed)},history:{...candidate.history,market:keep('history','market',candidate.history.market),transfer:keep('history','transfer',candidate.history.transfer),changed:keep('history','changed',candidate.history.changed)},s:{...candidate.s,market:keep('s','market',candidate.s.market),transfer:keep('s','transfer',candidate.s.transfer),changed:keep('s','changed',candidate.s.changed)}};const durable={data:{market:TABLE_META.data.market,transfer:TABLE_META.data.transfer,changed:TABLE_META.data.changed},kn:{market:TABLE_META.kn.market,transfer:TABLE_META.kn.transfer,changed:TABLE_META.kn.changed},history:{market:TABLE_META.history.market,transfer:TABLE_META.history.transfer,changed:TABLE_META.history.changed},s:{market:TABLE_META.s.market,transfer:TABLE_META.s.transfer,changed:TABLE_META.s.changed},updatedAt:nowISO()};try{await dbPut('meta',{key:'lastValidTableTimes',value:durable,updatedAt:nowISO()})}catch{}return TABLE_META;}
+async function refreshTableMeta(){const [active,kn,historical,selection,lastSummary,persistedTimes]=await Promise.all([dbGet('meta','activeDataSnapshot'),dbGet('meta','knSnapshot'),dbGet('meta','historicalSnapshot'),dbGet('meta','selectionSnapshot'),dbGet('meta','lastDataSummary'),dbGet('meta','lastValidTableTimes')]);const a=active?.value||{},sv=selection?.value||{},lastValid=persistedTimes?.value||{};state.tableMetrics=state.tableMetrics||{};state.tableMetrics.s={...(state.tableMetrics.s||{}),gln:Array.isArray(sv.gln)?sv.gln.join(' · '):(sv.gln??null),gdn:Array.isArray(sv.gdn)?sv.gdn.join(' · '):(sv.gdn??null),glnChangedAt:sv.glnChangedAt||null,gdnChangedAt:sv.gdnChangedAt||null};let market=a.marketAt||null;if(!market){const stored=verifiedMarketEpoch(state.records);if(stored!=null){market=new Date(stored).toISOString();/* Display-only legacy recovery: never mutate activeDataSnapshot outside a successful gated publish. */}}const dataTransfer=a.transferredAt||a.completedAt||state.lastSuccessfulSync||null;const candidate={data:{market,transfer:dataTransfer,changed:a.changedAt||dataTransfer,summary:lastSummary?.value||dataSummary(),excludedSymbols:a.excludedSymbols||[]},kn:{market,transfer:kn?.value?.transferredAt||kn?.value?.at||null,changed:kn?.value?.changedAt||kn?.value?.transferredAt||kn?.value?.at||null},history:{market,transfer:historical?.value?.transferredAt||historical?.value?.at||null,changed:historical?.value?.changedAt||historical?.value?.transferredAt||historical?.value?.at||null},s:{market,transfer:selection?.value?.transferredAt||selection?.value?.at||null,changed:selection?.value?.changedAt||selection?.value?.transferredAt||selection?.value?.at||null}};const keep=(kind,key,value)=>Number.isFinite(safeTime(value))?value:(lastValid?.[kind]?.[key]||TABLE_META?.[kind]?.[key]||null);TABLE_META={data:{...candidate.data,market:keep('data','market',candidate.data.market),transfer:keep('data','transfer',candidate.data.transfer),changed:keep('data','changed',candidate.data.changed)},kn:{...candidate.kn,market:keep('kn','market',candidate.kn.market),transfer:keep('kn','transfer',candidate.kn.transfer),changed:keep('kn','changed',candidate.kn.changed)},history:{...candidate.history,market:keep('history','market',candidate.history.market),transfer:keep('history','transfer',candidate.history.transfer),changed:keep('history','changed',candidate.history.changed)},s:{...candidate.s,market:keep('s','market',candidate.s.market),transfer:keep('s','transfer',candidate.s.transfer),changed:keep('s','changed',candidate.s.changed)}};const durable={data:{market:TABLE_META.data.market,transfer:TABLE_META.data.transfer,changed:TABLE_META.data.changed},kn:{market:TABLE_META.kn.market,transfer:TABLE_META.kn.transfer,changed:TABLE_META.kn.changed},history:{market:TABLE_META.history.market,transfer:TABLE_META.history.transfer,changed:TABLE_META.history.changed},s:{market:TABLE_META.s.market,transfer:TABLE_META.s.transfer,changed:TABLE_META.s.changed},updatedAt:nowISO()};try{await dbPut('meta',{key:'lastValidTableTimes',value:durable,updatedAt:nowISO()})}catch{}return TABLE_META;}
 function pageMetaKind(){return state.page==='data'?'data':state.page==='criteria'?'kn':state.page==='history'?'history':state.page==='selection'?'s':'data';}
 function tableTimePanel(kind=pageMetaKind()){const m=TABLE_META[kind]||{};return `<div class="aurum-time-card" data-aurum-time-kind="${html(kind)}"><div class="aurum-time-row"><span>Piyasa gerçek veri zamanı</span><b>${html(formatTableTime(m.market))}</b></div><div class="aurum-time-row"><span>Güncelleme zamanı</span><b>${html(formatTableTime(m.transfer))}</b></div><div class="aurum-time-row"><span>Tabloda son değişiklik zamanı</span><b>${html(formatTableTime(m.changed))}</b></div></div>`;}
 function operationStrip(scope){const v=operationView(scope),pct=v.active&&v.total?`${v.p}%`:'';return `<div class="aurum-operation-strip" data-operation-scope="${html(scope)}" data-active="${v.active?'true':'false'}" data-busy="${v.busy?'true':'false'}" data-paused="${v.paused?'true':'false'}"><div class="aurum-operation-copy"><div class="aurum-operation-caption"><i class="aurum-operation-indicator" aria-hidden="true"></i><small data-aurum-runtime-label>${html(v.label)}</small><span data-aurum-operation-count>${html(v.count)}</span><b data-aurum-operation-percent>${html(pct)}</b></div><div class="aurum-progress-track" aria-hidden="true"><i data-aurum-progress-fill style="width:${v.p}%"></i></div></div><button class="aurum-pause-toggle" data-aurum-pause-toggle onclick="AurumRuntime.togglePause('${html(scope)}')" ${v.busy?'':'disabled'} title="${v.paused?'İşleme devam et':'İşlemi güvenli noktada duraklat'}" aria-label="${v.paused?'İşleme devam et':'İşlemi güvenli noktada duraklat'}" data-control-state="${v.paused?'play':'pause'}"></button></div>`;}
@@ -258,14 +258,20 @@ async function stagePut(jobId,sym,record){if(HARD_CANCELLED_JOBS.has(String(jobI
 async function stageRows(jobId){return (await dbAll('stagingRecords')).filter(x=>x.jobId===jobId)}
 async function clearStage(jobId){const rows=await stageRows(jobId);if(!rows.length)return;await new Promise((resolve,reject)=>{const tx=state.db.transaction('stagingRecords','readwrite'),s=tx.objectStore('stagingRecords');for(const x of rows)s.delete(x.id);tx.oncomplete=()=>resolve(true);tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);});}
 async function recoverOrphanStagingRecords(){
-  if(!state.db)return {recovered:0,retained:0};
-  const [rows,jobs]=await Promise.all([dbAll('stagingRecords'),dbAll('jobs')]),active=new Set(jobs.filter(j=>operationBusyStatus(String(j?.status||''))).map(j=>j.id)),orph=rows.filter(x=>!active.has(x.jobId));
-  if(!orph.length)return {recovered:0,retained:0};
-  const current=new Map((state.records||[]).map(r=>[r.sym,r])),publish=[];
-  for(const x of orph){const r=x?.record;if(!r?.sym||r.jobDataStatus!=='FRESH')continue;let valid=true;try{valid=validateRecord(r,r.sym).ok}catch{}if(!valid)continue;const old=current.get(r.sym),nt=Date.parse(r.marketDataAt||r.apiAccessedAt||r.storedAt||''),ot=Date.parse(old?.marketDataAt||old?.apiAccessedAt||old?.storedAt||'');if(!old||!Number.isFinite(ot)||!Number.isFinite(nt)||nt>=ot)publish.push(x);else publish.push({...x,__discardOnly:true});}
-  if(!publish.length)return {recovered:0,retained:orph.length};
-  await new Promise((resolve,reject)=>{const tx=state.db.transaction(['records','stagingRecords'],'readwrite'),rs=tx.objectStore('records'),ss=tx.objectStore('stagingRecords');for(const x of publish){if(!x.__discardOnly)rs.put({key:x.record.sym,value:{...x.record,tableTransferredAt:nowISO()},updatedAt:nowISO()});ss.delete(x.id);}tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error)});
-  const reread=(await dbAll('records')).map(x=>x.value);state.records=reread;state.recordMap=new Map(reread.map(x=>[x.sym,x]));try{await refreshTableMeta()}catch{}return {recovered:publish.filter(x=>!x.__discardOnly).length,retained:orph.length-publish.length};
+  if(!state.db)return {recovered:0,discarded:0,retained:0};
+  const [rows,jobs]=await Promise.all([dbAll('stagingRecords'),dbAll('jobs')]);
+  const active=new Set(jobs.filter(j=>operationBusyStatus(String(j?.status||''))).map(j=>j.id));
+  const orphan=rows.filter(x=>!active.has(x.jobId));
+  if(!orphan.length)return {recovered:0,discarded:0,retained:0};
+  // Orphan staging is never promoted directly into the active table. A crashed/incomplete job
+  // has no trustworthy whole-snapshot completeness proof. Keep the last valid snapshot intact.
+  await new Promise((resolve,reject)=>{
+    const tx=state.db.transaction('stagingRecords','readwrite'),s=tx.objectStore('stagingRecords');
+    for(const x of orphan)s.delete(x.id);
+    tx.oncomplete=()=>resolve(true);tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);
+  });
+  try{await log('warn','Yetim staging kayıtları aktif tabloya alınmadan temizlendi',{discarded:orphan.length})}catch{}
+  return {recovered:0,discarded:orphan.length,retained:0};
 }
 async function atomicPublish(job,universe){
   /* FINAL INVARIANT: no caller/late override may publish a sub-70% snapshot. */
@@ -485,17 +491,31 @@ function recordNeedsLocalIntegrityRepair(rec){
 }
 async function repairLegacyCorruptRecordsLocal(){
   const memo=readLocal(LOCAL_REPAIR_V117_KEY,null);if(memo?.complete)return memo;
-  const candidates=(state.records||[]).filter(recordNeedsLocalIntegrityRepair);if(!candidates.length){const done={complete:true,at:nowISO(),repaired:0,failed:0};writeLocal(LOCAL_REPAIR_V117_KEY,done);return done;}
-  const indexBundle=(await dbGet('meta','indexBundle'))?.value||{bars:[]},changedAt=nowISO();let repairedCount=0,failed=0;
+  const candidates=(state.records||[]).filter(recordNeedsLocalIntegrityRepair);
+  if(!candidates.length){const done={complete:true,at:nowISO(),repaired:0,failed:0};writeLocal(LOCAL_REPAIR_V117_KEY,done);return done;}
+  const indexBundle=(await dbGet('meta','indexBundle'))?.value||{bars:[]},changedAt=nowISO(),candidateRecords=(state.records||[]).map(r=>JSON.parse(JSON.stringify(r)));
+  const by=new Map(candidateRecords.map(r=>[r.sym,r]));let repairedCount=0,failed=0;
   for(const old of candidates){try{
     const rebuilt=enrichBundle(bundleFromRecord(old),indexBundle),next={...old,...rebuilt};
     for(const k of ['marketDataAt','liveAt','marketTimeVerified','marketTimeProvider','apiAccessedAt','tableTransferredAt','datasetMarketAt','dataSnapshotId','jobId','jobMode','jobDataStatus','marketWindowEligible','marketWindowDeltaMinutes','providers','source','sourceAttempts','providerAttempts','provenance','companyCard','companyCardHistory','crossValidation','enrichmentMetrics','behaviorProfile','behaviorScore','behaviorType','genomeProfile','genomeScore','genomeProbability','genomeType'])if(k in old)next[k]=old[k];
     next.recordChangedAt=changedAt;next.provenance={...(old.provenance||{}),recordChangedAt:changedAt,localIntegrityRepair:'V117'};next.recordFingerprint=dataRecordFingerprint(next);
-    await dbPut('records',{key:next.sym,value:next,updatedAt:changedAt});const ix=state.records.findIndex(x=>x.sym===next.sym);if(ix>=0)state.records[ix]=next;repairedCount++;
+    by.set(next.sym,next);repairedCount++;
   }catch(e){failed++;try{await log('warn',`${old.sym}: yerel bütünlük onarımı başarısız`,{error:e?.message||String(e)})}catch{}}}
-  state.recordMap=new Map(state.records.map(x=>[x.sym,x]));
-  const classification=classifyDataCompleteness(state.records,currentSymbols());for(const rec of state.records){const e=classification.bySymbol.get(rec.sym);rec.emptyCellCount=e?.emptyCells??0;rec.calculationEligible=!!e?.eligible;rec.calculationExclusionReasons=e?.reasons||[];rec.incompleteColumns=classification.incompleteColumns;}
-  if(repairedCount){const meta=(await dbGet('meta','activeDataSnapshot'))?.value||null;if(meta){meta.changedAt=changedAt;meta.fingerprint=dataTableFingerprint(state.records);meta.incompleteColumns=classification.incompleteColumns;await dbPut('meta',{key:'activeDataSnapshot',value:meta,updatedAt:changedAt});}for(const rec of state.records.filter(r=>candidates.some(c=>c.sym===r.sym)))await dbPut('records',{key:rec.sym,value:rec,updatedAt:changedAt});}
+  const repaired=candidateRecords.map(r=>by.get(r.sym)||r),classification=classifyDataCompleteness(repaired,currentSymbols());
+  const gate=dataIntegrityGate(dataSummary(repaired));
+  if(!gate.ok){const done={complete:false,at:nowISO(),repaired:0,failed:candidates.length,reason:'DATA_FILL_BELOW_70'};return done;}
+  for(const rec of repaired){const e=classification.bySymbol.get(rec.sym);rec.emptyCellCount=e?.emptyCells??0;rec.calculationEligible=!!e?.eligible;rec.calculationExclusionReasons=e?.reasons||[];rec.incompleteColumns=classification.incompleteColumns;}
+  if(repairedCount){
+    const meta=(await dbGet('meta','activeDataSnapshot'))?.value||null;
+    const fingerprint=dataTableFingerprint(repaired);
+    await new Promise((resolve,reject)=>{
+      const tx=state.db.transaction(['records','meta'],'readwrite'),rs=tx.objectStore('records'),ms=tx.objectStore('meta');
+      rs.clear();for(const rec of repaired)rs.put({key:rec.sym,value:rec,updatedAt:changedAt});
+      if(meta)ms.put({key:'activeDataSnapshot',value:{...meta,changedAt,fingerprint,incompleteColumns:classification.incompleteColumns},updatedAt:changedAt});
+      tx.oncomplete=()=>resolve(true);tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);
+    });
+    state.records=repaired;state.recordMap=new Map(repaired.map(x=>[x.sym,x]));
+  }
   const done={complete:failed===0,at:nowISO(),repaired:repairedCount,failed};if(done.complete)writeLocal(LOCAL_REPAIR_V117_KEY,done);return done;
 }
 
@@ -570,7 +590,7 @@ async function prepareGeneralData(job,mode='GENERAL'){
     const published=await atomicPublish(job,universe),freshPublished=published.filter(x=>x?.jobDataStatus==='FRESH'),marketFreshPublished=freshPublished.filter(x=>x?.marketWindowEligible===true),summary=dataSummary(published),postTemporal=liveTemporalAudit(marketFreshPublished),repairPlan=await persistPendingRepairPlan(published,universe);
     if(!freshPublished.length)throw Object.assign(new Error('NO_FRESH_DATA_PUBLISHED'),{code:'NO_FRESH_DATA_PUBLISHED'});
     summary.transferredFreshSymbols=freshPublished.length;summary.integrityRepairRounds=[];summary.integrityGate=dataIntegrityGate(summary);summary.pendingRepair=repairPlan;summary.missingSymbolDetails=(summary.missingSymbolDetails||[]).map(d=>{const x=(job.excludedSymbols||[]).find(e=>e.sym===d.sym);return x?{...d,...x}:d;});if(marketFreshPublished.length&&!postTemporal.ok)throw new Error('MARKET_TIME_WINDOW_VIOLATION_AFTER_PUBLISH');
-    job.sourceStats={...state.sourceStats};job.dataSummary=summary;job.liveTemporalAudit=postTemporal;job.criticalUnavailable=critical;job.pendingRepair=repairPlan;state.lastSuccessfulSync=nowISO();await dbPut('meta',{key:'lastSuccessfulSync',value:state.lastSuccessfulSync,updatedAt:state.lastSuccessfulSync});await dbPut('meta',{key:'lastDataSummary',value:summary,updatedAt:nowISO()});await persistLiveSnapshots(job.dataSnapshotId);await pruneSnapshots();await clearStage(job.id);await refreshTableMeta();await transition(job,JOB_STATUS.DATA_COMPLETED,{message:`${summary.transferredFreshSymbols}/${summary.universeCount} fresh hisse · ${repairPlan.symbolCount} onarım bekliyor`,done:universe.length,total:universe.length});return true;
+    job.sourceStats={...state.sourceStats};job.dataSummary=summary;job.liveTemporalAudit=postTemporal;job.criticalUnavailable=critical;job.pendingRepair=repairPlan;await dbPut('meta',{key:'lastSuccessfulSync',value:state.lastSuccessfulSync,updatedAt:state.lastSuccessfulSync});await dbPut('meta',{key:'lastDataSummary',value:summary,updatedAt:nowISO()});await persistLiveSnapshots(job.dataSnapshotId);await pruneSnapshots();await clearStage(job.id);await refreshTableMeta();await transition(job,JOB_STATUS.DATA_COMPLETED,{message:`${summary.transferredFreshSymbols}/${summary.universeCount} fresh hisse · ${repairPlan.symbolCount} onarım bekliyor`,done:universe.length,total:universe.length});return true;
   }catch(e){job.error=e?.message||String(e);if(e?.code==='OPERATION_CANCELLED'||cancelRequested(job)){await transition(job,JOB_STATUS.IDLE,{error:null,message:'İşlem iptal edildi · önceki tablo korundu'});return false;}if(!isOnline()||/network|offline|failed to fetch|ERR_/i.test(job.error)){job.retryCount=(job.retryCount||0)+1;await transition(job,job.retryCount<=Number(state.settings.maxJobRetries??MAX_JOB_RETRIES)?JOB_STATUS.WAITING_FOR_NETWORK:JOB_STATUS.FAILED,{error:job.error,message:job.retryCount<=Number(state.settings.maxJobRetries??MAX_JOB_RETRIES)?'Ağ bağlantısı bekleniyor':'Azami retry aşıldı'});}else await transition(job,JOB_STATUS.FAILED,{error:job.error,message:'Veri aktarımı başarısız · önceki tablo korundu'});return false;
   }finally{try{await flushStageBatch(job.id)}catch{}state.syncing=false;clearCancel(job.id);renderCurrentPagePreservingView();}
 }
@@ -938,7 +958,8 @@ function schedulerNativeHealth(){return readLocal(AURUM_SCHEDULER_NATIVE_HEALTH_
 function schedulerWriteNativeHealth(v){const x={...(v||{}),at:v?.at||nowISO()};writeLocal(AURUM_SCHEDULER_NATIVE_HEALTH_KEY,x);return x}
 function schedulerNativeInstall(enabled,times,reason='USER'){
   try{
-    const r=window.prompt(`aurum://native?${new URLSearchParams({cmd:'schedule',enabled:enabled?'1':'0',times:(times||[]).join(',')})}`,'AURUM')||'';
+    const cfg=schedulerConfig(),params={cmd:'schedule',enabled:enabled?'1':'0',times:(times||[]).join(','),weekday:(cfg.weekday||[]).join(','),weekend:(cfg.holiday||[]).join(',')};
+    const r=window.prompt(`aurum://native?${new URLSearchParams(params)}`,'AURUM')||'';
     const ok=r==='OK';schedulerWriteNativeHealth({ok,response:r||'NO_RESPONSE',reason,at:nowISO()});return {ok,response:r||'NO_RESPONSE'};
   }catch(e){const response=e?.message||String(e)||'PROMPT_FAILED';schedulerWriteNativeHealth({ok:false,response,reason,at:nowISO()});return {ok:false,response}}
 }
@@ -1007,85 +1028,17 @@ async function refreshSchedulerStatus(){const rowsEl=document.getElementById('au
 globalThis.addSchedulerSlot=addSchedulerSlot;globalThis.removeSchedulerSlot=removeSchedulerSlot;globalThis.resetSchedulerDefaults=resetSchedulerDefaults;globalThis.schedulerForegroundHealthCheck=schedulerForegroundHealthCheck;
 
 
-function activeUpdateSlot(){return readLocal(AURUM_UPDATE_SLOT_KEY,null)}
-function updateHistory(){const x=readLocal(AURUM_UPDATE_HISTORY_KEY,[]);return Array.isArray(x)?x.slice(0,AURUM_UPDATE_MAX_HISTORY):[]}
-function writeUpdateHistory(rows){writeLocal(AURUM_UPDATE_HISTORY_KEY,(Array.isArray(rows)?rows:[]).slice(0,AURUM_UPDATE_MAX_HISTORY))}
-async function updatePayloadHash(code){const data=new TextEncoder().encode(String(code||'')),hash=await crypto.subtle.digest('SHA-256',data);return [...new Uint8Array(hash)].map(x=>x.toString(16).padStart(2,'0')).join('')}
-function validateUpdatePackage(pkg){
-  if(!pkg||typeof pkg!=='object'||Array.isArray(pkg))throw new Error('Güncelleme dosyası geçerli paket değil');
-  if(pkg.schema!==AURUM_UPDATE_SCHEMA)throw new Error(`Şema ${AURUM_UPDATE_SCHEMA} olmalıdır`);
-  if(!/^[A-Za-z0-9._+-]{1,48}$/.test(String(pkg.version||'')))throw new Error('Geçerli sürüm gerekli');
-  const min=Number(pkg.minAppVersionCode||0),max=Number(pkg.maxAppVersionCode||0);
-  if(min&&AURUM_APP_VERSION_CODE<min)throw new Error(`Bu güncelleme en az uygulama ${min} gerektiriyor`);
-  if(max&&AURUM_APP_VERSION_CODE>max)throw new Error(`Bu güncelleme en fazla uygulama ${max} ile uyumlu`);
-  if(typeof pkg.runtimeCode!=='string'||!pkg.runtimeCode.trim())throw new Error('runtimeCode gerekli');
-  if(pkg.runtimeCode.length>600000)throw new Error('Güncelleme kodu 600 KB sınırını aşıyor');
-  if(!/^[a-f0-9]{64}$/i.test(String(pkg.sha256||'')))throw new Error('SHA-256 alanı gerekli'); throw new Error('Executable runtime update devre dışı; yeni kod yalnız imzalı APK/AAB ile dağıtılır');
-}
-function updatePackageMeta(pkg){return {version:String(pkg?.version||''),title:String(pkg?.title||'Aurum güncellemesi'),sha256:String(pkg?.sha256||''),importedAt:pkg?.importedAt||null,activatedAt:pkg?.activatedAt||null}}
-function aurumUpdateApi(pkg){return Object.freeze({appVersionCode:AURUM_APP_VERSION_CODE,appVersionName:AURUM_APP_VERSION_NAME,packageMeta:updatePackageMeta(pkg),state,dbGet,dbPut,bulkPut,nowISO})}
-function rememberVerifiedUpdate(pkg,status='VERIFIED',message=''){const row={...pkg,status,message,historyAt:nowISO()};const rows=updateHistory().filter(x=>String(x?.sha256||'').toLowerCase()!==String(pkg?.sha256||'').toLowerCase());rows.unshift(row);writeUpdateHistory(rows);return row}
-async function verifyUpdatePackage(pkg){validateUpdatePackage(pkg);const hash=await updatePayloadHash(pkg.runtimeCode);if(hash.toLowerCase()!==String(pkg.sha256).toLowerCase())throw new Error('SHA-256 doğrulaması başarısız');return true}
-async function executeUpdatePackage(pkg){await verifyUpdatePackage(pkg);throw new Error('Executable runtime update devre dışı; imzalı uygulama güncellemesi gerekli')}
-function cleanupSupersededRuntimeResidue(){
+function cleanupDisabledRuntimeUpdateResidue(){
   try{
-    const stale=/^(?:R42|R46|R47|R53|R54|R55|B36(?:\.[0-5])?)(?:[._-]|$)/i;
-    const active=activeUpdateSlot();
-    if(active&&stale.test(String(active.version||'')))localStorage.removeItem(AURUM_UPDATE_SLOT_KEY);
-    const pending=readLocal(AURUM_UPDATE_PENDING_KEY,null);
-    if(pending&&stale.test(String(pending.version||'')))localStorage.removeItem(AURUM_UPDATE_PENDING_KEY);
-    const history=updateHistory().filter(x=>!stale.test(String(x?.version||'')));
-    writeUpdateHistory(history);
+    localStorage.removeItem(AURUM_UPDATE_SLOT_KEY);
+    localStorage.removeItem(AURUM_UPDATE_PENDING_KEY);
     localStorage.removeItem(AURUM_UPDATE_LAST_ERROR_KEY);
   }catch{}
 }
-cleanupSupersededRuntimeResidue();
-async function applyStoredAurumUpdates(){
-  const active=activeUpdateSlot();if(!active)return true;
-  if(/^(?:R42|R46|R47|R53|R54|R55|B36(?:\.[0-5])?)(?:[._-]|$)/i.test(String(active.version||''))){localStorage.removeItem(AURUM_UPDATE_SLOT_KEY);localStorage.removeItem(AURUM_UPDATE_PENDING_KEY);localStorage.removeItem(AURUM_UPDATE_LAST_ERROR_KEY);return true;}
-  try{await executeUpdatePackage(active);localStorage.removeItem(AURUM_UPDATE_LAST_ERROR_KEY);rememberVerifiedUpdate(active,'ACTIVE');return true}
-  catch(e){
-    const history=updateHistory(),fallback=history.find(x=>String(x?.sha256||'').toLowerCase()!==String(active?.sha256||'').toLowerCase()&&x?.status!=='REJECTED');
-    writeLocal(AURUM_UPDATE_LAST_ERROR_KEY,{at:nowISO(),version:active?.version||null,message:e?.message||String(e),fallback:fallback?.version||'EMBEDDED_CORE'});
-    rememberVerifiedUpdate(active,'REJECTED',e?.message||String(e));
-    if(fallback){try{await verifyUpdatePackage(fallback);writeLocal(AURUM_UPDATE_SLOT_KEY,{...fallback,activatedAt:nowISO()});console.error('Aurum update rejected; previous verified package restored',e);return false}catch{}}
-    localStorage.removeItem(AURUM_UPDATE_SLOT_KEY);console.error('Aurum update rejected; embedded core restored',e);return false;
-  }
-}
-async function importAurumUpdateFile(file){
-  if(!file)throw new Error('Güncelleme dosyası seçilmedi');
-  const raw=await file.text();let pkg;try{pkg=JSON.parse(raw)}catch{throw new Error('Güncelleme dosyası geçerli JSON kapsayıcı değil')}
-  await verifyUpdatePackage(pkg);
-  if(!confirm(`${pkg.title||pkg.version||'Güncelleme'} doğrulandı. Güncelleme etkinleştirilsin mi?\n\nBaşarılı etkinleştirme sonrasında otomatik geri yükleme noktası oluşturulacaktır.`))return false;
-  pkg={...pkg,importedAt:nowISO()};
-  writeLocal(AURUM_UPDATE_PENDING_KEY,pkg);const verify=readLocal(AURUM_UPDATE_PENDING_KEY,null);await verifyUpdatePackage(verify);
-  const current=activeUpdateSlot();if(current)rememberVerifiedUpdate(current,'VERIFIED');
-  rememberVerifiedUpdate(verify,'VERIFIED');
-  writeLocal(AURUM_UPDATE_SLOT_KEY,{...verify,activatedAt:nowISO()});localStorage.removeItem(AURUM_UPDATE_PENDING_KEY);localStorage.removeItem(AURUM_UPDATE_LAST_ERROR_KEY);
-  if(typeof createRestorePoint==='function')await createRestorePoint(`GÜNCELLEME SONRASI · ${pkg.version||'paket'}`,{skipConfirm:true});
-  showAurumNotice(`Güncelleme doğrulandı ve etkinleştirildi: ${pkg.title||pkg.version}`,'success',1800);setTimeout(()=>location.reload(),240);return true;
-}
-async function rollbackAurumUpdate(sha256){
-  if(!confirm('Bu güncelleme geri alınsın mı? Güncelleme geçmişinden kaldırılacak; kullanıcı verileri silinmeyecektir.'))return false;
-  const key=String(sha256||'').toLowerCase(),history=updateHistory(),target=history.find(x=>String(x?.sha256||'').toLowerCase()===key);if(!target)throw new Error('Geri alınacak güncelleme bulunamadı');
-  const active=activeUpdateSlot(),isActive=!!(active&&String(active?.sha256||'').toLowerCase()===key);
-  const remaining=history.filter(x=>String(x?.sha256||'').toLowerCase()!==key&&x?.status!=='REJECTED');
-  writeUpdateHistory(remaining);
-  if(isActive){
-    const fallback=remaining[0]||null;
-    if(fallback){await verifyUpdatePackage(fallback);writeLocal(AURUM_UPDATE_SLOT_KEY,{...fallback,activatedAt:nowISO()});}
-    else localStorage.removeItem(AURUM_UPDATE_SLOT_KEY);
-  }
-  localStorage.removeItem(AURUM_UPDATE_LAST_ERROR_KEY);
-  showAurumNotice(`Güncelleme geri alındı ve geçmişten kaldırıldı: ${target.title||target.version||''}`,'success',1800);
-  setTimeout(()=>location.reload(),220);return true;
-}
-function rollbackEmbeddedCore(){if(!confirm('Gömülü uygulama çekirdeğine dönülsün mü? Güncelleme paketi devre dışı kalacak; kullanıcı verileri korunacaktır.'))return false;const current=activeUpdateSlot();if(current)rememberVerifiedUpdate(current,'VERIFIED');localStorage.removeItem(AURUM_UPDATE_SLOT_KEY);localStorage.removeItem(AURUM_UPDATE_LAST_ERROR_KEY);setTimeout(()=>location.reload(),180);return true}
+cleanupDisabledRuntimeUpdateResidue();
+async function applyStoredAurumUpdates(){cleanupDisabledRuntimeUpdateResidue();return true}
 function aurumUpdateModule(){
-  const active=activeUpdateSlot(),lastError=readLocal(AURUM_UPDATE_LAST_ERROR_KEY,null),history=updateHistory();
-  const isActive=x=>!!(active&&String(active.sha256).toLowerCase()===String(x.sha256).toLowerCase());
-  const rows=history.map(x=>`<div class="list-row"><div><strong>${html(x.title||x.version||'Güncelleme')}</strong><small>${html(x.version||'—')} · ${html(x.status||'VERIFIED')} · ${html(x.historyAt||x.importedAt||'')}</small></div><div class="actions"><span class="badge ${isActive(x)?'ok':'warn'}">${isActive(x)?'AKTİF':'SAKLI'}</span><button class="ghost-btn compact-btn" type="button" onclick="rollbackAurumUpdate('${html(String(x.sha256||''))}').catch(e=>showAurumNotice(e.message,'error',4200))">Geri Al</button></div></div>`).join('');
-  return aurumSettingsCard('Uygulama Güncelleme','aurum-update/v2 · SHA-256 · son 10 doğrulanmış paket',`<div class="list-row"><div><strong>Yerel uygulama ${html(AURUM_APP_VERSION_NAME)}</strong><small>${active?`Aktif paket ${html(active.version)}`:'Gömülü sağlam çekirdek etkin'}</small></div><span class="badge ${active?'ok':'warn'}">v${AURUM_APP_VERSION_CODE}</span></div><p class="muted">Güncelleme dosyası şema, appVersionCode uyumluluğu, JavaScript sözdizimi ve SHA-256 bakımından doğrulanır; kullanıcı onayından sonra etkinleştirilir. Başarılı etkinleştirme sonrasında otomatik geri yükleme noktası oluşturulur. Başlatma hatasında yeni aktivasyon bırakılmaz ve mümkünse önceki doğrulanmış paket korunur. IndexedDB kullanıcı verileri silinmez.</p><div class="actions"><button class="gold-btn" type="button" onclick="document.querySelector('#updatePackageInput').click()">Güncelleme Dosyası Seç</button>${active?`<button class="ghost-btn" type="button" onclick="rollbackEmbeddedCore()">Gömülü Çekirdeğe Dön</button>`:''}</div>${lastError?`<div class="card notice"><b>Son aktivasyon reddedildi</b><small>${html(lastError.version||'')} · ${html(lastError.message||'')} · fallback: ${html(lastError.fallback||'')}</small></div>`:''}<details class="aurum-inner-details" ${history.length?'':'open'}><summary>Son doğrulanmış güncellemeler (${history.length}/${AURUM_UPDATE_MAX_HISTORY})</summary>${rows||'<p class="muted">Henüz doğrulanmış güncelleme paketi yok.</p>'}</details>`,'aurumUpdateModule')
+  return aurumSettingsCard('Uygulama Güncelleme','Yalnız imzalı APK/AAB dağıtımı',`<div class="list-row"><div><strong>Yerel uygulama ${html(AURUM_APP_VERSION_NAME)}</strong><small>Çalıştırılabilir JavaScript güncelleme paketleri güvenlik nedeniyle devre dışıdır.</small></div><span class="badge ok">v${AURUM_APP_VERSION_CODE}</span></div><p class="muted">Uygulama kodu yalnız imzalı Android APK/AAB sürümüyle güncellenir. Eski yerel runtime paketleri otomatik temizlenir; kullanıcı verileri ve geri yükleme noktaları korunur.</p>`,'aurumUpdateModule')
 }
 
 function dataQualitySettingsModule(){return aurumSettingsCard('Tablo Oluşum Politikası','Sabit doluluk kademeleri',`<div class="aurum-source-policy"><b>Tek tablo politikası:</b> %95 → %90 → %80 → %70.<br><small>%70 ve üzeri: Kn, K_Tarihsel ve S yeni geçerli veriden hesaplanabilir. %70 altı: mevcut son geçerli türev tablolar ve zaman damgaları aynen korunur. Satır, sütun, eksik hücre, eksik sütun, kaynak güveni veya asgari hisse sayısı bağımsız tablo eşiği değildir.</small></div>`)}
@@ -1124,7 +1077,7 @@ async function restoreRestorePoint(id){
   const manifest=(await dbGet('meta',`restorePoint:${id}:manifest`))?.value;if(!manifest)throw new Error('Geri yükleme noktası bulunamadı');
   if(!confirm(`${new Date(manifest.createdAt).toLocaleString('tr-TR')} geri yükleme noktasına dönülsün mü? Mevcut durumun üzerine yazılacaktır.`))return false;
   await createRestorePoint('GERİ_YÜKLEME_ÖNCESİ_OTOMATİK',{skipConfirm:true});
-  for(const name of R44_RESTORE_STORES){const snap=(await dbGet('meta',`restorePoint:${id}:${name}`))?.value;if(!Array.isArray(snap))continue;await dbClear(name);if(snap.length)await bulkPut(name,snap);await r44Yield();}
+  for(const name of R44_RESTORE_STORES){const snap=(await dbGet('meta',`restorePoint:${id}:${name}`))?.value;if(!Array.isArray(snap))continue;if(name==='meta'){const archive=(await dbAll('meta')).filter(x=>String(x?.key||'').startsWith('restorePoint:'));await dbClear(name);if(snap.length)await bulkPut(name,snap);if(archive.length)await bulkPut(name,archive);}else{await dbClear(name);if(snap.length)await bulkPut(name,snap);}await r44Yield();}
   showAurumNotice('Geri yükleme tamamlandı; uygulama yeniden açılıyor','success',2500);setTimeout(()=>location.reload(),350);return true;
 }
 async function clearFromSettings(scope){
@@ -1137,7 +1090,7 @@ async function clearFromSettings(scope){
 async function resetApplicationR44(){
   if(!confirm('Uygulama yüklenebilir verilerden tamamen arındırılsın mı? Ayarlar dahil silinecektir. İşlem öncesinde geri yükleme noktası oluşturulur.'))return false;
   await createRestorePoint('UYGULAMA_SIFIRLAMA_ÖNCESİ',{skipConfirm:true});
-  for(const s of ['settings','records','runs','logs','meta','bars','actions','criteria','backtests','snapshots','behaviorProfiles','genomeHistory','aiAudits','aiCandidates','aiEvents','universeHistory','jobs','stagingRecords','dataIssues','sourceHealth'])await dbClear(s);
+  const restoreArchive=(await dbAll('meta')).filter(x=>String(x?.key||'').startsWith('restorePoint:'));for(const s of ['settings','records','runs','logs','meta','bars','actions','criteria','backtests','snapshots','behaviorProfiles','genomeHistory','aiAudits','aiCandidates','aiEvents','universeHistory','jobs','stagingRecords','dataIssues','sourceHealth'])await dbClear(s);if(restoreArchive.length)await bulkPut('meta',restoreArchive);
   localStorage.removeItem(RUNTIME_META_KEY);showAurumNotice('Uygulama sıfırlandı','success',2200);setTimeout(()=>location.reload(),420);return true;
 }
 function restorePointsModule(){const rows=r44RestoreIndex();return aurumSettingsCard('Geri Yükleme Noktaları',`Son ${R44_RESTORE_MAX} veri/model durumu`,`<div class="actions"><button class="gold-btn" type="button" onclick="createRestorePoint('MANUEL').then(ok=>{if(ok)renderCurrentPagePreservingView()}).catch(e=>showAurumNotice(e.message,'error',4200))">Şimdi Nokta Oluştur</button></div><div class="card list" style="margin-top:8px">${rows.map((x,i)=>`<div class="list-row"><div><strong>${i+1}. ${html(new Date(x.createdAt).toLocaleString('tr-TR'))}</strong><small>${html(x.reason||'MANUEL')} · ${html(x.version||'')}</small></div><button class="ghost-btn compact-btn" type="button" onclick="restoreRestorePoint('${html(x.id)}').catch(e=>showAurumNotice(e.message,'error',4200))">Geri Yükle</button></div>`).join('')||'<p class="muted">Henüz geri yükleme noktası yok.</p>'}</div><small class="muted">Her uygulama güncellemesi etkinleştirilmeden önce otomatik nokta oluşturulur. En yeni toplam 10 nokta tutulur; manuel noktalar ve başarılı güncelleme sonrası otomatik noktalar aynı güvenli listede saklanır.</small>`,'r44RestorePoints')}
@@ -1145,15 +1098,15 @@ function dataManagementModule(){return aurumSettingsCard('Veri Yönetimi ve Sıf
 async function r44RepairReport(){
   const report={at:nowISO(),online:isOnline(),records:state.records.length,staged:(await dbAll('stagingRecords')).length,jobs:(await dbAll('jobs')).filter(x=>!['COMPLETED','FAILED'].includes(String(x.status))).map(x=>({id:x.id,status:x.status,stage:x.currentStage,error:x.error||null})),integrity:dataIntegrityGate(dataSummary(state.records)),schedulerTimes:schedulerConfiguredTimes(),aiConfigured:!!(state.settings.aiEnabled&&globalThis.AurumNativeAI?.configured?.())};await dbPut('meta',{key:'r44LastRepairReport',value:report,updatedAt:report.at});return report;
 }
-async function r73FastTransferRepair(){state.settings.adaptiveConcurrency=true;state.settings.providerHealthAdaptive=true;state.settings.richParallelAllProviders=true;state.settings.fastFailoverEnabled=true;state.settings.concurrency=32;state.settings.maxGlobalConcurrency=32;state.settings.providerWaveSize=10;state.settings.interRequestDelayMs=0;state.settings.sourceRetryCount=Math.max(1,Number(state.settings.sourceRetryCount||0));state.settings.stageBatchSize=256;state.settings.stageFlushMs=4;await saveSettings();for(const id of [...STAGE_BATCHES.keys()])try{await flushStageBatch(id)}catch{};return true;}
-async function r73StagingRepair(){const r=await recoverOrphanStagingRecords();return {recovered:r.recovered,retained:r.retained,removed:0};}
+async function r73FastTransferRepair(){/* Repair must restore safe runtime behavior, never silently rewrite the user's transfer policy. */for(const id of [...STAGE_BATCHES.keys()])try{await flushStageBatch(id)}catch{};return {ok:true,policyChanged:false,flushed:true};}
+async function r73StagingRepair(){const r=await recoverOrphanStagingRecords();return {recovered:0,retained:0,removed:r.discarded||0,discarded:r.discarded||0};}
 async function runRepairCenter(mode='DIAGNOSE'){
   try{const report=await r44RepairReport();if(mode==='DIAGNOSE'){const a=await r73ExtendedAudit();showAurumNotice(`Tanı: ${a.summary.issues} bulgu · ${report.staged} staging · ${report.jobs.length} bekleyen iş`,'info',3800);return a}
-    if(mode==='AUTO_FIX'){await r73FastTransferRepair();const st=await r73StagingRepair();try{await repairLegacyCorruptRecordsLocal()}catch{};const sch=await startScheduler();const a=await r73ExtendedAudit();showAurumNotice(`Onarım tamamlandı · staging ${st.recovered||0} kurtarıldı · zamanlayıcı ${sch?'OK':'kontrol gerekli'} · ${a.summary.issues} bulgu kaldı`,a.ok?'success':'info',4800);return a}
-    if(mode==='CONTROL'){for(const c of [...state.activeControllers])try{if(cancelState()?.requested)c.abort()}catch{};await r73FastTransferRepair();showAurumNotice('Buton/iptal ve hızlı aktarım motoru yeniden uygulandı','success',2400);return true}
-    if(mode==='TRANSFER'){await r73FastTransferRepair();showAurumNotice('Hızlı aktarım profili uygulandı · 28 adaptif işçi · 12 provider dalgası','success',2600);return true}
-    if(mode==='BACKGROUND'){await r73FastTransferRepair();showAurumNotice('Arka plan staging kuyruğu ve hızlı aktarım profili yeniden uygulandı','success',2600);return true}
-    if(mode==='STAGING'){const x=await r73StagingRepair();showAurumNotice(`${x.recovered||0} staging kaydı ana depoya kurtarıldı · ${x.retained||0} doğrulanamayan kayıt korundu`,'success',3000);return x}
+    if(mode==='AUTO_FIX'){await r73FastTransferRepair();const st=await r73StagingRepair();try{await repairLegacyCorruptRecordsLocal()}catch{};const sch=await startScheduler();const a=await r73ExtendedAudit();showAurumNotice(`Onarım tamamlandı · staging ${st.discarded||st.removed||0} yetim kayıt temizlendi; aktif Veriler korunarak zamanlayıcı ${sch?'OK':'kontrol gerekli'} · ${a.summary.issues} bulgu kaldı`,a.ok?'success':'info',4800);return a}
+    if(mode==='CONTROL'){for(const c of [...state.activeControllers])try{if(cancelState()?.requested)c.abort()}catch{};await r73FastTransferRepair();showAurumNotice('Buton/iptal motoru denetlendi; aktarım tercihleri değiştirilmedi','success',2400);return true}
+    if(mode==='TRANSFER'){await r73FastTransferRepair();showAurumNotice('Aktarım kuyruğu temizlendi; mevcut güvenli aktarım tercihleri korundu','success',2600);return true}
+    if(mode==='BACKGROUND'){await r73FastTransferRepair();showAurumNotice('Arka plan staging kuyruğu temizlendi; aktarım tercihleri korundu','success',2600);return true}
+    if(mode==='STAGING'){const x=await r73StagingRepair();showAurumNotice(`${x.discarded||x.removed||0} yetim staging kaydı güvenle temizlendi · aktif Veriler tablosu değiştirilmedi`,'success',3000);return x}
     if(mode==='SCHEDULER'){const ok=await startScheduler();const d=await r73SchedulerDiagnostic();showAurumNotice(ok&&d.ok?'Zamanlayıcı yeniden kuruldu ve geçmiş zinciri sağlıklı':d.detail,ok&&d.ok?'success':'error',4200);return {ok,d}}
     if(mode==='ONLINE'){if(!isOnline())throw new Error('Ağ bağlantısı yok');return runManualData('REPAIR')}
     if(mode==='RESUME')return resumePendingJobs();
@@ -1290,18 +1243,37 @@ function captureView(){const t=document.querySelector('.table-wrap'),c=document.
 function restoreView(v){requestAnimationFrame(()=>{try{window.scrollTo(0,v.windowY||0);const t=document.querySelector('.table-wrap'),c=document.getElementById('content');if(t){t.scrollLeft=v.tableX||0;t.scrollTop=v.tableY||0}if(c)c.scrollTop=v.contentScroll||0}catch{}})}
 function renderCurrentPagePreservingView(){const v=captureView();render();restoreView(v)}
 function globalOperationLabel(){const rt=currentRuntime(),stage=String(rt.stage||''),status=String(rt.status||'IDLE');if(!operationBusyStatus(status))return 'Durum';const map={DATA:'Veriler aktarılıyor',KN:'Kn hesaplanıyor',HISTORY:'K_Tarihsel güncelleniyor',S:'S güncelleniyor',AI:'Öğrenme çalışıyor'};const k=Object.keys(map).find(x=>stage.toUpperCase().includes(x));return map[k]||html(rt.message||'İşlem sürüyor');}
-function render(){const titles={overview:'Genel Bakış',market:'Piyasa Özeti',selection:'S · Nihai Seçim',data:'Veriler',criteria:'Kn Tabloları',history:'K_Tarihsel',learning:'Performans ve Öğrenme',ai:'Yapay Zekâ Merkezi',settings:'Ayarlar'},pages={overview,market:globalThis.marketPage||overview,selection:selectionPage,data:dataPage,criteria:criteriaPage,history:historyPage,learning:learningPage,ai:aiPage,settings:settingsPage};const content=$('#content');if(!content)return;const page=state.page||'overview';content.className=`page-${page}`;$('#pageTitle').textContent=titles[page]||'Aurum BIST Analiz';content.innerHTML=(pages[page]||overview)();$$('.bottom-nav button').forEach(x=>x.classList.toggle('active',x.dataset.page===page));const btn=$('#refreshBtn');if(btn){btn.textContent=globalOperationLabel();btn.hidden=false;btn.setAttribute('aria-live','polite');}updateLiveStatus();const decorate=()=>{if((state.page||'overview')!==page)return;try{decorateTableTimePanels()}catch{};try{updateLiveStatus()}catch{}};if(typeof requestIdleCallback==='function')requestIdleCallback(decorate,{timeout:220});else requestAnimationFrame(()=>setTimeout(decorate,0));if(page==='settings')queueMicrotask(()=>{setupSettingsAccordion();content.querySelectorAll('input,select,textarea').forEach(el=>el.addEventListener('input',()=>{state.settingsDirty=true},{once:true}));});}
+function render(){const titles={overview:'Genel Bakış',market:'Piyasa Özeti',selection:'S · Nihai Seçim',data:'Veriler',criteria:'Kn Tabloları',history:'K_Tarihsel',learning:'Performans ve Öğrenme',ai:'Yapay Zekâ Merkezi',settings:'Ayarlar'},pages={overview,market:globalThis.marketPage||overview,selection:selectionPage,data:dataPage,criteria:criteriaPage,history:historyPage,learning:learningPage,ai:aiPage,settings:settingsPage};const content=$('#content');if(!content)return;const page=state.page||'overview';content.className=`page-${page}`;$('#pageTitle').textContent=titles[page]||'Aurum BIST Analiz';let pageMarkup='';try{pageMarkup=String((pages[page]||overview)()||'');if(!pageMarkup.trim())throw new Error('EMPTY_PAGE_MARKUP');}catch(renderError){console.error('Aurum page render failed',page,renderError);const msg=html(renderError?.message||String(renderError));pageMarkup=page==='overview'?`${quickAccess()}<div class="card notice" data-aurum-overview-fallback><h2>Genel Bakış</h2><p class="muted">Özet bileşenlerinden biri hazırlanamadı; uygulama ve kayıtlı veriler korunuyor.</p><small>${msg}</small></div>`:`<div class="card notice"><h2>${html(titles[page]||'Aurum BIST Analiz')}</h2><p class="muted">Ekran hazırlanamadı. Kayıtlı veriler korunuyor.</p><small>${msg}</small></div>`;}content.innerHTML=pageMarkup;$('.bottom-nav button').forEach(x=>x.classList.toggle('active',x.dataset.page===page));const btn=$('#refreshBtn');if(btn){btn.textContent=globalOperationLabel();btn.hidden=false;btn.setAttribute('aria-live','polite');}updateLiveStatus();const decorate=()=>{if((state.page||'overview')!==page)return;try{decorateTableTimePanels()}catch{};try{updateLiveStatus()}catch{}};if(typeof requestIdleCallback==='function')requestIdleCallback(decorate,{timeout:220});else requestAnimationFrame(()=>setTimeout(decorate,0));if(page==='settings')queueMicrotask(()=>{setupSettingsAccordion();content.querySelectorAll('input,select,textarea').forEach(el=>el.addEventListener('input',()=>{state.settingsDirty=true},{once:true}));});}
 function goPage(page){if(state.page==='settings'&&page!=='settings'&&state.settingsDirty){if(!confirm('Kaydedilmemiş ayar değişiklikleri var. Kaydetmeden çıkarsanız uygulanmayacak. Çıkılsın mı?'))return false;delete state.__schedulerDraft;state.settingsDirty=false;}state.page=page;if(page==='criteria'){state.strictActiveKn='K1';writeLocal(KN_V117_ACTIVE_KEY,'K1')}render();return true;}
 function filterRecords(q){V141225_FILTER_QUERY=String(q||'');V141225_PAGE_INDEX=0;const rows=currentV141225Rows();const box=$('#recordsContent');if(box)box.innerHTML=v141225Table(rows);const count=$('#recordCount');if(count)count.textContent=`${rows.length} hisse`;}
 
 async function bootstrapClean(){
   const nextPaint=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
   const content=document.querySelector('#content'),header=document.getElementById('refreshBtn');
+  const nav=document.querySelector('.bottom-nav');
+  /* UI navigation must be available before IndexedDB/state bootstrap. A damaged, slow or
+     blocked data store must never leave the visible shell with dead tabs. */
+  if(nav&&!nav.dataset.aurumEarlyNavBound){
+    nav.dataset.aurumEarlyNavBound='1';
+    nav.addEventListener('click',e=>{
+      const b=e.target.closest('button[data-page]');if(!b)return;
+      try{goPage(b.dataset.page)}catch(err){
+        console.error('Aurum early navigation recovery',err);
+        try{state.page=b.dataset.page;render()}catch{}
+      }
+    });
+  }
   try{
-    /* R26 shell is painted as the actual Overview before any data engine starts. */
+    /* Paint a usable Overview before any data engine/state access. */
     if(!state.settings)state.settings=defaultSettings();
     state.page='overview';
-    render();
+    try{render()}catch(err){
+      console.error('Aurum initial overview render recovery',err);
+      if(content&&!content.innerHTML.trim()){
+        content.className='page-overview';
+        content.innerHTML='<div class="card"><h2>Genel Bakış</h2><p class="muted">Arayüz hazır. Kayıtlı veriler yükleniyor…</p></div>';
+      }
+    }
     if(header){header.textContent='Sistem hazır';}
     await nextPaint();
 
@@ -1326,8 +1298,7 @@ async function bootstrapClean(){
     setRuntime({status:JOB_STATUS.IDLE,message:'Hazır',done:0,total:0});
     render();
 
-    const nav=document.querySelector('.bottom-nav');
-    nav?.addEventListener('click',e=>{const b=e.target.closest('button[data-page]');if(b)goPage(b.dataset.page)});
+    /* Navigation was bound before state bootstrap; do not install a duplicate handler here. */
     const file=document.getElementById('fileInput');
     file?.addEventListener('change',async e=>{const f=e.target.files?.[0];if(f){setRuntime({status:JOB_STATUS.FETCHING_DATA,jobId:makeId('IMPORT'),mode:'MANUAL',stage:'İçe Aktarma',done:0,total:1,message:f.name});try{const ok=await importData(f,f.name);if(!ok)throw new Error('Dosya içe aktarılamadı');await refreshTableMeta();setRuntime({status:JOB_STATUS.DATA_COMPLETED,stage:'İçe Aktarma',done:1,total:1,message:'İçe aktarma tamamlandı'});}catch(err){setRuntime({status:JOB_STATUS.FAILED,stage:'İçe Aktarma',done:0,total:1,message:err?.message||String(err)});throw err;}finally{renderCurrentPagePreservingView();}}e.target.value=''});
     const updateInput=document.getElementById('updatePackageInput');
@@ -1351,8 +1322,9 @@ globalThis.recalculateSelectionTable=runManualS;
 globalThis.recalculateAllTables=()=>{showAurumNotice('Manuel modda tablolar ayrı ayrı ve sırayla çalıştırılır.','info',3200);return false};
 globalThis.AurumRuntime=Object.freeze({version:AURUM_RUNTIME_VERSION,status:currentRuntime,summary:dataSummary,manualSequence,manualData:runManualData,manualKn:runManualKn,manualHistorical:runManualHistorical,manualS:runManualS,resume:resumePendingJobs,scheduled:scheduledEntry,providerOrder,togglePause,command:operationCommand,tableTimePanel,operationStrip,jobStatus:JOB_STATUS});
 
-bootstrapClean();
-
+try{
+  if(typeof globalThis.overview==='function' && globalThis.overview!==overview)overview=globalThis.overview;
+}catch(e){}
 
 /* Embedded R47 compatibility layer */
 /* AurumB R46 compatibility update for R45/R44-compatible appVersionCode 120.
@@ -1889,6 +1861,8 @@ try{globalThis.AurumUpdateAPI.state.r51DataTransfer={version:'R51.0-DATA-CORRECT
 try{globalThis.AurumUpdateAPI.state.r52DataFetch={version:'R52.0-ACTUAL-FETCH',activatedAt:new Date().toISOString(),features:['HISTORY_FRESH_WITHOUT_LIVE_GATE','TARGETED_PROVIDER_WAVES','CANONICAL_TIME_BEST_EFFORT','SOURCE_RETRY_1','PROVIDER_HEALTH_THROUGHPUT']};}catch{}
 
 
+function aurumUpdateApi(pkg){return Object.freeze({appVersionCode:AURUM_APP_VERSION_CODE,appVersionName:AURUM_APP_VERSION_NAME,packageMeta:{version:String(pkg?.version||''),title:String(pkg?.title||'Aurum embedded runtime')},state,dbGet,dbPut,bulkPut,nowISO})}
+
 /* R63 embedded runtime bridge.
    Embedded compatibility/revision layers use the same API contract as .aurum packages.
    Earlier clean APKs omitted this global bridge, so those layers were present in the file
@@ -2128,12 +2102,8 @@ if(!globalThis.AurumUpdateAPI){
 
   /* Import path: do not rewrite a compatibility record when its stable payload is identical. */
   const basePersistRecord=globalThis.r21PersistRecord;
-  globalThis.r21PersistRecord=async function r55PersistRecord(rec){
-    const prev=S.recordMap?.get?.(rec?.sym)||null,fp=String(rec?.recordFingerprint||'')||((typeof dataRecordFingerprint==='function')?dataRecordFingerprint(rec):r55Hash(rec));
-    rec.recordFingerprint=fp;
-    const pfp=prev?(String(prev.recordFingerprint||'')||((typeof dataRecordFingerprint==='function')?dataRecordFingerprint(prev):r55Hash(prev))):null;
-    if(!prev||pfp!==fp)await AurumUpdateAPI.dbPut('records',{key:rec.sym,value:rec,updatedAt:AurumUpdateAPI.nowISO()});
-    await r55QueueCanonical(rec,{force:!prev});dataGeneration++;r55InvalidateCaches();return rec;
+  globalThis.r21PersistRecord=async function r55PersistRecord(){
+    throw Object.assign(new Error('DIRECT_RECORD_WRITE_DISABLED_USE_GATED_ATOMIC_PUBLISH'),{code:'DIRECT_RECORD_WRITE_DISABLED'});
   };
 
   /* Atomic Veriler publication: replace the old clear+rewrite-all transaction with a
@@ -2151,7 +2121,7 @@ if(!globalThis.AurumUpdateAPI){
       const transferredAt=AurumUpdateAPI.nowISO(),verifiedTimes=records.map(r=>externalMarketTime(r)).filter(Number.isFinite),marketAt=canonical!=null?new Date(canonical).toISOString():(verifiedTimes.length?new Date(Math.max(...verifiedTimes)).toISOString():(previous.marketAt||null));
       const changed=[],unchanged=[];for(let i=0;i<records.length;i++){const rec=records[i],prev=previousRecords.get(rec.sym),rf=dataRecordFingerprint(rec),prevRf=prev?.recordFingerprint||(prev?dataRecordFingerprint(prev):null);rec.recordFingerprint=rf;rec.tableTransferredAt=transferredAt;rec.recordChangedAt=prev&&prevRf===rf?(prev.recordChangedAt||prev.tableTransferredAt||previous.changedAt||transferredAt):transferredAt;rec.datasetMarketAt=rec?.jobDataStatus==='FRESH'?(marketAt||rec.marketDataAt||prev?.datasetMarketAt||null):(prev?.datasetMarketAt||previous.marketAt||rec.datasetMarketAt||null);rec.provenance={...(rec.provenance||{}),marketAt:rec.marketDataAt||null,marketTimeVerified:rec.marketTimeVerified===true,marketTimeProvider:rec.marketTimeProvider||null,datasetMarketAt:rec.datasetMarketAt,tableTransferredAt:transferredAt,recordChangedAt:rec.recordChangedAt,marketWindowDeltaMinutes:rec.marketWindowDeltaMinutes};if(!prev||prevRf!==rf)changed.push(rec);else unchanged.push(rec.sym)}
       const fingerprint=dataTableFingerprint(records),changedAt=previous.fingerprint===fingerprint&&previous.changedAt?previous.changedAt:transferredAt,universeSet=new Set(universe),removed=[...previousRecords.keys()].filter(sym=>!universeSet.has(sym));
-      await new Promise((resolve,reject)=>{const tx=S.db.transaction(['records','meta'],'readwrite'),rs=tx.objectStore('records'),ms=tx.objectStore('meta');for(const value of changed)rs.put({key:value.sym,value,updatedAt:transferredAt});for(const sym of removed)rs.delete(sym);ms.put({key:'activeDataSnapshot',value:{snapshotId:job.dataSnapshotId,jobId:job.id,mode:job.mode,completedAt:transferredAt,transferredAt,changedAt,marketAt,fingerprint,marketTimeBasis:canonical!=null?'SOURCE_REPORTED_VERIFIED_90M_WINDOW_WITH_SAME_TRADING_DAY_PRESERVATION':'SOURCE_REPORTED_HISTORY_FRESH_MARKET_TIME_UNAVAILABLE',marketTimeProvider:job?.canonicalMarketProvider||null,universeCount:universe.length,publishedCount:records.length,excludedSymbols:exclusions,incompleteColumns:eligibility.incompleteColumns,incremental:true,changedSymbols:changed.map(x=>x.sym),unchangedSymbols:unchanged.length,removedSymbols:removed},updatedAt:transferredAt});tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error)});
+      await new Promise((resolve,reject)=>{const tx=S.db.transaction(['records','meta'],'readwrite'),rs=tx.objectStore('records'),ms=tx.objectStore('meta');for(const value of changed)rs.put({key:value.sym,value,updatedAt:transferredAt});for(const sym of removed)rs.delete(sym);ms.put({key:'activeDataSnapshot',value:{snapshotId:job.dataSnapshotId,jobId:job.id,mode:job.mode,completedAt:transferredAt,transferredAt,changedAt,marketAt,fingerprint,marketTimeBasis:canonical!=null?'SOURCE_REPORTED_VERIFIED_90M_WINDOW_WITH_SAME_TRADING_DAY_PRESERVATION':'SOURCE_REPORTED_HISTORY_FRESH_MARKET_TIME_UNAVAILABLE',marketTimeProvider:job?.canonicalMarketProvider||null,universeCount:universe.length,publishedCount:records.length,excludedSymbols:exclusions,incompleteColumns:eligibility.incompleteColumns,incremental:true,changedSymbols:changed.map(x=>x.sym),unchangedSymbols:unchanged.length,removedSymbols:removed},updatedAt:transferredAt});ms.put({key:'lastSuccessfulSync',value:transferredAt,updatedAt:transferredAt});tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error)});
       S.records=records;S.recordMap=new Map(records.map(x=>[x.sym,x]));dataGeneration++;r55InvalidateCaches();for(const rec of changed)r55QueueCanonical(rec);return records;
     };
   }
@@ -2275,9 +2245,9 @@ try{AurumUpdateAPI.state.cleanREV20={version:'REV20.0-CLEAN',activatedAt:new Dat
   function makeSlot(page){const c=content();if(!c)return null;let slot=slots.get(page);if(slot)return slot;const fn=pageFns()[page]||overview;slot=document.createElement('div');slot.className=`aurum-r61-page-slot page-${page}`;slot.style.display='none';slot.innerHTML=fn();c.appendChild(slot);slots.set(page,slot);setupSlot(slot,page);return slot}
   function adopt(){if(rootReady)return;const c=content();if(!c)return;const page=S.page||'overview',slot=document.createElement('div');slot.className=`aurum-r61-page-slot page-${page}`;slot.style.display='contents';while(c.firstChild)slot.appendChild(c.firstChild);c.appendChild(slot);slots.set(page,slot);rootReady=true;shell(page)}
   function show(page){adopt();for(const [p,s] of slots)s.style.display=p===page?'contents':'none';const slot=makeSlot(page);if(slot)slot.style.display='contents';shell(page);try{updateLiveStatus()}catch{};requestAnimationFrame(()=>{try{window.scrollTo(0,scrollY.get(page)||0)}catch{}})}
-  function invalidateAndRenderCurrent(){adopt();const c=content(),page=S.page||'overview';for(const s of slots.values())s.remove();slots.clear();const slot=document.createElement('div');slot.className=`aurum-r61-page-slot page-${page}`;slot.style.display='contents';const fn=pageFns()[page]||overview;slot.innerHTML=fn();c.appendChild(slot);slots.set(page,slot);setupSlot(slot,page);shell(page);try{updateLiveStatus()}catch{};return true}
+  function invalidateAndRenderCurrent(){const c=content(),page=S.page||'overview',fn=pageFns()[page]||overview;let markup='';try{markup=String(fn()||'')}catch(e){console.error('Aurum render failed; using startup-safe overview',e);if(page==='overview'){try{markup=String(quickAccess()||'')+`<div class="section-head"><div class="section-title"><h2>Genel Bakış</h2></div></div><div class="card gold-edge"><b>Aurum hazır</b><p class="muted">Veri ve analiz modüllerine alt menüden erişebilirsiniz.</p></div>`}catch{markup='<div class="card"><b>Aurum hazır</b></div>'}}else return false}if(!markup.trim()){if(page==='overview')markup='<div class="card"><b>Aurum hazır</b></div>';else return false}adopt();const slot=document.createElement('div');slot.className=`aurum-r61-page-slot page-${page}`;slot.style.display='contents';slot.innerHTML=markup;for(const oldSlot of slots.values())oldSlot.remove();slots.clear();c.appendChild(slot);slots.set(page,slot);setupSlot(slot,page);shell(page);try{updateLiveStatus()}catch{};return true}
   globalThis.render=render=function r61Render(){if(internal)return true;return invalidateAndRenderCurrent()};
-  globalThis.goPage=goPage=function r61Go(page){page=String(page||'overview');if(page===S.page)return true;if(S.page==='settings'&&page!=='settings'&&S.settingsDirty){if(!confirm('Kaydedilmemiş ayar değişiklikleri var. Kaydetmeden çıkarsanız uygulanmayacak. Çıkılsın mı?'))return false;delete S.__schedulerDraft;S.settingsDirty=false}scrollY.set(S.page||'overview',window.scrollY||0);S.page=page;if(page==='criteria'){S.strictActiveKn='K1';try{writeLocal(KN_V117_ACTIVE_KEY,'K1')}catch{}}internal=true;try{show(page)}finally{internal=false}return true};
+  globalThis.goPage=goPage=function r61Go(page){page=String(page||'overview');if(page===S.page)return true;if(S.page==='settings'&&page!=='settings'&&S.settingsDirty){if(!confirm('Kaydedilmemiş ayar değişiklikleri var. Kaydetmeden çıkarsanız uygulanmayacak. Çıkılsın mı?'))return false;delete S.__schedulerDraft;S.settingsDirty=false}scrollY.set(S.page||'overview',window.scrollY||0);adopt();S.page=page;if(page==='criteria'){S.strictActiveKn='K1';try{writeLocal(KN_V117_ACTIVE_KEY,'K1')}catch{}}internal=true;try{show(page)}finally{internal=false}return true};
 
   /* Allow deferred K_Tarihsel population to finish even if the user leaves the tab.
      This fixes the old partial-table cache case and keeps later returns instant. */
@@ -2294,6 +2264,8 @@ try{AurumUpdateAPI.state.cleanREV20={version:'REV20.0-CLEAN',activatedAt:new Dat
   if(globalThis.AURUM_R62_VIRTUAL_PORTFOLIO)return;
   globalThis.AURUM_R62_VIRTUAL_PORTFOLIO='R66.0';
   const S=AurumUpdateAPI.state;
+  // Startup-safe R62 defaults: normalize persisted state before the final bootstrap renders this layer.
+  if(!Array.isArray(S.selection))S.selection=[];if(!Array.isArray(S.records))S.records=[];if(!(S.behaviorProfiles instanceof Map))S.behaviorProfiles=new Map();if(!S.behaviorMemory||typeof S.behaviorMemory!=='object')S.behaviorMemory={coverage:0,totalEvents:0,latestEvidenceId:null};if(!S.performance||typeof S.performance!=='object')S.performance={weights:{},raw:{}};if(!S.settings)S.settings=defaultSettings();
   const CACHE_KEY='aurum.virtualPortfolio.r62.cache';
   const DB_NAME='aurum-virtual-portfolio-r62';
   const DB_VER=1;
@@ -2391,8 +2363,8 @@ try{AurumUpdateAPI.state.cleanREV20={version:'REV20.0-CLEAN',activatedAt:new Dat
 
   const baseOverview=overview;
   overview=function r62Overview(){
-    const s=S.selection,avg=mean(s.map(x=>x.dayChange)),med=median(s.map(x=>x.dayChange)),evaluated=latestTargetRun(),q=mean(S.records.map(x=>x.quality)),lm=learningMomentum(),profiles=[...S.behaviorProfiles.values()];
-    return `${quickAccess()}<div class="section-head"><div class="section-title"><h2 class="aurum-overview-summary-title">Sonuç ve Öğrenme Özeti</h2></div><small>Canlı sistem görünümü</small></div><div class="grid metrics aurum-overview-metrics">${metric('Aktif seçim',s.length,'S · Nihai liste')}${metric('Hedef isabet',evaluated?fmt(evaluated.metrics.precisionDual20*100,1)+'%':'—','Reel Top20 + ≥%'+S.settings.targetReturnPct)}${metric('Öğrenme puanı',fmt(lm.score,1)+'/100',lm.delta==null?'Yeni kanıt bekleniyor':`7 dönem değişim ${lm.delta>=0?'+':''}${fmt(lm.delta*100,1)} puan`,lm.delta>=0?'green':'red')}${metric('Davranış kapsaması',fmt((S.behaviorMemory.coverage||0)*100,1)+'%',`${profiles.length} hisse · 252 seans`)}${metric('DNA kapsaması',fmt((S.behaviorMemory.genomeCoverage||0)*100,1)+'%',`${GENOME_TRAIT_COUNT} özellik · K12`)}${metric('Ortalama günlük',pct(avg),'Seçili hisseler',avg>=0?'green':'red')}${metric('Medyan günlük',pct(med),'Seçili hisseler',med>=0?'green':'red')}${metric('Veri kalite',q?fmt(q,0)+'/100':'—',`${S.records.length} kayıt`)}${metric('Model',MODEL_VERSION,'Şampiyon–aday + 89 özellikli DNA')}${portfolioCard()}</div><div class="section-head"><div class="section-title"><h2>Öğrenme disiplini</h2></div></div><div class="grid two-col aurum-overview-discipline"><div class="card gold-edge"><b class="gold aurum-decision-label">${html(String(S.performance.lastDecision||'Bekleme').replaceAll('_',' ').toLowerCase().replace(/(^|\s)\S/g,m=>m.toUpperCase()))}</b><p class="muted">Aday katkı yalnız ileri dönem doğrulamasında şampiyonu geçerse etkinleşir.</p><button class="ghost-btn" onclick="goPage('learning')">Öğrenme ve Davranış Modülünü Aç</button></div><div class="card gold-edge aurum-last-update-card"><span class="muted">Son veri güncellemesi:</span><div style="font-size:1.35rem;font-weight:700;line-height:1.35;margin-top:8px">${html(formatTableTime(TABLE_META.data?.transfer))}</div><p class="muted" style="margin-top:10px">Piyasa veri zamanı: ${html(formatTableTime(TABLE_META.data?.market))}<br>Kn: ${html(formatTableTime(TABLE_META.kn?.transfer))}<br>K_Tarihsel: ${html(formatTableTime(TABLE_META.history?.transfer))}<br>S: ${html(formatTableTime(TABLE_META.s?.transfer))}</p><small class="muted">AUTOFIX2 · otomatik zamanlayıcı çekirdeği</small></div></div>${globalThis.AurumQualifiedBuySell?.card?.()||''}`;
+    if(!S.settings||!S.performance||!S.behaviorMemory)return baseOverview();const s=Array.isArray(S.selection)?S.selection:[],records=Array.isArray(S.records)?S.records:[],avg=mean(s.map(x=>x.dayChange)),med=median(s.map(x=>x.dayChange)),evaluated=latestTargetRun(),q=mean(records.map(x=>x.quality)),lm=learningMomentum(),profiles=S.behaviorProfiles?.values?[...S.behaviorProfiles.values()]:[];
+    return `${quickAccess()}<div class="section-head"><div class="section-title"><h2 class="aurum-overview-summary-title">Sonuç ve Öğrenme Özeti</h2></div><small>Canlı sistem görünümü</small></div><div class="grid metrics aurum-overview-metrics">${metric('Aktif seçim',s.length,'S · Nihai liste')}${metric('Hedef isabet',evaluated?fmt(evaluated.metrics.precisionDual20*100,1)+'%':'—','Reel Top20 + ≥%'+S.settings.targetReturnPct)}${metric('Öğrenme puanı',fmt(lm.score,1)+'/100',lm.delta==null?'Yeni kanıt bekleniyor':`7 dönem değişim ${lm.delta>=0?'+':''}${fmt(lm.delta*100,1)} puan`,lm.delta>=0?'green':'red')}${metric('Davranış kapsaması',fmt((S.behaviorMemory.coverage||0)*100,1)+'%',`${profiles.length} hisse · 252 seans`)}${metric('DNA kapsaması',fmt((S.behaviorMemory.genomeCoverage||0)*100,1)+'%',`${GENOME_TRAIT_COUNT} özellik · K12`)}${metric('Ortalama günlük',pct(avg),'Seçili hisseler',avg>=0?'green':'red')}${metric('Medyan günlük',pct(med),'Seçili hisseler',med>=0?'green':'red')}${metric('Veri kalite',q?fmt(q,0)+'/100':'—',`${records.length} kayıt`)}${metric('Model',MODEL_VERSION,'Şampiyon–aday + 89 özellikli DNA')}${portfolioCard()}</div><div class="section-head"><div class="section-title"><h2>Öğrenme disiplini</h2></div></div><div class="grid two-col aurum-overview-discipline"><div class="card gold-edge"><b class="gold aurum-decision-label">${html(String(S.performance.lastDecision||'Bekleme').replaceAll('_',' ').toLowerCase().replace(/(^|\s)\S/g,m=>m.toUpperCase()))}</b><p class="muted">Aday katkı yalnız ileri dönem doğrulamasında şampiyonu geçerse etkinleşir.</p><button class="ghost-btn" onclick="goPage('learning')">Öğrenme ve Davranış Modülünü Aç</button></div><div class="card gold-edge aurum-last-update-card"><span class="muted">Son veri güncellemesi:</span><div style="font-size:1.35rem;font-weight:700;line-height:1.35;margin-top:8px">${html(formatTableTime(TABLE_META.data?.transfer))}</div><p class="muted" style="margin-top:10px">Piyasa veri zamanı: ${html(formatTableTime(TABLE_META.data?.market))}<br>Kn: ${html(formatTableTime(TABLE_META.kn?.transfer))}<br>K_Tarihsel: ${html(formatTableTime(TABLE_META.history?.transfer))}<br>S: ${html(formatTableTime(TABLE_META.s?.transfer))}</p><small class="muted">AUTOFIX2 · otomatik zamanlayıcı çekirdeği</small></div></div>${globalThis.AurumQualifiedBuySell?.card?.()||''}`;
   };
   globalThis.overview=overview;
 
@@ -2515,18 +2487,7 @@ try{AurumUpdateAPI.state.cleanREV20={version:'REV20.0-CLEAN',activatedAt:new Dat
      concurrent writes into short foreground batches, while every stagePut promise still
      resolves only after the transaction commits. Atomic publish, integrity gates, retries,
      source fallback and orphan recovery are untouched. */
-  queueMicrotask(async()=>{try{
-    const key='aurum.r21.safe-fast.migrated.v1';if(readLocal(key,false)!==true){
-      state.settings.adaptiveConcurrency=true;state.settings.providerHealthAdaptive=true;state.settings.richParallelAllProviders=true;state.settings.fastFailoverEnabled=true;
-      state.settings.concurrency=Math.max(28,Math.min(32,Number(state.settings.concurrency||32)));state.settings.maxGlobalConcurrency=32;
-      state.settings.providerWaveSize=Math.max(8,Math.min(10,Number(state.settings.providerWaveSize||10)));
-      state.settings.sourceRetryCount=Math.max(1,Math.min(3,Number(state.settings.sourceRetryCount||1)));
-      state.settings.stageBatchSize=Math.max(192,Math.min(320,Number(state.settings.stageBatchSize||256)));
-      state.settings.stageFlushMs=Math.max(3,Math.min(8,Number(state.settings.stageFlushMs||4)));
-      await saveSettings();writeLocal(key,true);
-    }
-    try{AurumUpdateAPI.state.r21={version:'R21.0',activatedAt:nowISO(),features:['S_AL_SAT_NOTIFICATION_HISTORY','S_CHANGE_DEDUP','NATIVE_NOTIFICATION_BRIDGE_ATTEMPT','BACKGROUND_COMPLETION_S_DETAIL','SAFE_FOREGROUND_STAGE_BATCHING','ATOMIC_PUBLISH_PRESERVED','SOURCE_RETRY_PRESERVED']}}catch{}
-  }catch{}});
+  queueMicrotask(()=>{try{AurumUpdateAPI.state.r21={version:'R21.0',activatedAt:nowISO(),features:['USER_TRANSFER_POLICY_PRESERVED','S_AL_SAT_NOTIFICATION_HISTORY','S_CHANGE_DEDUP','NATIVE_NOTIFICATION_BRIDGE_ATTEMPT','BACKGROUND_COMPLETION_S_DETAIL','SAFE_FOREGROUND_STAGE_BATCHING','ATOMIC_PUBLISH_PRESERVED','SOURCE_RETRY_PRESERVED']}}catch{}});
 })();
 
 
@@ -2711,7 +2672,7 @@ try{AurumUpdateAPI.state.cleanREV20={version:'REV20.0-CLEAN',activatedAt:new Dat
       if(!fresh.length){await transition(job,JOB_STATUS.FAILED,{error:'NO_FRESH_DATA_SINGLE_PASS',message:'Tek geçişte hiçbir kaynaktan güncel veri alınamadı · önceki tablo korundu'});return false;}
       const published=await atomicPublish(job,universe),freshPublished=published.filter(x=>x?.jobDataStatus==='FRESH'),summary=dataSummary(published),repairPlan=await persistPendingRepairPlan(published,universe);
       summary.transferredFreshSymbols=freshPublished.length;summary.singlePass=true;summary.automaticRepairRounds=0;summary.temporalAudit=temporal;summary.integrityGate=dataIntegrityGate(summary);summary.pendingRepair=repairPlan;
-      job.sourceStats={...state.sourceStats};job.dataSummary=summary;job.liveTemporalAudit=temporal;job.criticalUnavailable=critical;job.pendingRepair=repairPlan;job.integrityRepairRounds=[];state.lastSuccessfulSync=nowISO();
+      job.sourceStats={...state.sourceStats};job.dataSummary=summary;job.liveTemporalAudit=temporal;job.criticalUnavailable=critical;job.pendingRepair=repairPlan;job.integrityRepairRounds=[];
       await dbPut('meta',{key:'lastSuccessfulSync',value:state.lastSuccessfulSync,updatedAt:state.lastSuccessfulSync});await dbPut('meta',{key:'lastDataSummary',value:summary,updatedAt:nowISO()});await persistLiveSnapshots(job.dataSnapshotId);await pruneSnapshots();await clearStage(job.id);await refreshTableMeta();
       await transition(job,JOB_STATUS.DATA_COMPLETED,{message:`Tek geçiş tamamlandı · ${freshPublished.length}/${universe.length} güncel · ${repairPlan.symbolCount} eksik için “Eksikleri tamamla”`,done:universe.length,total:universe.length});return true;
     }catch(e){job.error=e?.message||String(e);if(e?.code==='OPERATION_CANCELLED'||cancelRequested(job)){await transition(job,JOB_STATUS.IDLE,{error:null,message:'İşlem iptal edildi · önceki tablo korundu'});return false;}if(!isOnline()||/network|offline|failed to fetch|ERR_/i.test(job.error)){await transition(job,JOB_STATUS.WAITING_FOR_NETWORK,{error:job.error,message:'Ağ bağlantısı bekleniyor · staging korunuyor'});}else await transition(job,JOB_STATUS.FAILED,{error:job.error,message:'Tek geçiş başarısız · önceki tablo korundu'});return false;
@@ -2747,10 +2708,7 @@ try{AurumUpdateAPI.state.cleanREV20={version:'REV20.0-CLEAN',activatedAt:new Dat
 
   /* These settings describe the acquisition contract, not a speed hack: source/provider
      semaphores and staging integrity remain intact. */
-  queueMicrotask(async()=>{try{
-    state.settings.sourceRetryCount=0;state.settings.maxProvider429Retries=0;state.settings.symbolRepairRounds=1;state.settings.marketRecoveryRounds=0;state.settings.richParallelAllProviders=true;state.settings.providerWaveSize=Math.max(12,Number(state.settings.providerWaveSize||12));state.settings.strictFreshSnapshot=false;
-    await saveSettings();try{AurumUpdateAPI.state.r23={version:R23_VERSION,activatedAt:nowISO(),features:['ONE_GENERAL_PASS_ONLY','NO_AUTO_ROUND_2_3','SYMBOL_PROVIDER_ONCE_PER_PASS','FIELD_LEVEL_MULTI_SOURCE_MERGE','PARALLEL_PROVIDER_MATRIX','EXPLICIT_REPAIR_ONLY_SECOND_ATTEMPT','TARGETED_REPAIR_PROVIDER_SET','STAGING_ATOMIC_PUBLISH_PRESERVED','CALC_EXCLUDES_STALE_UNAVAILABLE','BACKGROUND_STAGE_RESUME_PRESERVED']}}catch{}
-  }catch{}});
+  queueMicrotask(()=>{try{AurumUpdateAPI.state.r23={version:R23_VERSION,activatedAt:nowISO(),features:['USER_TRANSFER_POLICY_PRESERVED','ONE_GENERAL_PASS_ONLY','NO_AUTO_ROUND_2_3','SYMBOL_PROVIDER_ONCE_PER_PASS','FIELD_LEVEL_MULTI_SOURCE_MERGE','EXPLICIT_REPAIR_ONLY_SECOND_ATTEMPT','TARGETED_REPAIR_PROVIDER_SET','STAGING_ATOMIC_PUBLISH_PRESERVED','CALC_EXCLUDES_STALE_UNAVAILABLE','BACKGROUND_STAGE_RESUME_PRESERVED']}}catch{}});
   globalThis.prepareGeneralData=prepareGeneralData;globalThis.prepareMissingData=prepareMissingData;
 })();
 
@@ -2828,7 +2786,7 @@ try{AurumUpdateAPI.state.cleanREV20={version:'REV20.0-CLEAN',activatedAt:new Dat
       }};
       await Promise.all(Array.from({length:concurrency},worker));await flushStageBatch(job.id);if(!isOnline()){await transition(job,JOB_STATUS.WAITING_FOR_NETWORK,{error:'OFFLINE_AFTER_FETCH',message:'Ağ kesildi · staging korunuyor'});return false;}
       const staged=(await stageRows(job.id)).map(x=>x.record);
-      const published=await atomicPublish(job,universe),summary=dataSummary(published),repairPlan=await persistPendingRepairPlan(published,universe);summary.transferredFreshSymbols=published.filter(x=>x?.jobDataStatus==='FRESH').length;summary.singlePass=true;summary.scheduler='R24_CAPABILITY_ROUTED';summary.automaticRepairRounds=0;summary.pendingRepair=repairPlan;summary.integrityGate=dataIntegrityGate(summary);job.dataSummary=summary;job.pendingRepair=repairPlan;job.sourceStats={...state.sourceStats};state.lastSuccessfulSync=nowISO();await dbPut('meta',{key:'lastSuccessfulSync',value:state.lastSuccessfulSync,updatedAt:state.lastSuccessfulSync});await dbPut('meta',{key:'lastDataSummary',value:summary,updatedAt:nowISO()});await persistLiveSnapshots(job.dataSnapshotId);await pruneSnapshots();await clearStage(job.id);await refreshTableMeta();await transition(job,JOB_STATUS.DATA_COMPLETED,{message:`Veri çekimi tamamlandı · ${summary.transferredFreshSymbols}/${universe.length} doğrulanmış · ${repairPlan.symbolCount} onarım bekliyor`,done:universe.length,total:universe.length,validated:summary.transferredFreshSymbols,failed:Math.max(0,universe.length-summary.transferredFreshSymbols)});return true;
+      const published=await atomicPublish(job,universe),summary=dataSummary(published),repairPlan=await persistPendingRepairPlan(published,universe);summary.transferredFreshSymbols=published.filter(x=>x?.jobDataStatus==='FRESH').length;summary.singlePass=true;summary.scheduler='R24_CAPABILITY_ROUTED';summary.automaticRepairRounds=0;summary.pendingRepair=repairPlan;summary.integrityGate=dataIntegrityGate(summary);job.dataSummary=summary;job.pendingRepair=repairPlan;job.sourceStats={...state.sourceStats};await dbPut('meta',{key:'lastSuccessfulSync',value:state.lastSuccessfulSync,updatedAt:state.lastSuccessfulSync});await dbPut('meta',{key:'lastDataSummary',value:summary,updatedAt:nowISO()});await persistLiveSnapshots(job.dataSnapshotId);await pruneSnapshots();await clearStage(job.id);await refreshTableMeta();await transition(job,JOB_STATUS.DATA_COMPLETED,{message:`Veri çekimi tamamlandı · ${summary.transferredFreshSymbols}/${universe.length} doğrulanmış · ${repairPlan.symbolCount} onarım bekliyor`,done:universe.length,total:universe.length,validated:summary.transferredFreshSymbols,failed:Math.max(0,universe.length-summary.transferredFreshSymbols)});return true;
     }catch(e){job.error=e?.message||String(e);if(!isOnline()||/network|offline|failed to fetch|ERR_/i.test(job.error))await transition(job,JOB_STATUS.WAITING_FOR_NETWORK,{error:job.error,message:'Ağ bağlantısı bekleniyor · staging korunuyor'});else await transition(job,JOB_STATUS.FAILED,{error:job.error,message:'Hızlı veri çekimi başarısız · önceki tablo korundu'});return false;}
     finally{try{await flushStageBatch(job.id)}catch{}state.settings.sourceRetryCount=restore.retry;state.settings.maxProvider429Retries=restore.r429;state.settings.requestTimeoutMs=restore.timeout;state.settings.providerConcurrency=restore.pc;state.syncing=false;clearCancel(job.id);renderCurrentPagePreservingView();}
   };
@@ -2841,7 +2799,7 @@ try{AurumUpdateAPI.state.cleanREV20={version:'REV20.0-CLEAN',activatedAt:new Dat
     }catch(e){job.error=e?.message||String(e);if(!isOnline()||/network|offline|failed to fetch|ERR_/i.test(job.error))await transition(job,JOB_STATUS.WAITING_FOR_NETWORK,{error:job.error,message:'Ağ bağlantısı bekleniyor · staging korunuyor'});else await transition(job,JOB_STATUS.FAILED,{error:job.error,message:'Eksik tamamlama başarısız · mevcut tablo korundu'});return false;}finally{try{await flushStageBatch(job.id)}catch{}state.settings.sourceRetryCount=restore.retry;state.settings.maxProvider429Retries=restore.r429;state.settings.requestTimeoutMs=restore.timeout;state.settings.providerConcurrency=restore.pc;state.syncing=false;clearCancel(job.id);renderCurrentPagePreservingView();}
   };
   globalThis.prepareGeneralData=prepareGeneralData;globalThis.prepareMissingData=prepareMissingData;
-  queueMicrotask(async()=>{try{state.settings.sourceRetryCount=Math.max(1,Math.min(2,Number(state.settings.sourceRetryCount??1)));state.settings.maxProvider429Retries=Math.max(1,Math.min(2,Number(state.settings.maxProvider429Retries??1)));state.settings.symbolRepairRounds=Math.max(1,Number(state.settings.symbolRepairRounds||1));state.settings.providerWaveSize=8;state.settings.concurrency=Math.max(56,Number(state.settings.concurrency||56));state.settings.maxGlobalConcurrency=Math.max(56,Number(state.settings.maxGlobalConcurrency||56));state.settings.stageBatchSize=Math.max(384,Number(state.settings.stageBatchSize||384));state.settings.stageFlushMs=1;state.settings.adaptiveConcurrency=true;state.settings.providerHealthAdaptive=true;await saveSettings();try{AurumUpdateAPI.state.r24={version:'REV20.3-HYBRID-FAST-QUALITY',activatedAt:nowISO(),features:['AURUMB_FAST_SHARDED_WORKERS','48_PLUS_GLOBAL_WORKERS','LARGE_STAGING_BATCH','FAST_STAGE_FLUSH','HIGH_PROVIDER_PARALLELISM','SEMANTIC_PROVIDER_PAYLOAD_VALIDATION','HISTORICAL_DATA_REQUIRED_FOR_FRESH','HTTP_RETRY_PRESERVED','EMPTY_PAYLOAD_NOT_SUCCESS','STAGING_FIRST_PRESERVED','ATOMIC_PUBLISH_PRESERVED','TARGETED_REPAIR_ONLY','QUALITY_VALIDATION_PRESERVED','NATIVE_HTTP_PRESERVED']}}catch{}}catch{}});
+  queueMicrotask(()=>{try{AurumUpdateAPI.state.r24={version:'REV20.3-HYBRID-FAST-QUALITY',activatedAt:nowISO(),features:['USER_TRANSFER_POLICY_PRESERVED','SEMANTIC_PROVIDER_PAYLOAD_VALIDATION','HISTORICAL_DATA_REQUIRED_FOR_FRESH','HTTP_RETRY_PRESERVED','EMPTY_PAYLOAD_NOT_SUCCESS','STAGING_FIRST_PRESERVED','ATOMIC_PUBLISH_PRESERVED','TARGETED_REPAIR_ONLY','QUALITY_VALIDATION_PRESERVED','NATIVE_HTTP_PRESERVED']}}catch{}});
 })();
 
 /* R26 — Kn/K_Tarihsel render isolation + persistent GLN/GDN semantics.
@@ -5102,6 +5060,57 @@ try{AurumUpdateAPI.state.r239={version:'REV20.39-STRICT-CADENCE-SAME-SOURCE-MARK
   queueMicrotask(async()=>{try{await applyCompletenessDefaults();await saveSettings()}catch{}});
 })();
 
+
+/* FINAL DATA SAFETY CONTRACT — this block is intentionally after all legacy publication overrides.
+   Every normal/repair publication must pass the same >=70% candidate gate. Failed candidates never
+   advance records, activeDataSnapshot or last-success timestamps. */
+(()=>{
+  if(globalThis.__AURUM_FINAL_DATA_SAFETY)return;globalThis.__AURUM_FINAL_DATA_SAFETY=true;
+  function finalCandidateGate(records){
+    const summary=dataSummary(Array.isArray(records)?records:[]);
+    const gate=dataIntegrityGate(summary);
+    if(!gate.ok){
+      const err=Object.assign(new Error('DATA_FILL_BELOW_70_KEEP_LAST_VALID_SNAPSHOT'),{code:'DATA_FILL_BELOW_70',gate,summary});
+      throw err;
+    }
+    return {summary,gate};
+  }
+  const publish=globalThis.atomicPublish;
+  if(typeof publish==='function')globalThis.atomicPublish=atomicPublish=async function finalSafeAtomicPublish(job,universe){
+    if(HARD_CANCELLED_JOBS.has(String(job?.id))||cancelRequested(job))throw Object.assign(new Error('İşlem kullanıcı tarafından iptal edildi'),{code:'OPERATION_CANCELLED'});
+    const staged=await stageRows(job?.id),by=new Map(staged.map(x=>[x.sym,x.record]));
+    const before=(await dbGet('meta','activeDataSnapshot'))?.value||null;
+    if(by.size!==universe.length)throw new Error(`STAGING_COUNT_MISMATCH:${by.size}/${universe.length}`);
+    const candidate=universe.map(sym=>by.get(sym));
+    if(candidate.some(x=>!x))throw new Error('STAGING_SYMBOL_MISSING');
+    finalCandidateGate(candidate);
+    const out=await publish(job,universe);
+    const after=(await dbGet('meta','activeDataSnapshot'))?.value||before;
+    const successfulAt=after?.transferredAt||after?.completedAt||null;
+    if(successfulAt){
+      state.lastSuccessfulSync=successfulAt;
+      await dbPut('meta',{key:'lastSuccessfulSync',value:successfulAt,updatedAt:successfulAt});
+    }
+    return out;
+  };
+  const repair=globalThis.atomicRepairPublish;
+  if(typeof repair==='function')globalThis.atomicRepairPublish=atomicRepairPublish=async function finalSafeAtomicRepair(job,targets){
+    const staged=await stageRows(job?.id),by=new Map(staged.map(x=>[x.sym,x.record])),target=new Set(targets||[]);
+    const before=(await dbGet('meta','activeDataSnapshot'))?.value||null;
+    const candidate=(state.records||[]).map(old=>target.has(old.sym)&&by.get(old.sym)?by.get(old.sym):old);
+    finalCandidateGate(candidate);
+    const out=await repair(job,targets);
+    const after=(await dbGet('meta','activeDataSnapshot'))?.value||before;
+    const successfulAt=after?.transferredAt||after?.completedAt||null;
+    if(successfulAt){
+      state.lastSuccessfulSync=successfulAt;
+      await dbPut('meta',{key:'lastSuccessfulSync',value:successfulAt,updatedAt:successfulAt});
+    }
+    return out;
+  };
+  globalThis.AurumFinalDataSafety={minFillPct:70,check:finalCandidateGate};
+})();
+
 /* REV20.5 MARKET DIRECT V2 — strict identity parsers and source-published changes only. */
 (()=>{
   if(globalThis.__AURUM_REV205_MARKET_DIRECT)return;globalThis.__AURUM_REV205_MARKET_DIRECT=true;
@@ -5320,7 +5329,7 @@ try{AurumUpdateAPI.state.r239={version:'REV20.39-STRICT-CADENCE-SAME-SOURCE-MARK
       const end=new Date(),start=addMonths(end,-Number(state.settings.monthsBack||14)),[startup]=await Promise.all([loadIndexAndCanonical(start,end),globalThis.AurumBulkQuoteCache?.prewarm?.(universe)||Promise.resolve()]),indexBundle=startup.indexBundle,cp=startup.canonical;if(cp?.timestampVerified&&safeTime(cp.at)!=null){job.canonicalMarketAt=cp.at;job.canonicalMarketProvider=cp.provider||'INDEX'}else job.canonicalMarketAt=nowISO();await saveJob(job);
       let cursor=0,completed=doneSet.size,validated=doneSet.size,failed=0;const concurrency=workerCount(universe.length,false),worker=async()=>{while(true){await pauseCheckpoint(job,JOB_STATUS.FETCHING_DATA);const i=cursor++;if(i>=universe.length)return;const sym=universe[i];if(doneSet.has(sym))continue;const prior=state.recordMap.get(sym)||null;let rec;try{const onSource=({provider,lane,status})=>setRuntime({status:JOB_STATUS.FETCHING_DATA,jobId:job.id,mode:job.mode,stage:'Veriler',done:completed,total:universe.length,validated,failed,message:`${sym} · ${lane||'KAYNAK'} · ${sourceName(provider)}${status==='OK'?' ✓':status==='ERROR'?' ×':''}`,symbol:sym,provider});rec=await makeCandidate(sym,start,end,indexBundle,job,{prior,fields:['*'],maxFallback:1,onSource,mode:'FULL'});validated++}catch(e){failed++;await issue(job,sym,'*','MULTI_SOURCE','R206_PRIMARY_FAILED',e?.message||String(e));rec=r221SafeCarryForward(sym,prior,job,[e?.message||'CURRENT_JOB_DATA_UNAVAILABLE'])}await stagePut(job.id,sym,rec);completed++;job.processedSymbols=completed;if(completed%40===0){await saveJob(job);setRuntime({status:JOB_STATUS.FETCHING_DATA,jobId:job.id,mode:job.mode,stage:'Veriler',done:completed,total:universe.length,validated,failed,message:`Çoklu kaynak · ${completed}/${universe.length} · ${validated} doğrulandı`,symbol:sym})}await new Promise(r=>setTimeout(r,0))}};
       await Promise.all(Array.from({length:concurrency},worker));await flushStageBatch(job.id);
-      let stats=await enforceCohortAndGate(job,universe);const published=await atomicPublish(job,universe),summary=dataSummary(published);summary.scheduler='REV20.21_INITIAL_PUBLISH';summary.completenessTarget=TARGET_FILL;summary.completenessTargetAdvisory=true;summary.maxAllowedMissingPct=5;summary.cohortWindowMinutes=30;summary.cohortPct=stats.cohortPct;summary.cohortStart=stats.cohortStart?new Date(stats.cohortStart).toISOString():null;summary.cohortEnd=stats.cohortEnd?new Date(stats.cohortEnd).toISOString():null;summary.realDataOnly=true;summary.initialPublishBeforeSmartCompletion=true;job.dataSummary=summary;const plan=await persistPendingRepairPlan(published,universe);await dbPut('meta',{key:'lastDataSummary',value:summary,updatedAt:nowISO()});await clearStage(job.id);try{if(typeof rebuildBehaviorProfiles==='function')await rebuildBehaviorProfiles(state.records,{force:false})}catch{}await refreshTableMeta();await transition(job,JOB_STATUS.DATA_COMPLETED,{message:`İlk tablo atomik yayınlandı · doluluk %${Number(summary.fillPct||0).toFixed(2)} · onarım ${plan.symbolCount} hisse`,done:universe.length,total:universe.length,validated:stats.cohortCount,failed:universe.length-stats.cohortCount});state.lastSuccessfulSync=nowISO();return true;
+      let stats=await enforceCohortAndGate(job,universe);const published=await atomicPublish(job,universe),summary=dataSummary(published);summary.scheduler='REV20.21_INITIAL_PUBLISH';summary.completenessTarget=TARGET_FILL;summary.completenessTargetAdvisory=true;summary.maxAllowedMissingPct=5;summary.cohortWindowMinutes=30;summary.cohortPct=stats.cohortPct;summary.cohortStart=stats.cohortStart?new Date(stats.cohortStart).toISOString():null;summary.cohortEnd=stats.cohortEnd?new Date(stats.cohortEnd).toISOString():null;summary.realDataOnly=true;summary.initialPublishBeforeSmartCompletion=true;job.dataSummary=summary;const plan=await persistPendingRepairPlan(published,universe);await dbPut('meta',{key:'lastDataSummary',value:summary,updatedAt:nowISO()});await clearStage(job.id);try{if(typeof rebuildBehaviorProfiles==='function')await rebuildBehaviorProfiles(state.records,{force:false})}catch{}await refreshTableMeta();await transition(job,JOB_STATUS.DATA_COMPLETED,{message:`İlk tablo atomik yayınlandı · doluluk %${Number(summary.fillPct||0).toFixed(2)} · onarım ${plan.symbolCount} hisse`,done:universe.length,total:universe.length,validated:stats.cohortCount,failed:universe.length-stats.cohortCount});return true;
     }catch(e){job.error=e?.message||String(e);if(e?.code==='OPERATION_CANCELLED'||cancelRequested(job)){await transition(job,JOB_STATUS.IDLE,{error:null,message:'Veri işlemi iptal edildi · önceki tablo korundu'});return false}if(!isOnline()||/network|offline|failed to fetch|ERR_/i.test(job.error))await transition(job,JOB_STATUS.WAITING_FOR_NETWORK,{error:job.error,message:'Ağ bağlantısı bekleniyor · staging korunuyor'});else await transition(job,JOB_STATUS.FAILED,{error:job.error,message:`Kalite/kohort kapısı geçilmedi · önceki tablo korundu · ${job.error}`});return false
     }finally{try{await flushStageBatch(job.id)}catch{}state.settings.sourceRetryCount=restore.retry;state.settings.maxProvider429Retries=restore.r429;state.settings.requestTimeoutMs=restore.timeout;state.syncing=false;clearCancel(job.id);renderCurrentPagePreservingView()}
   };
@@ -5339,7 +5348,7 @@ try{AurumUpdateAPI.state.r239={version:'REV20.39-STRICT-CADENCE-SAME-SOURCE-MARK
       /* Re-stage the entire table locally (no extra network for non-target rows). This lets the
          atomic publisher enforce one coherent cohort even though only missing symbols were fetched. */
       const current=new Map(state.records.map(r=>[r.sym,r]));for(const [sym,c] of replacements)current.set(sym,c);for(const sym of universe)await stagePut(job.id,sym,current.get(sym)||makePlaceholder(sym,null,['MISSING_ROW']));await flushStageBatch(job.id);
-      const stats=await enforceCohortAndGate(job,universe),published=await atomicPublish(job,universe),summary=dataSummary(published);summary.scheduler=VERSION+'_REPAIR';summary.repairAgeMinutes=age/60000;summary.cohortWindowMinutes=30;summary.cohortPct=stats.cohortPct;summary.completenessTarget=TARGET_FILL;job.dataSummary=summary;await persistPendingRepairPlan(published,universe);await dbPut('meta',{key:'lastDataSummary',value:summary,updatedAt:nowISO()});await clearStage(job.id);try{if(typeof rebuildBehaviorProfiles==='function')await rebuildBehaviorProfiles(state.records,{force:false})}catch{}await refreshTableMeta();await transition(job,JOB_STATUS.DATA_COMPLETED,{message:`Eksikler tamamlandı · doluluk %${Number(summary.fillPct||0).toFixed(2)} · 30dk kohort %${stats.cohortPct.toFixed(1)}`,done:targets.length,total:targets.length});state.lastSuccessfulSync=nowISO();return true
+      const stats=await enforceCohortAndGate(job,universe),published=await atomicPublish(job,universe),summary=dataSummary(published);summary.scheduler=VERSION+'_REPAIR';summary.repairAgeMinutes=age/60000;summary.cohortWindowMinutes=30;summary.cohortPct=stats.cohortPct;summary.completenessTarget=TARGET_FILL;job.dataSummary=summary;await persistPendingRepairPlan(published,universe);await dbPut('meta',{key:'lastDataSummary',value:summary,updatedAt:nowISO()});await clearStage(job.id);try{if(typeof rebuildBehaviorProfiles==='function')await rebuildBehaviorProfiles(state.records,{force:false})}catch{}await refreshTableMeta();await transition(job,JOB_STATUS.DATA_COMPLETED,{message:`Eksikler tamamlandı · doluluk %${Number(summary.fillPct||0).toFixed(2)} · 30dk kohort %${stats.cohortPct.toFixed(1)}`,done:targets.length,total:targets.length});return true
     }catch(e){job.error=e?.message||String(e);if(!isOnline()||/network|offline|failed to fetch|ERR_/i.test(job.error))await transition(job,JOB_STATUS.WAITING_FOR_NETWORK,{error:job.error,message:'Ağ bağlantısı bekleniyor'});else await transition(job,JOB_STATUS.FAILED,{error:job.error,message:`Eksik tamamlama kalite kapısında durdu · önceki tablo korundu · ${job.error}`});return false
     }finally{try{await flushStageBatch(job.id)}catch{}state.settings.sourceRetryCount=restore.retry;state.settings.maxProvider429Retries=restore.r429;state.syncing=false;clearCancel(job.id);renderCurrentPagePreservingView()}
   };
@@ -5349,7 +5358,7 @@ try{AurumUpdateAPI.state.r239={version:'REV20.39-STRICT-CADENCE-SAME-SOURCE-MARK
   const oldMeta=globalThis.dataMetaMarkup||dataMetaMarkup;
   globalThis.dataMetaMarkup=dataMetaMarkup=function r206DataMetaMarkup(){let h=oldMeta();try{h=h.replace(/Kalite öncelikli paralel işçiler[^<]*/,'Akıllı çoklu kaynak · kaynak-uzman alan dağıtımı · bağımsız API hız aralıkları · seçici alternatif tamamlama · tek 30 dk veri kohortu · atomik yayın')}catch{}return h};
 
-  queueMicrotask(async()=>{try{state.settings.marketFreshMinutes=30;state.settings.concurrency=Math.max(4,Math.min(12,Number(state.settings.concurrency||8)));state.settings.maxGlobalConcurrency=Math.max(8,Math.min(16,Number(state.settings.maxGlobalConcurrency||12)));state.settings.providerHealthAdaptive=true;state.settings.sourceRetryCount=Math.max(1,Math.min(2,Number(state.settings.sourceRetryCount??1)));state.settings.maxProvider429Retries=Math.max(1,Math.min(2,Number(state.settings.maxProvider429Retries??1)));state.settings.stageBatchSize=Math.max(128,Math.min(320,Number(state.settings.stageBatchSize||192)));state.settings.stageFlushMs=Math.max(3,Math.min(12,Number(state.settings.stageFlushMs||5)));try{AurumUpdateAPI.state.r206={version:VERSION,activatedAt:nowISO(),features:['BULK_YAHOO_QUOTE_SEED','CAPABILITY_SPECIALIZED_PROVIDER_LANES','HASH_DISTRIBUTED_PRIMARY_SOURCES','PER_PROVIDER_START_PACING','PARALLEL_DIFFERENT_PROVIDERS','HEALTH_AND_429_FAILOVER','SELECTIVE_FIELD_RESCUE','SHARED_USDTRY_HISTORY','TARGET_FILL_95_ADVISORY_NO_PUBLISH_BLOCK','STRICT_DENSEST_30M_COHORT','ATOMIC_NO_MIXED_STALE_PUBLISH','REPAIR_IF_LAST_RUN_LE_30M','FULL_REFRESH_IF_LAST_RUN_GT_30M','FULL_REFRESH_FORCES_NEW_LIVE_MARKET_POINT']};AurumUpdateAPI.state.r208={version:'REV20.8-STRICT-FRESH-LIVE',activatedAt:nowISO(),features:['PRIOR_HISTORY_FUNDAMENTALS_MAY_ACCELERATE','PRIOR_LIVE_QUOTE_NEVER_REUSED_ON_FULL_REFRESH','30M_CURRENT_MARKET_COHORT_HARD_GATE']}}catch{}}catch{}});
+  queueMicrotask(()=>{try{AurumUpdateAPI.state.r206={version:VERSION,activatedAt:nowISO(),features:['USER_TRANSFER_POLICY_PRESERVED','BULK_YAHOO_QUOTE_SEED','CAPABILITY_SPECIALIZED_PROVIDER_LANES','HASH_DISTRIBUTED_PRIMARY_SOURCES','PER_PROVIDER_START_PACING','PARALLEL_DIFFERENT_PROVIDERS','HEALTH_AND_429_FAILOVER','SELECTIVE_FIELD_RESCUE','SHARED_USDTRY_HISTORY','TARGET_FILL_95_ADVISORY_NO_PUBLISH_BLOCK','STRICT_DENSEST_30M_COHORT','ATOMIC_NO_MIXED_STALE_PUBLISH','REPAIR_IF_LAST_RUN_LE_30M','FULL_REFRESH_IF_LAST_RUN_GT_30M','FULL_REFRESH_FORCES_NEW_LIVE_MARKET_POINT']};AurumUpdateAPI.state.r208={version:'REV20.8-STRICT-FRESH-LIVE',activatedAt:nowISO(),features:['PRIOR_HISTORY_FUNDAMENTALS_MAY_ACCELERATE','PRIOR_LIVE_QUOTE_NEVER_REUSED_ON_FULL_REFRESH','30M_CURRENT_MARKET_COHORT_HARD_GATE']}}catch{}});
 })();
 
 /* ===== REV20.7 DYNAMIC FINANCE PORTAL =====
@@ -5920,9 +5929,10 @@ try{AurumUpdateAPI.state.r225={version:'REV20.25-RELIABILITY-FILL-NEWS',activate
  /* Deliberately no immediate call. Loading, foregrounding, reconnecting, opening a tab or
     regaining access never starts network work. The first autonomous market/news request is
     exactly one cadence after this runtime starts; subsequent requests are cadence-only. */
- setInterval(()=>{void marketTick()},PERIOD);
+ // Market-indicators-revision.js exclusively owns the market 30-minute cadence.
+ // Keep only the independent finance-portal cadence here.
  setInterval(()=>{void portalTick()},PERIOD);
- globalThis.AurumPeriodicMarket=Object.freeze({periodMs:PERIOD,marketTick,portalTick,policy:'30M_TIMER_OR_EXPLICIT_MANUAL_ONLY'});
+ globalThis.AurumPeriodicMarket=Object.freeze({periodMs:PERIOD,marketTick,portalTick,policy:'MARKET_OWNER_EXTERNAL_PORTAL_30M'});
  try{AurumUpdateAPI.state.r232={version:'REV20.32-STRICT-TRIGGERS-NONBLOCKING-30M',activatedAt:nowISO(),features:[
    'NO_STARTUP_FETCH','NO_FOREGROUND_FETCH','NO_NETWORK_RESTORE_FETCH','NO_TAB_NAVIGATION_FETCH',
    'DATA_ONLY_DEFINED_SCHEDULER_OR_MANUAL','MARKET_INDICATORS_30M','FINANCE_PORTAL_30M',
@@ -6242,3 +6252,22 @@ try{AurumUpdateAPI.state.r225={version:'REV20.25-RELIABILITY-FILL-NEWS',activate
   globalThis.AurumPersistentMarketUI=Object.freeze({save,restore});
   try{AurumUpdateAPI.state.r243={version:'REV20.43-CONSOLIDATED-FINAL-UI',activatedAt:nowISO(),features:['SINGLE_MARKET_PORTAL_UI_RECOVERY_OWNER','LAST_VALID_UI_PERSISTS','NO_RECURSIVE_PAGE_RENDER','EMPTY_OUTPUT_NEVER_REPLACES_VALID_UI']}}catch{}
 })();
+
+/* Startup fallback: render a guaranteed base overview before async bootstrap.
+   Late compatibility renderers may enhance it, but must never leave #content empty. */
+try{
+  if(!state.settings)state.settings=defaultSettings();
+  state.page='overview';
+  const host=document.getElementById('content');
+  if(host&&!host.innerHTML.trim()){
+    host.className='page-overview';
+    host.innerHTML=globalThis.overview();
+    const title=document.getElementById('pageTitle');if(title)title.textContent='Genel Bakış';
+  }
+}catch(e){
+  const host=document.getElementById('content');
+  if(host&&!host.innerHTML.trim())host.innerHTML='<div class="card"><h2>Genel Bakış</h2><p class="muted">Arayüz başlatılıyor…</p></div>';
+}
+
+/* Start foreground UI only after every embedded compatibility/stability layer is installed. */
+bootstrapClean();

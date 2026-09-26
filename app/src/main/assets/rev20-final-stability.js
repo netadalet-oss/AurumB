@@ -8,7 +8,7 @@
  function marketRefresh(){try{return Promise.resolve(globalThis.refreshMarketIndicators?.({auto:true})).then(()=>{try{const h=document.getElementById('aurumDataMarketStrip');if(h&&globalThis.marketIndicatorsMarkup)h.outerHTML=globalThis.marketIndicatorsMarkup()}catch{};event('info','MARKET_REFRESH','Piyasa göstergeleri yenilendi')}).catch(e=>event('warn','MARKET_REFRESH_FAILED',String(e?.message||e)))}catch(e){event('warn','MARKET_REFRESH_FAILED',String(e?.message||e));return Promise.resolve()}}
  function health(){
   try{
-   const s=globalThis.state||globalThis.AurumUpdateAPI?.state||{},rt=globalThis.AurumRuntime?.status?.()||{},mi=globalThis.cachedMarketIndicators?.()||null;
+   const s=globalThis.AurumUpdateAPI?.state||globalThis.state||{},rt=globalThis.AurumRuntime?.status?.()||{},mi=globalThis.cachedMarketIndicators?.()||null;
    const report={at:iso(),online:navigator.onLine!==false,runtime:rt.status||'IDLE',stage:rt.stage||null,marketAt:mi?.updatedAt||mi?.at||null,marketFieldCount:Object.values(mi?.fields||{}).filter(x=>n(x?.value)!=null).length,records:Array.isArray(s.records)?s.records.length:null};
    localStorage.setItem('aurum.r250.health.latest',JSON.stringify(report));
    if(!report.online)event('warn','OFFLINE','Ağ bağlantısı yok; mevcut tablolar korunuyor');
@@ -29,6 +29,20 @@
 `;document.head.appendChild(st)}
  globalThis.AurumStability=Object.freeze({health,marketRefresh,logs:()=>{try{return JSON.parse(localStorage.getItem(KEY)||'[]')}catch{return []}}});
  compactMarketCss();installHealthModule();health();
- setInterval(health,HEALTH); setTimeout(marketRefresh,15000); setInterval(marketRefresh,PERIOD);
+ function ensureVisibleApp(){
+  try{
+   const content=document.getElementById('content');
+   if(!content)return false;
+   const visible=[...content.children].some(el=>getComputedStyle(el).display!=='none'&&String(el.innerHTML||el.textContent||'').trim());
+   if(!visible&&typeof globalThis.render==='function'){globalThis.render();event('warn','UI_EMPTY_RECOVERED','Boş ana içerik güvenli biçimde yeniden çizildi');}
+   return true;
+  }catch(e){event('warn','UI_RECOVERY_FAILED',String(e?.message||e));return false}
+ }
+ queueMicrotask(ensureVisibleApp);
+ window.addEventListener('pageshow',ensureVisibleApp,{passive:true});
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden)ensureVisibleApp()},{passive:true});
+ setInterval(health,HEALTH);
+ // Market cadence is owned exclusively by market-indicators-revision.js.
+ // Stability observes health only; it must not create startup or duplicate market requests.
  event('info','REV2050_ACTIVE','Nihai süreklilik katmanı etkin');
 })();

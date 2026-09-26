@@ -20,10 +20,12 @@ object NativeOpenAI {
         thread(name = "AurumOpenAI") {
             var connection: HttpURLConnection? = null
             try {
-                require(path.startsWith("/") && !path.contains(".."))
+                val verb = method.uppercase()
+                val allowed = (path == "/v1/models" && verb == "GET") ||
+                    (path == "/v1/responses" && verb == "POST")
+                require(allowed) { "OpenAI path/method izinli değil" }
                 val apiKey = SecureSecretStore.get(context)
                 if (apiKey.isBlank()) throw IllegalStateException("OpenAI API anahtarı kayıtlı değil")
-                val verb = method.uppercase()
                 val url = URL("https", "api.openai.com", path)
                 connection = (url.openConnection() as HttpURLConnection).apply {
                     instanceFollowRedirects = false
