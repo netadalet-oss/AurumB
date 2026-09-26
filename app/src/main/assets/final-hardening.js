@@ -99,9 +99,14 @@
   const report={at:iso(),fillPct:fill,snapshotAt:meta?.value?.changedAt||meta?.value?.transferredAt||null,runtime:rt.status||'IDLE',scheduler,market:globalThis.cachedMarketIndicators?.()?.updatedAt||marketAt};
   try{localStorage.setItem('aurum.r226.health.latest',JSON.stringify(report))}catch{}return report
  }
+ let centralDepth=0;
+ const centralAllowed=()=>centralDepth>0;
  async function centralCompanionRun(context='DATA'){
+  if(!centralAllowed()){audit('CENTRAL_TRIGGER_DENIED','Merkez dışı yardımcı çalışma engellendi',{context});return false}
   const out={at:iso(),context,market:false,portal:false,diagnostics:false};
-  /* Market indicators are already acquired inside the Veriler data phase; do not fetch them twice. */
+  /* Market indicators are acquired inside the same Veriler phase; display completion may only
+     fill presentation fields while this central authorization is active. */
+  try{if(typeof globalThis.AurumMarketDisplayComplete==='function')await globalThis.AurumMarketDisplayComplete()}catch(e){audit('CENTRAL_MARKET_DISPLAY_FAILED','Piyasa gösterge tamamlama adımı başarısız',{error:e?.message||String(e)})}
   out.market=!!globalThis.cachedMarketIndicators?.()?.updatedAt;
   try{out.portal=!!(await globalThis.refreshAurumFinancePortal?.(true))}catch(e){audit('CENTRAL_PORTAL_FAILED','Veriler zincirindeki finans portalı güncellenemedi',{error:e?.message||String(e)})}
   try{await globalThis.refreshAurumRMarketIntel?.(true)}catch(e){audit('CENTRAL_INTEL_FAILED','Veriler zincirindeki piyasa istihbaratı güncellenemedi',{error:e?.message||String(e)})}
@@ -115,16 +120,21 @@
  try{
   const base=globalThis.prepareGeneralData;
   if(typeof base==='function'){
-   const w=async function(job,mode){const ok=await base.apply(this,arguments);if(ok&&['MANUAL','AUTO'].includes(String(job?.mode||'').toUpperCase()))await centralCompanionRun(String(job.mode).toUpperCase());return ok};
+   const w=async function(job,mode){const allowed=['MANUAL','AUTO'].includes(String(job?.mode||'').toUpperCase());if(allowed)centralDepth++;try{const ok=await base.apply(this,arguments);if(ok&&allowed)await centralCompanionRun(String(job.mode).toUpperCase());return ok}finally{if(allowed)centralDepth=Math.max(0,centralDepth-1)}};
    globalThis.prepareGeneralData=w;try{prepareGeneralData=w}catch{}
   }
   const repair=globalThis.prepareMissingData;
   if(typeof repair==='function'){
-   const w=async function(job){const ok=await repair.apply(this,arguments);if(ok&&['MANUAL','AUTO'].includes(String(job?.mode||'').toUpperCase()))await centralCompanionRun(String(job.mode).toUpperCase()+'_REPAIR');return ok};
+   const w=async function(job){const allowed=['MANUAL','AUTO'].includes(String(job?.mode||'').toUpperCase());if(allowed)centralDepth++;try{const ok=await repair.apply(this,arguments);if(ok&&allowed)await centralCompanionRun(String(job.mode).toUpperCase()+'_REPAIR');return ok}finally{if(allowed)centralDepth=Math.max(0,centralDepth-1)}};
    globalThis.prepareMissingData=w;try{prepareMissingData=w}catch{}
   }
+  for(const name of ['refreshMarketIndicators','refreshAurumFinancePortal','refreshAurumMarketSummary','refreshAurumRMarketIntel']){
+   const fn=globalThis[name];if(typeof fn!=='function')continue;
+   globalThis[name]=async function(){if(!centralAllowed()){audit('CENTRAL_NETWORK_DENIED',name+' merkez tetik dışında engellendi');return name==='refreshMarketIndicators'?globalThis.cachedMarketIndicators?.()||null:null}return fn.apply(this,arguments)};
+   try{if(name==='refreshMarketIndicators')refreshMarketIndicators=globalThis[name]}catch{}
+  }
  }catch(e){audit('CENTRAL_TRIGGER_INSTALL_FAILED','Tek merkez tetik zinciri kurulamadı',{error:e?.message||String(e)})}
- globalThis.AurumCentralTrigger=Object.freeze({version:'R226.2',run:centralCompanionRun,policy:'VERILER_MANUAL_OR_AUTO_ONLY'});
- globalThis.AurumFinalHardening=Object.freeze({version:'R226.2-DATA-TRIGGER-ONLY',health,activeFill,sessionOpen});
+ globalThis.AurumCentralTrigger=Object.freeze({version:'R226.3',policy:'VERILER_SCHEDULER_OR_EXPLICIT_DATA_COMMAND_ONLY',authorized:centralAllowed});
+ globalThis.AurumFinalHardening=Object.freeze({version:'R226.3-SINGLE-CENTRAL-TRIGGER',health,activeFill,sessionOpen});
  audit('R226_ACTIVE','Nihai süreklilik ve arayüz sertleştirmesi etkin');
 })();
