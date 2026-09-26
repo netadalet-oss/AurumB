@@ -93,13 +93,10 @@
  /* Continuous diagnostics: no destructive auto-fix, but safe scheduler/market repair hooks. */
  async function health(){
   const fill=activeFill(),meta=await globalThis.dbGet?.('meta','activeDataSnapshot'),rt=globalThis.AurumRuntime?.status?.()||{},marketAt=globalThis.cachedMarketIndicators?.()?.updatedAt||null;
-  let scheduler=await globalThis.r73SchedulerDiagnostic?.().catch?.(()=>null),schedulerRepair=null,marketRepair=null;
-  /* Self-heal is deliberately non-destructive: it may re-arm the scheduler or refresh a
-     stale market strip, but it never clears/publishes Veriler, Kn, K_Tarihsel or S. */
-  if(scheduler&&scheduler.ok===false&&typeof globalThis.startScheduler==='function'&&!globalThis.operationBusyStatus?.(String(rt.status||''))){
-   try{schedulerRepair=!!(await globalThis.startScheduler());scheduler=await globalThis.r73SchedulerDiagnostic?.().catch?.(()=>scheduler)}catch(e){schedulerRepair=false}
-  }
-  const report={at:iso(),fillPct:fill,snapshotAt:meta?.value?.changedAt||meta?.value?.transferredAt||null,runtime:rt.status||'IDLE',scheduler,schedulerRepair,market:globalThis.cachedMarketIndicators?.()?.updatedAt||marketAt,marketRepair};
+  const scheduler=await globalThis.r73SchedulerDiagnostic?.().catch?.(()=>null);
+  /* Diagnostics are read-only. Repair/re-arm is allowed only through an explicit user command
+     or the native Veriler scheduler trigger; diagnostics never start work by themselves. */
+  const report={at:iso(),fillPct:fill,snapshotAt:meta?.value?.changedAt||meta?.value?.transferredAt||null,runtime:rt.status||'IDLE',scheduler,market:globalThis.cachedMarketIndicators?.()?.updatedAt||marketAt};
   try{localStorage.setItem('aurum.r226.health.latest',JSON.stringify(report))}catch{}return report
  }
  async function centralCompanionRun(context='DATA'){
