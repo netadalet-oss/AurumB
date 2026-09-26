@@ -58,7 +58,7 @@
   const raw=globalThis.v141225Raw;if(typeof raw==='function'){const w=function(rec,key,skip){if(key==='Anlik')return displayPrice(rec);if(key==='VeriZamani')return sourceTime(rec);return raw(rec,key,skip)};globalThis.v141225Raw=w;try{v141225Raw=w}catch{}}
   globalThis.kn117LatestPrice=displayPrice;try{kn117LatestPrice=displayPrice}catch{}
   globalThis.kn117MarketTime=sourceTime;try{kn117MarketTime=sourceTime}catch{}
-  const bt=globalThis.kh117T0;if(typeof bt==='function'){const w=function(){const r=bt.apply(this,arguments);return {...r,marketTime:(globalThis.TABLE_META?.data?.market&&Number.isFinite(Date.parse(globalThis.TABLE_META.data.market)))?globalThis.TABLE_META.data.market:(S.records||[]).map(sourceTime).filter(Boolean).sort().at(-1)||null}};globalThis.kh117T0=w;try{kh117T0=w}catch{}}
+  const bt=globalThis.kh117T0;if(typeof bt==='function'){const w=function(){const r=bt.apply(this,arguments);return {...r,marketTime:(S.records||[]).map(sourceTime).filter(Boolean).sort().at(-1)||r?.marketTime||null}};globalThis.kh117T0=w;try{kh117T0=w}catch{}}
  }catch{}
 
  /* Compact, bounded presentation strips. Existing theme is the default and no financial
