@@ -11,6 +11,7 @@ const appearance = read('app/src/main/assets/rev20-customization.js');
 const acceleration = read('app/src/main/assets/safe-transfer-acceleration.js');
 const keepalive = read('app/src/main/assets/background-keepalive-only.js');
 const nativeAI = read('app/src/main/assets/native-secure-ai.js');
+const stability = read('app/src/main/assets/rev20-final-stability.js');
 const pipeline = read('app/src/main/java/com/aurum/bistterminal8/PipelineService.kt');
 
 const failures = [];
@@ -68,15 +69,8 @@ for (const dead of ['fast-background-transfer.js','market-display-fix2.js','mark
   ok(!fs.existsSync(path.join(root, 'app/src/main/assets', dead)), 'dead asset still present: '+dead);
 }
 
-if (failures.length) {
-  console.error('Aurum static contract audit failed:');
-  for (const f of failures) console.error(' - '+f);
-  process.exit(1);
-}
-
 ok(runtime.includes("scrollY.set(S.page||'overview',window.scrollY||0);adopt();S.page=page"), 'R61 must adopt the currently visible page before changing state.page');
 ok(stability.includes('function ensureVisibleApp()') && stability.includes("UI_EMPTY_RECOVERED") && stability.includes('queueMicrotask(ensureVisibleApp)'), 'final stability must recover an empty main content surface');
-console.log('Aurum static contract audit passed.');
 
 // Startup UI regression: late page render must build non-empty markup before removing visible slots.
 ok(runtime.includes("markup=String(fn()||'')") && runtime.indexOf("markup=String(fn()||'')") < runtime.indexOf("for(const oldSlot of slots.values())oldSlot.remove()"), 'Late overview render preserves the visible page until replacement markup is ready');
@@ -105,10 +99,18 @@ ok(runtime.includes("if(page==='overview'){try{markup=String(quickAccess()||'')"
 const startupFallback=runtime.indexOf("host.innerHTML=globalThis.overview()"), finalBootstrap=runtime.lastIndexOf('bootstrapClean();');
 ok(startupFallback>=0 && finalBootstrap>startupFallback, 'Startup fallback exists before bootstrap call');
 
-ok(runtime.indexOf('bootstrapClean();') < runtime.indexOf('/* Embedded R47 compatibility layer */'), 'Foreground bootstrap keeps last-known-working pre-compatibility launch order');
 
 const bootstrapCalls=(runtime.match(/bootstrapClean\s*\(\s*\)\s*;/g)||[]).length;
 ok(bootstrapCalls===1 && runtime.trimEnd().endsWith('bootstrapClean();'), 'Foreground bootstrap is invoked exactly once after all runtime layers');
 
 // Overview must never become a blank page when a presentation-only renderer throws.
 ok(runtime.includes("EMPTY_PAGE_MARKUP") && runtime.includes("data-aurum-overview-fallback") && runtime.includes("content.innerHTML=pageMarkup"), 'overview render is non-blank and error-isolated');
+
+ok(runtime.includes("aurumEarlyNavBound") && runtime.indexOf("aurumEarlyNavBound") < runtime.indexOf("await loadState()"), 'Navigation must bind before state/IndexedDB bootstrap');
+
+if (failures.length) {
+  console.error('Aurum static contract audit failed:');
+  for (const f of failures) console.error(' - '+f);
+  process.exit(1);
+}
+console.log('Aurum static contract audit passed.');
