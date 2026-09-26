@@ -106,6 +106,29 @@
   const report={at:iso(),fillPct:fill,snapshotAt:meta?.value?.changedAt||meta?.value?.transferredAt||null,runtime:rt.status||'IDLE',scheduler,schedulerRepair,market:globalThis.cachedMarketIndicators?.()?.updatedAt||marketAt,marketRepair};
   try{localStorage.setItem('aurum.r226.health.latest',JSON.stringify(report))}catch{}return report
  }
- globalThis.AurumFinalHardening=Object.freeze({version:'R226.1-DATA-TRIGGER-ONLY',health,activeFill,sessionOpen});
+ async function centralCompanionRun(context='DATA'){
+  const out={at:iso(),context,market:false,portal:false,diagnostics:false};
+  try{out.market=!!(await globalThis.refreshMarketIndicators?.({trigger:'DATA',context}))}catch(e){audit('CENTRAL_MARKET_FAILED','Veriler zincirindeki piyasa göstergeleri güncellenemedi',{error:e?.message||String(e)})}
+  try{out.portal=!!(await globalThis.refreshAurumFinancePortal?.(true))}catch(e){audit('CENTRAL_PORTAL_FAILED','Veriler zincirindeki finans portalı güncellenemedi',{error:e?.message||String(e)})}
+  try{await health();out.diagnostics=true}catch(e){audit('CENTRAL_DIAGNOSTIC_FAILED','Veriler zincirindeki tanı çalışması tamamlanamadı',{error:e?.message||String(e)})}
+  try{localStorage.setItem('aurum.r226.central.last',JSON.stringify(out))}catch{}
+  return out
+ }
+ /* One trigger contract: companions can run only inside a Veriler MANUAL/AUTO job.
+    No timer, startup, navigation, focus, reconnect or standalone market/portal action starts them. */
+ try{
+  const base=globalThis.prepareGeneralData;
+  if(typeof base==='function'){
+   const w=async function(job,mode){const ok=await base.apply(this,arguments);if(ok&&['MANUAL','AUTO'].includes(String(job?.mode||'').toUpperCase()))await centralCompanionRun(String(job.mode).toUpperCase());return ok};
+   globalThis.prepareGeneralData=w;try{prepareGeneralData=w}catch{}
+  }
+  const repair=globalThis.prepareMissingData;
+  if(typeof repair==='function'){
+   const w=async function(job){const ok=await repair.apply(this,arguments);if(ok&&['MANUAL','AUTO'].includes(String(job?.mode||'').toUpperCase()))await centralCompanionRun(String(job.mode).toUpperCase()+'_REPAIR');return ok};
+   globalThis.prepareMissingData=w;try{prepareMissingData=w}catch{}
+  }
+ }catch(e){audit('CENTRAL_TRIGGER_INSTALL_FAILED','Tek merkez tetik zinciri kurulamadı',{error:e?.message||String(e)})}
+ globalThis.AurumCentralTrigger=Object.freeze({version:'R226.2',run:centralCompanionRun,policy:'VERILER_MANUAL_OR_AUTO_ONLY'});
+ globalThis.AurumFinalHardening=Object.freeze({version:'R226.2-DATA-TRIGGER-ONLY',health,activeFill,sessionOpen});
  audit('R226_ACTIVE','Nihai süreklilik ve arayüz sertleştirmesi etkin');
 })();
