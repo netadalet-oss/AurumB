@@ -16,9 +16,9 @@ class TriggerReceiver : BroadcastReceiver() {
         val jobToken = SchedulerLedger.begin(context, epoch, slotTime)
         val service = Intent(context, PipelineService::class.java)
             .putExtra("epoch", epoch)
-            .putExtra("jobToken", jobToken)
+            .putExtra("jobToken", jobToken).putExtra("pipelineKind",kind)
         ContextCompat.startForegroundService(context, service)
         // Every alarm is one-shot; immediately arm the next valid occurrence for this slot.
-        AurumScheduler.scheduleNextForTime(context, slotTime, java.time.Instant.ofEpochMilli(epoch).plusSeconds(1))
+        AurumScheduler.scheduleNextForTime(context, slotTime, java.time.Instant.ofEpochMilli(epoch).plusSeconds(1), kind)
     }
 }
