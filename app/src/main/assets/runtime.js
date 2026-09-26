@@ -1250,11 +1250,30 @@ function filterRecords(q){V141225_FILTER_QUERY=String(q||'');V141225_PAGE_INDEX=
 async function bootstrapClean(){
   const nextPaint=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
   const content=document.querySelector('#content'),header=document.getElementById('refreshBtn');
+  const nav=document.querySelector('.bottom-nav');
+  /* UI navigation must be available before IndexedDB/state bootstrap. A damaged, slow or
+     blocked data store must never leave the visible shell with dead tabs. */
+  if(nav&&!nav.dataset.aurumEarlyNavBound){
+    nav.dataset.aurumEarlyNavBound='1';
+    nav.addEventListener('click',e=>{
+      const b=e.target.closest('button[data-page]');if(!b)return;
+      try{goPage(b.dataset.page)}catch(err){
+        console.error('Aurum early navigation recovery',err);
+        try{state.page=b.dataset.page;render()}catch{}
+      }
+    });
+  }
   try{
-    /* R26 shell is painted as the actual Overview before any data engine starts. */
+    /* Paint a usable Overview before any data engine/state access. */
     if(!state.settings)state.settings=defaultSettings();
     state.page='overview';
-    render();
+    try{render()}catch(err){
+      console.error('Aurum initial overview render recovery',err);
+      if(content&&!content.innerHTML.trim()){
+        content.className='page-overview';
+        content.innerHTML='<div class="card"><h2>Genel Bakış</h2><p class="muted">Arayüz hazır. Kayıtlı veriler yükleniyor…</p></div>';
+      }
+    }
     if(header){header.textContent='Sistem hazır';}
     await nextPaint();
 
@@ -1279,8 +1298,7 @@ async function bootstrapClean(){
     setRuntime({status:JOB_STATUS.IDLE,message:'Hazır',done:0,total:0});
     render();
 
-    const nav=document.querySelector('.bottom-nav');
-    nav?.addEventListener('click',e=>{const b=e.target.closest('button[data-page]');if(b)goPage(b.dataset.page)});
+    /* Navigation was bound before state bootstrap; do not install a duplicate handler here. */
     const file=document.getElementById('fileInput');
     file?.addEventListener('change',async e=>{const f=e.target.files?.[0];if(f){setRuntime({status:JOB_STATUS.FETCHING_DATA,jobId:makeId('IMPORT'),mode:'MANUAL',stage:'İçe Aktarma',done:0,total:1,message:f.name});try{const ok=await importData(f,f.name);if(!ok)throw new Error('Dosya içe aktarılamadı');await refreshTableMeta();setRuntime({status:JOB_STATUS.DATA_COMPLETED,stage:'İçe Aktarma',done:1,total:1,message:'İçe aktarma tamamlandı'});}catch(err){setRuntime({status:JOB_STATUS.FAILED,stage:'İçe Aktarma',done:0,total:1,message:err?.message||String(err)});throw err;}finally{renderCurrentPagePreservingView();}}e.target.value=''});
     const updateInput=document.getElementById('updatePackageInput');
