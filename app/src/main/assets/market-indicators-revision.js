@@ -104,8 +104,9 @@
   function oldFields(){try{return (cached()||{}).fields||{}}catch{return {}}}
   async function refresh(opts={}){
     if(running)return running;
-    const force=opts.force===true,auto=opts.auto===true;
-    if(!force&&!auto)return cached();
+    const force=opts.force===true,auto=opts.auto===true,prior=cached(),priorAt=Date.parse(prior?.updatedAt||prior?.at||'');
+    if(!force&&!auto)return prior;
+    if(auto&&!force&&Number.isFinite(priorAt)&&Date.now()-priorAt<PERIOD)return prior;
     running=(async()=>{
       const errors=[],old=oldFields(),fields={};
       const settled=await Promise.allSettled(['XU100','USDTRY','EURTRY','GRAMTRY'].map(async k=>[k,await resolveBase(k,errors)]));
