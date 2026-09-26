@@ -28,7 +28,7 @@
 @media(max-width:430px){#aurumDataMarketStrip .aurum-r205-market{gap:3px!important}#aurumDataMarketStrip .aurum-r205-market-card{padding:5px!important}}
 `;document.head.appendChild(st)}
  globalThis.AurumStability=Object.freeze({health,marketRefresh,logs:()=>{try{return JSON.parse(localStorage.getItem(KEY)||'[]')}catch{return []}}});
- compactMarketCss();installHealthModule();health();
- setInterval(health,HEALTH); setTimeout(marketRefresh,15000); setInterval(marketRefresh,PERIOD);
+ compactMarketCss();installHealthModule();
+ /* Diagnostics and market work are invoked only by the central Veriler trigger chain. */
  event('info','REV2050_ACTIVE','Nihai süreklilik katmanı etkin');
 })();
