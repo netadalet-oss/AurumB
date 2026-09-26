@@ -106,7 +106,6 @@
   const report={at:iso(),fillPct:fill,snapshotAt:meta?.value?.changedAt||meta?.value?.transferredAt||null,runtime:rt.status||'IDLE',scheduler,schedulerRepair,market:globalThis.cachedMarketIndicators?.()?.updatedAt||marketAt,marketRepair};
   try{localStorage.setItem('aurum.r226.health.latest',JSON.stringify(report))}catch{}return report
  }
- globalThis.AurumFinalHardening=Object.freeze({version:'R226.0',health,activeFill,sessionOpen});
- setInterval(()=>health().catch(()=>{}),5*60*1000);queueMicrotask(()=>health().catch(()=>{}));
+ globalThis.AurumFinalHardening=Object.freeze({version:'R226.1-DATA-TRIGGER-ONLY',health,activeFill,sessionOpen});
  audit('R226_ACTIVE','Nihai süreklilik ve arayüz sertleştirmesi etkin');
 })();
