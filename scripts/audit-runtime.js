@@ -106,3 +106,6 @@ ok(runtime.indexOf('bootstrapClean();') < runtime.indexOf('/* Embedded R47 compa
 
 const bootstrapCalls=(runtime.match(/bootstrapClean\s*\(\s*\)\s*;/g)||[]).length;
 ok(bootstrapCalls===1 && runtime.trimEnd().endsWith('bootstrapClean();'), 'Foreground bootstrap is invoked exactly once after all runtime layers');
+
+// Overview must never become a blank page when a presentation-only renderer throws.
+ok(runtime.includes("EMPTY_PAGE_MARKUP") && runtime.includes("data-aurum-overview-fallback") && runtime.includes("content.innerHTML=pageMarkup"), 'overview render is non-blank and error-isolated');
