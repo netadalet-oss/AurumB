@@ -1,7 +1,7 @@
 'use strict';
 /* Aurum market module rebuilt from scratch. Network is allowed only by explicit manual command or scheduler. */
 (()=>{
-  const KEY='aurum.market.rebuilt.v1', URL='https://www.borsamatik.com.tr/piyasa-masasi';
+  const KEY='aurum.market.rebuilt.v1', URL='https://www.borsamatik.com.tr/piyasa-masasi', GRAM_URL='https://www.borsamatik.com.tr/piyasa-masasi/altin/SGLD-serbest-piyasa-altin-gr';
   const ORDER=['XU100','USDTRY','EURTRY','EURUSD','GRAMTRY','GOLDUSD'];
   const LABEL={XU100:'BIST 100',USDTRY:'USD/TRY',EURTRY:'EUR/TRY',EURUSD:'EUR/USD',GRAMTRY:'Gram Altın',GOLDUSD:'Altın Ons'};
   let busy=null;
@@ -23,11 +23,25 @@
     if(ORDER.some(k=>!fields[k]))throw new Error('Piyasa kaynağında altı göstergenin tamamı doğrulanamadı');
     return fields;
   }
-  async function request(){
+  async function fetchText(url,label){
     const opts={headers:{Accept:'text/html,application/xhtml+xml'},cache:'no-store',credentials:'omit'};
     let r;
-    if(globalThis.AurumNativeHTTP?.canHandle?.(URL))r=await globalThis.AurumNativeHTTP.request(URL,opts,15000);else r=await fetch(URL,opts);
-    if(!r?.ok)throw new Error('Piyasa kaynağı HTTP '+(r?.status||0));return parse(await r.text());
+    if(globalThis.AurumNativeHTTP?.canHandle?.(url))r=await globalThis.AurumNativeHTTP.request(url,opts,15000);else r=await fetch(url,opts);
+    if(!r?.ok)throw new Error(label+' HTTP '+(r?.status||0));return r.text();
+  }
+  function parseGramDetail(html){
+    const txt=new DOMParser().parseFromString(html,'text/html').body?.innerText?.replace(/\u00a0/g,' ').replace(/[ \t]+/g,' ')||'';
+    const m=txt.match(/Serbest\s+Piyasa\s+Altın\s*\(gr\)[\s\S]{0,180}?([0-9.]+,[0-9]{2})\s+[+\-]?[0-9.]+,[0-9]+\s*\/\s*([+\-]?[0-9]+,[0-9]+)\s*%/i)
+      ||txt.match(/Son\s+İşlem\s+Fiyatı\s*:?\s*([0-9.]+,[0-9]{2})[\s\S]{0,180}?Günlük\s+Değişim\s*\(%\)\s*:?\s*([+\-]?[0-9]+,[0-9]+)/i);
+    const value=n(m?.[1]),changePct=n(m?.[2]);
+    if(value==null||changePct==null)throw new Error('Gram Altın doğrudan kaynaktan doğrulanamadı');
+    return {value,changePct,source:'BORSAMATIK',providerAt:null};
+  }
+  async function request(){
+    const [summaryHtml,gramHtml]=await Promise.all([fetchText(URL,'Piyasa kaynağı'),fetchText(GRAM_URL,'Gram Altın kaynağı')]);
+    const fields=parse(summaryHtml);
+    fields.GRAMTRY=parseGramDetail(gramHtml);
+    return fields;
   }
   async function refresh({manual=false,scheduled=false}={}){
     if(!manual&&!scheduled) return load();
@@ -35,7 +49,7 @@
     busy=(async()=>{const fields=await request(),x=save({updatedAt:new Date().toISOString(),source:'BORSAMATIK',fields});render();return x})();
     try{return await busy}finally{busy=null}
   }
-  const fmt=(v,k)=>Number(v).toLocaleString('tr-TR',{minimumFractionDigits:k==='XU100'?0:(['USDTRY','EURTRY','EURUSD'].includes(k)?4:2),maximumFractionDigits:k==='XU100'?0:(['USDTRY','EURTRY','EURUSD'].includes(k)?4:2)});
+  const fmt=(v,k)=>Number(v).toLocaleString('tr-TR',{minimumFractionDigits:['USDTRY','EURTRY','EURUSD'].includes(k)?4:2,maximumFractionDigits:['USDTRY','EURTRY','EURUSD'].includes(k)?4:2});
   function markup(){const f=load()?.fields||{};return '<div class="aurum-r209-market-wrap" id="aurumDataMarketStrip"><button type="button" class="aurum-r209-market-refresh" title="Piyasa bilgilerini yenile" aria-label="Piyasa bilgilerini yenile" onclick="AurumRebuiltMarket.manual(event)"><span aria-hidden="true">↻</span></button><div class="aurum-r205-market">'+ORDER.map(k=>{const x=f[k],p=n(x?.changePct),ok=x&&p!=null,cls=!ok?'flat':p>0?'up':p<0?'down':'flat',arrow=!ok?'':p>0?'↑':p<0?'↓':'';return '<div class="aurum-r205-market-card" title="'+esc(x?'Borsamatik · fiyat ve günlük değişim aynı kayıttan':'Henüz veri alınmadı')+'"><span class="aurum-r205-market-label">'+LABEL[k]+'</span><strong class="aurum-r205-market-value">'+(x?fmt(x.value,k):'—')+'</strong><span class="aurum-r205-market-pct '+cls+'">'+(arrow?'<i class="aurum-market-dir" aria-hidden="true">'+arrow+'</i>':'')+(ok?((p>0?'+':'')+p.toLocaleString('tr-TR',{minimumFractionDigits:2,maximumFractionDigits:2})+'%'):'—')+'</span></div>'}).join('')+'</div></div>'}
   function render(){const h=document.getElementById('aurumDataMarketStrip');if(h)h.outerHTML=markup()}
   async function manual(ev){const b=ev?.currentTarget;try{if(b)b.disabled=true;await refresh({manual:true});globalThis.showAurumNotice?.('Piyasa göstergeleri yenilendi.','success',1800);return true}catch(e){globalThis.showAurumNotice?.('Piyasa göstergeleri alınamadı; eski doğru kayıt korundu: '+(e?.message||e),'error',3200);return false}finally{if(b)b.disabled=false}}
