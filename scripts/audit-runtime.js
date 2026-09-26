@@ -73,6 +73,9 @@ if (failures.length) {
   for (const f of failures) console.error(' - '+f);
   process.exit(1);
 }
+
+ok(runtime.includes("scrollY.set(S.page||'overview',window.scrollY||0);adopt();S.page=page"), 'R61 must adopt the currently visible page before changing state.page');
+ok(stability.includes('function ensureVisibleApp()') && stability.includes("UI_EMPTY_RECOVERED") && stability.includes('queueMicrotask(ensureVisibleApp)'), 'final stability must recover an empty main content surface');
 console.log('Aurum static contract audit passed.');
 
 // Startup UI regression: late page render must build non-empty markup before removing visible slots.
