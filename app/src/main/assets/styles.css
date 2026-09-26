@@ -963,3 +963,8 @@ html[data-af-color-theme="1"]{--text:var(--af-theme-text);--muted:var(--af-theme
 .af-color-studio,.af-color-body,.af-color-row{touch-action:pan-y}
 .af-color-hue{touch-action:pan-y;pointer-events:none}
 .af-color-hue.af-hue-armed{touch-action:none;pointer-events:auto}
+
+/* AurumF-style scroll-safe sizing controls in AurumB settings. */
+#content[data-page="settings"] .aurum-scale-track-wrap{touch-action:pan-y}
+#content[data-page="settings"] .aurum-scale-range{touch-action:pan-y;pointer-events:none}
+#content[data-page="settings"] .aurum-scale-range.af-scale-armed{touch-action:none;pointer-events:auto}
