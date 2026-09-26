@@ -1325,7 +1325,6 @@ globalThis.AurumRuntime=Object.freeze({version:AURUM_RUNTIME_VERSION,status:curr
 try{
   if(typeof globalThis.overview==='function' && globalThis.overview!==overview)overview=globalThis.overview;
 }catch(e){}
-bootstrapClean();
 
 /* Embedded R47 compatibility layer */
 /* AurumB R46 compatibility update for R45/R44-compatible appVersionCode 120.
@@ -6270,3 +6269,5 @@ try{
   if(host&&!host.innerHTML.trim())host.innerHTML='<div class="card"><h2>Genel Bakış</h2><p class="muted">Arayüz başlatılıyor…</p></div>';
 }
 
+/* Start foreground UI only after every embedded compatibility/stability layer is installed. */
+bootstrapClean();
