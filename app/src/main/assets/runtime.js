@@ -2591,13 +2591,9 @@ try{AurumUpdateAPI.state.cleanREV20={version:'REV20.0-CLEAN',activatedAt:new Dat
   };
   globalThis.pauseCheckpoint=pauseCheckpoint;
 
-  /* Flush staging immediately before Android can throttle the UI WebView, then arm a one-minute
-     exact-alarm handoff. No UI timer is relied upon for the continuation itself. */
-  const r22Hide=()=>{try{if(document.hidden)r22ArmGuard()}catch{}};
-  document.addEventListener('visibilitychange',r22Hide,{passive:true});
-  window.addEventListener('pagehide',()=>{try{r22ArmGuard()}catch{}},{passive:true});
-  window.addEventListener('blur',()=>{if(document.hidden)try{r22ArmGuard()}catch{}},{passive:true});
-  /* Existing in-flight native handoff may be armed when a running job is backgrounded, but reopening/foreground/network restoration never restores or starts it automatically. */
+  /* R226 central-trigger contract: backgrounding/screen-off never creates an extra alarm.
+     Only the configured native Veriler scheduler or explicit user data commands may start work.
+     Partial staging remains durable and can be continued by explicit Restart/Repair. */
 
   /* Keep the continuation state diagnosable and enable strict coherent publication by default. */
   queueMicrotask(async()=>{try{state.settings.backgroundStagingContinuation=true;state.settings.strictFreshSnapshot=true;state.settings.stageRetentionHours=Math.max(72,Number(state.settings.stageRetentionHours||72));await saveSettings();try{AurumUpdateAPI.state.r22={version:'R22.0',activatedAt:nowISO(),features:['NATIVE_PIPELINE_SCREEN_OFF_HANDOFF','DURABLE_STAGE_RESUME_NO_CLEAR','RESUME_SKIPS_ALREADY_FRESH_SYMBOLS','ATOMIC_ALL_FRESH_SNAPSHOT','STAGING_REPAIR_BEFORE_PUBLISH','ONLINE_FOCUS_PAGESHOW_RECOVERY','NATIVE_OWNER_RACE_GUARD']}}catch{}}catch{}});
