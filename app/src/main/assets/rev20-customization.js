@@ -51,6 +51,13 @@ html[data-r20-custom="1"][data-r20-density="compact"] .card{padding-top:9px;padd
 .r20-palette{grid-column:1/-1;display:grid;grid-template-columns:repeat(10,minmax(22px,1fr));gap:5px;margin-top:5px}.r20-swatch{height:24px;min-height:24px;padding:0;border:1px solid rgba(255,255,255,.16);border-radius:6px;background:var(--swatch);box-shadow:inset 0 0 0 1px rgba(0,0,0,.22);cursor:pointer}.r20-swatch[aria-pressed="true"]{outline:2px solid var(--gold2);outline-offset:1px}.r20-color-custom{grid-column:1/-1;display:grid;grid-template-columns:44px minmax(0,1fr);gap:7px;align-items:center;margin-top:4px}.r20-color-custom input[type="text"]{min-width:0;height:30px;padding:5px 7px;font-family:ui-monospace,monospace;font-size:10px;text-transform:uppercase}.r20-reset-all{border:1px solid rgba(243,211,111,.65)!important;background:rgba(243,211,111,.12)!important;color:var(--gold2)!important;font-weight:800!important;box-shadow:0 0 0 1px rgba(243,211,111,.08) inset}.r20-reset-note{font-size:.7rem;color:var(--muted);margin-top:-3px}.r20-appearance-actions{display:grid!important;grid-template-columns:1fr 1fr;gap:7px}.r20-live-control{padding:7px 9px}.r20-live-control>label{min-height:18px!important;margin-bottom:4px!important}
 @media(max-width:620px){.r20-palette{grid-template-columns:repeat(8,minmax(22px,1fr))}.r20-appearance-actions{grid-template-columns:1fr}}
 
+
+/* Touch ergonomics: vertical page scrolling must not accidentally drag presentation sliders. */
+#aurumRev20Appearance .r20-range-wrap{min-height:46px;padding:7px 0;touch-action:pan-y}
+#aurumRev20Appearance .r20-range-wrap input[type="range"]{height:30px;touch-action:pan-y;pointer-events:none}
+#aurumRev20Appearance .r20-range-wrap input[type="range"].r20-range-armed{pointer-events:auto;touch-action:none}
+#aurumRev20Appearance .r20-live-control{padding-top:9px;padding-bottom:9px}
+#aurumRev20Appearance .r20-default-arrow{min-width:32px;width:32px;height:32px;line-height:30px}
 `;document.head.appendChild(st);
   }
   function setVar(k,v){if(v===null||v===undefined||v==='')root.style.removeProperty(k);else root.style.setProperty(k,v)}
@@ -96,6 +103,15 @@ html[data-r20-custom="1"][data-r20-density="compact"] .card{padding-top:9px;padd
     const vals={background:p.background||'#01083B',card:p.cardBackground||'#071327',table:p.tableBackground||'#020718',header:p.tableHeader||'#071738',accent:p.accent||'#f3d36f',text:p.text||'#f5f7fb',muted:p.muted||'#9cabc1',positive:p.positive||'#65d69b',negative:p.negative||'#ff7185'};
     document.querySelectorAll('#aurumRev20Appearance .r20-color-field').forEach(el=>{const role=el.dataset.r20Color,c=vals[role]||'#071327';el.style.removeProperty('background');el.style.removeProperty('color');el.style.removeProperty('border-color');el.style.removeProperty('box-shadow');if(role==='text'||role==='muted'){el.style.background='rgba(5,12,30,.94)';el.style.color=c;el.style.borderColor='rgba(255,255,255,.12)';}else{el.style.background=c;el.style.color=contrast(c);el.style.borderColor=role==='accent'?c:'rgba(255,255,255,.14)';el.style.boxShadow=role==='accent'?`inset 4px 0 0 ${c}`:'inset 0 0 0 1px rgba(255,255,255,.025)';}});
   }
+  function installRangeTouchGuard(){
+    document.querySelectorAll('#aurumRev20Appearance input[type="range"]').forEach(el=>{
+      if(el.dataset.r20TouchGuard)return;el.dataset.r20TouchGuard='1';
+      let sx=0,sy=0,armed=false;
+      el.parentElement?.addEventListener('pointerdown',ev=>{if(ev.pointerType==='mouse'){el.classList.add('r20-range-armed');return}sx=ev.clientX;sy=ev.clientY;armed=false},{passive:true});
+      el.parentElement?.addEventListener('pointermove',ev=>{if(ev.pointerType==='mouse'||armed)return;const dx=Math.abs(ev.clientX-sx),dy=Math.abs(ev.clientY-sy);if(dx>10&&dx>dy*1.35){armed=true;el.classList.add('r20-range-armed');try{el.setPointerCapture(ev.pointerId)}catch{}}},{passive:true});
+      const end=()=>{armed=false;el.classList.remove('r20-range-armed')};el.parentElement?.addEventListener('pointerup',end,{passive:true});el.parentElement?.addEventListener('pointercancel',end,{passive:true});
+    });
+  }
   function markDirty(){const s=S();if(s)s.settingsDirty=true}
-  ensureRules();apply(load());globalThis.AurumPresentationSettings=Object.freeze({load,apply,markup,preview,reset:()=>{localStorage.removeItem(KEY);resetStyles()}});
+  ensureRules();apply(load());document.addEventListener('DOMContentLoaded',installRangeTouchGuard,{once:true});globalThis.AurumPresentationSettings=Object.freeze({load,apply,markup,preview,reset:()=>{localStorage.removeItem(KEY);resetStyles()}});
 })();
