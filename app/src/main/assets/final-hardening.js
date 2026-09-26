@@ -110,6 +110,7 @@
   const out={at:iso(),context,market:false,portal:false,diagnostics:false};
   try{out.market=!!(await globalThis.refreshMarketIndicators?.({trigger:'DATA',context}))}catch(e){audit('CENTRAL_MARKET_FAILED','Veriler zincirindeki piyasa göstergeleri güncellenemedi',{error:e?.message||String(e)})}
   try{out.portal=!!(await globalThis.refreshAurumFinancePortal?.(true))}catch(e){audit('CENTRAL_PORTAL_FAILED','Veriler zincirindeki finans portalı güncellenemedi',{error:e?.message||String(e)})}
+  try{await globalThis.refreshAurumRMarketIntel?.(true)}catch(e){audit('CENTRAL_INTEL_FAILED','Veriler zincirindeki piyasa istihbaratı güncellenemedi',{error:e?.message||String(e)})}
   try{await health();out.diagnostics=true}catch(e){audit('CENTRAL_DIAGNOSTIC_FAILED','Veriler zincirindeki tanı çalışması tamamlanamadı',{error:e?.message||String(e)})}
   try{localStorage.setItem('aurum.r226.central.last',JSON.stringify(out))}catch{}
   return out
