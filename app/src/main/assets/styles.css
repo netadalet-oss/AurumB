@@ -961,4 +961,5 @@ html[data-af-color-theme="1"]{--text:var(--af-theme-text);--muted:var(--af-theme
 
 /* Vertical scroll remains authoritative inside the copied color studio. */
 .af-color-studio,.af-color-body,.af-color-row{touch-action:pan-y}
-.af-color-hue{touch-action:pan-y}
+.af-color-hue{touch-action:pan-y;pointer-events:none}
+.af-color-hue.af-hue-armed{touch-action:none;pointer-events:auto}
