@@ -985,3 +985,6 @@ html[data-af-color-theme="1"]{--text:var(--af-theme-text);--muted:var(--af-theme
 .af-color-all{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:9px}.af-color-all button{min-height:30px;font-size:.72em;border-radius:8px}
 #content[data-page="settings"] .aurum-settings-summary,#content[data-page="settings"] button,#content[data-page="settings"] input,#content[data-page="settings"] select{touch-action:pan-y}
 @media(max-width:390px){.af-color-row{grid-template-columns:minmax(62px,.9fr) 11px minmax(52px,1fr) minmax(42px,.56fr) minmax(52px,.65fr) minmax(39px,.48fr);gap:3px}.af-color-name{font-size:10px!important}.af-color-def,.af-color-save,.af-color-white{font-size:7.4px!important}}
+
+/* Settings-only compact notification typography. No notification logic is changed. */
+#settingsPage .notice,#settingsPage .aurum-toast-host,#settingsPage [class*="notice"],#settingsPage [class*="notification"]{font-size:10px!important;font-weight:400!important;line-height:1.32!important;letter-spacing:.005em!important}#settingsPage .notice small,#settingsPage [class*="notice"] small,#settingsPage [class*="notification"] small{font-size:9px!important;font-weight:400!important;line-height:1.3!important}
