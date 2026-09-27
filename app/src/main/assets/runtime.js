@@ -6224,10 +6224,10 @@ globalThis.AurumNotifications=Object.freeze({version:'R225.0',open:openJournal,r
 })();
 
 
-/* === AurumB Color Studio — exact AurumF settings port — ported from Aurum BIST R11/R13; isolated to Settings === */
+/* === AurumF Color Studio — ported from Aurum BIST R11/R13; isolated to Settings === */
 (function(){
- if(window.__AURUMB_FSTYLE_COLOR_STUDIO)return;window.__AURUMB_FSTYLE_COLOR_STUDIO=1;
- const K='aurumb.colorStudio.v1';
+ if(window.__AURUMF_COLOR_STUDIO)return;window.__AURUMF_COLOR_STUDIO=1;
+ const K='aurumf.colorStudio.v1';
  const AREAS=[
  ['bg','Genel arka plan','#000526','--af-theme-bg'],
  ['surface','Genel arayüz','#030a22','--af-theme-surface'],
@@ -6253,7 +6253,7 @@ globalThis.AurumNotifications=Object.freeze({version:'R225.0',open:openJournal,r
  const applyOne=(k,v)=>{const a=AREAS.find(x=>x[0]===k);if(a)document.documentElement.style.setProperty(a[3],v)};
  const applyAll=o=>{AREAS.forEach(a=>applyOne(a[0],o[a[0]]));document.documentElement.dataset.afColorTheme='1'};
  const clearAll=()=>{AREAS.forEach(a=>document.documentElement.style.removeProperty(a[3]));delete document.documentElement.dataset.afColorTheme};
- if(saved)applyAll(saved); // no saved preference => AurumB's existing visual defaults remain byte-for-byte in effect
+ if(saved)applyAll(saved); // no saved preference => AurumF's existing visual defaults remain byte-for-byte in effect
  function row(a){let[k,n]=a,[h]=hexToHsl(draft[k]);return `<div class="af-color-row" data-af-color-row="${k}"><span class="af-color-name">${n}</span><i class="af-color-preview" style="--pv:${draft[k]}" title="Önizleme"></i><input class="af-color-hue" type="range" min="0" max="360" step="1" value="${Math.round(h)}" aria-label="${n} renk"><button class="af-color-white" data-af-color-white="${k}" type="button" aria-label="${n} beyaz yap">Beyaz</button><button class="af-color-def" data-af-color-def="${k}" type="button">Varsayılan</button><button class="af-color-save" data-af-color-save="${k}" type="button">Kaydet</button></div>`}
  function mount(){
   if(document.querySelector('.af-color-studio'))return;
