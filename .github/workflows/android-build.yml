@@ -18,7 +18,6 @@ jobs:
           node --check app/src/main/assets/features.js
           node --check app/src/main/assets/runtime.js
           node --check app/src/main/assets/offline-first.js
-          node --check app/src/main/assets/presentation-settings.js
           node --check app/src/main/assets/netherlands-news-portal.js
           node --check app/src/main/assets/scheduler-settings.js
           node --check app/src/main/assets/trigger-contract.js
