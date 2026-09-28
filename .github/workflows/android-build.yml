@@ -41,6 +41,10 @@ jobs:
           grep -F "R225_FILL_TARGETS=Object.freeze([100,95,90,80,70])" "$R"
           grep -F "const requiredByFill=nextRound===1?fill<100:fill<target" "$R"
           grep -F "if(age>COHORT_MS)" "$R"
+          grep -F '"schedule_status" -> AurumScheduler.statusJson(this)' app/src/main/java/com/aurum/bistterminal8/MainActivity.kt
+          grep -F 'fun exactAllowed' app/src/main/java/com/aurum/bistterminal8/AurumScheduler.kt
+          grep -F 'recordTransfer=(state.records||[])' "$R"
+          ! grep -F 'keytool -genkeypair' .github/workflows/android-build.yml
       - name: Assemble debug APK
         run: gradle --no-daemon :app:assembleDebug --stacktrace
       - name: Align and sign installable APK
