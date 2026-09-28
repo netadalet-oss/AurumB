@@ -970,3 +970,24 @@ html[data-af-color-theme="1"]{--text:var(--af-theme-text);--muted:var(--af-theme
 
 /* Settings-only compact notification typography. No notification logic is changed. */
 #settingsPage .notice,#settingsPage .aurum-toast-host,#settingsPage [class*="notice"],#settingsPage [class*="notification"]{font-size:10px!important;font-weight:400!important;line-height:1.32!important;letter-spacing:.005em!important}#settingsPage .notice small,#settingsPage [class*="notice"] small,#settingsPage [class*="notification"] small{font-size:9px!important;font-weight:400!important;line-height:1.3!important}
+
+
+/* Canonical card surface: restored legacy gradient. Advanced Color Studio may replace it only after an explicit non-default card choice. */
+#content .card,
+#content .metric,
+#content .quick-card,
+#content .settings-card,
+#content .operation-card,
+#content .aurum-data-status-card{
+  background:linear-gradient(145deg,rgba(4,13,38,.99),rgba(1,4,15,.998))!important;
+  background-image:linear-gradient(145deg,rgba(4,13,38,.99),rgba(1,4,15,.998))!important;
+}
+html[data-af-card-solid="1"] #content .card,
+html[data-af-card-solid="1"] #content .metric,
+html[data-af-card-solid="1"] #content .quick-card,
+html[data-af-card-solid="1"] #content .settings-card,
+html[data-af-card-solid="1"] #content .operation-card,
+html[data-af-card-solid="1"] #content .aurum-data-status-card{
+  background:var(--af-theme-card)!important;
+  background-image:none!important;
+}
