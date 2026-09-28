@@ -110,7 +110,7 @@ h1{font-size:24px;line-height:1.07;margin-top:3px;font-weight:820;letter-spacing
 .gold-btn,.ghost-btn,.danger-btn{min-height:38px;border-radius:12px;padding:8px 12px;box-shadow:none;transition:none!important;font-size:12.5px;line-height:1.1}
 .gold-btn{border:1px solid rgba(244,213,108,.48);background:linear-gradient(135deg,#9a7423,#cfa941 55%,#ead066);color:#11151b}.ghost-btn{border-color:rgba(208,182,92,.19);background:rgba(255,255,255,.026)}.danger-btn{border-color:rgba(239,112,124,.30);background:rgba(239,112,124,.075)}
 .badge{padding:5px 7px;font-size:9.5px}.badge.warn{background:rgba(130,101,31,.18);border-color:rgba(226,196,95,.25);color:#ead474}.badge.ok{background:rgba(31,111,86,.15)}.badge.bad{background:rgba(121,47,61,.15)}
-.card{border-radius:var(--ref-radius);border:1px solid var(--ref-line);padding:13px 14px;background:linear-gradient(145deg,rgba(4,13,38,.97),rgba(2,7,24,.99));box-shadow:0 11px 30px rgba(0,0,0,.20),inset 0 1px 0 rgba(255,255,255,.015)}
+.card{border-radius:var(--ref-radius);border:1px solid var(--ref-line);padding:13px 14px;background:linear-gradient(145deg,rgba(4,13,38,.99),rgba(1,4,15,.998));box-shadow:0 11px 30px rgba(0,0,0,.20),inset 0 1px 0 rgba(255,255,255,.015)}
 .card.gold-edge{border-color:var(--ref-line-gold);box-shadow:0 11px 30px rgba(0,0,0,.21),inset 0 1px 0 rgba(240,213,110,.03)}
 .grid{gap:10px}.metrics,.two-col{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .metric{min-height:86px;display:flex;flex-direction:column;justify-content:center}.metric .label{color:var(--ref-muted);font-size:10px;letter-spacing:.09em}.metric .value{font-size:22px;line-height:1.05;margin-top:6px;font-weight:850}.metric .sub{font-size:11px;color:var(--ref-muted);line-height:1.3;margin-top:5px}
