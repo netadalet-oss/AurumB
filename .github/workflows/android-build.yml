@@ -27,6 +27,14 @@ jobs:
           node --check app/src/main/assets/final-hardening.js
           node --check app/src/main/assets/native-market-http.js
           node --check app/src/main/assets/market-rebuilt.js
+      - name: Validate quality-gate contract
+        run: |
+          set -euo pipefail
+          R=app/src/main/assets/runtime.js
+          grep -F "threshold=fill>=95?95:fill>=90?90:fill>=80?80:fill>=70?70:null" "$R"
+          grep -F "ladder:[95,90,80,70]" "$R"
+          grep -F "derivedUpdateAllowed:ok" "$R"
+          grep -F "Valid Veriler snapshots publish regardless of fill" "$R"
       - name: Assemble debug APK
         run: gradle --no-daemon :app:assembleDebug --stacktrace
       - name: Align and sign installable APK
