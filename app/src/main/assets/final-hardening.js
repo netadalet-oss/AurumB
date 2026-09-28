@@ -120,3 +120,39 @@
  globalThis.AurumFinalHardening=Object.freeze({version:'R226.3-SINGLE-CENTRAL-TRIGGER',health,activeFill,sessionOpen});
  audit('R226_ACTIVE','Nihai süreklilik ve arayüz sertleştirmesi etkin');
 })();
+
+/* Aurum B R70 — %70 veri kullanılabilirlik sınırı.
+   Kayıtlar Veriler'de korunur; hesap/değerlendirme katmanına yalnız geçerli satır/sütun kopyaları verilir. */
+(function installAurumBQualityBoundary(){
+  if(globalThis.__AURUM_B_R70_QUALITY_BOUNDARY)return;
+  globalThis.__AURUM_B_R70_QUALITY_BOUNDARY=true;
+  const LIMIT=.70,ID_KEYS=new Set(['sym','symbol','ticker','code','name','company','sector','latestDate','marketDataAt','apiAccessedAt','storedAt','createdAt','updatedAt','source','providers','provenance']);
+  const present=v=>v!==null&&v!==undefined&&v!==''&&(!(typeof v==='number')||Number.isFinite(v));
+  const scalar=v=>v==null||['string','number','boolean'].includes(typeof v);
+  function audit(records){
+    const rows=(records||[]).filter(Boolean),keys=[...new Set(rows.flatMap(r=>Object.keys(r).filter(k=>!ID_KEYS.has(k)&&scalar(r[k])))].sort();
+    const validColumns=new Set(keys.filter(k=>rows.length&&rows.filter(r=>present(r[k])).length/rows.length>=LIMIT));
+    const invalidColumns=keys.filter(k=>!validColumns.has(k)),invalidSymbols=new Set();
+    for(const r of rows){const denom=validColumns.size,filled=[...validColumns].filter(k=>present(r[k])).length;if(denom&&filled/denom<LIMIT)invalidSymbols.add(String(r.sym||r.symbol||'').trim().toUpperCase())}
+    return {limit:LIMIT,validColumns,invalidColumns,invalidSymbols,invalidRowCount:invalidSymbols.size,invalidColumnCount:invalidColumns.length};
+  }
+  function filtered(records){
+    const q=audit(records),out=[];
+    for(const r of records||[]){const sym=String(r?.sym||r?.symbol||'').trim().toUpperCase();if(q.invalidSymbols.has(sym))continue;const x={...r};for(const k of q.invalidColumns)delete x[k];out.push(x)}
+    return out;
+  }
+  globalThis.AurumDataQuality70={audit,filtered,limit:LIMIT};
+  globalThis.aurumQualityRecords=records=>filtered(records);
+
+  if(typeof buildModels==='function'){const base=buildModels;buildModels=function buildModelsR70(records,options){return base(filtered(records),options)}}
+  if(typeof calculateBehaviorProfiles==='function'){const base=calculateBehaviorProfiles;calculateBehaviorProfiles=function calculateBehaviorProfilesR70(records,options){return base(filtered(records),options)}}
+
+  function decorate(){
+    if(state?.page!=='data')return;
+    const q=audit(state.records||[]),host=document.querySelector('#content');if(!host||host.querySelector('[data-r70-quality-note]'))return;
+    const note=document.createElement('div');note.className='card notice';note.dataset.r70QualityNote='true';
+    note.innerHTML='<b>Geçersiz satır: '+q.invalidRowCount+' · Geçersiz sütun: '+q.invalidColumnCount+'</b><small>%70 doluluk altındaki satır/sütunlar Veriler tablosunda korunur; diğer modül, tablo, hesaplama ve değerlendirmelerde kullanılmaz.</small>';
+    const table=host.querySelector('.table-wrap, table');(table?.parentElement||host).insertBefore(note,table||host.firstChild);
+  }
+  const obs=new MutationObserver(()=>decorate());obs.observe(document.documentElement,{subtree:true,childList:true});queueMicrotask(decorate);
+})();
