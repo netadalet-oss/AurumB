@@ -4624,8 +4624,17 @@ try{AurumUpdateAPI.state.cleanREV20={version:'REV20.0-CLEAN',activatedAt:new Dat
   const mo=new MutationObserver(()=>{if(document.querySelector('input[type="range"][id^="aurumScaleVal_"]'))enhance()});
   if(document.documentElement)mo.observe(document.documentElement,{subtree:true,childList:true});
   document.addEventListener('click',e=>{
-    const d=e.target.closest('details');
-    if(d) setTimeout(()=>document.querySelectorAll('details[open]').forEach(x=>{if(x!==d)x.removeAttribute('open')}),0);
+    /* Only top-level settings cards are mutually exclusive. Nested disclosure panels must
+       stay inside their parent card; closing the parent made export submenus appear to
+       "throw the user out" of Dışa Aktarma Merkezi on Android/WebView. */
+    const summary=e.target.closest?.('summary');
+    if(!summary)return;
+    const d=summary.parentElement;
+    if(!d?.matches?.('details.aurum-settings-details'))return;
+    if(d.parentElement?.closest?.('details.aurum-settings-details'))return;
+    setTimeout(()=>document.querySelectorAll('details.aurum-settings-details[open]').forEach(x=>{
+      if(x!==d&&!x.parentElement?.closest?.('details.aurum-settings-details'))x.removeAttribute('open');
+    }),0);
   },true);
 })();
 
