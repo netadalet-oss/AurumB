@@ -63,6 +63,13 @@ jobs:
           "$BUILD_TOOLS/apksigner" sign --ks "$RUNNER_TEMP/aurumb-final.jks" --ks-key-alias "$AURUMB_KEY_ALIAS" --ks-pass "pass:$AURUMB_KEYSTORE_PASSWORD" --key-pass "pass:$AURUMB_KEY_PASSWORD" --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled true --out app/build/outputs/apk/AurumB-final-install.apk app/build/outputs/apk/AurumB-final-aligned.apk
           "$BUILD_TOOLS/apksigner" verify --verbose --print-certs app/build/outputs/apk/AurumB-final-install.apk
           "$BUILD_TOOLS/zipalign" -c -p 4 app/build/outputs/apk/AurumB-final-install.apk
+      - name: Upload aligned APK for controlled signing
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: AurumB-aligned-for-signing
+          path: app/build/outputs/apk/AurumB-final-aligned.apk
+          if-no-files-found: ignore
       - name: Upload APK
         if: success()
         uses: actions/upload-artifact@v4
