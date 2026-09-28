@@ -37,6 +37,7 @@ jobs:
           grep -F "ladder:[95,90,80,70]" "$R"
           grep -F "derivedUpdateAllowed:ok" "$R"
           grep -F "Valid Veriler snapshots publish regardless of fill" "$R"
+          ! grep -F "DATA_FILL_BELOW_70_KEEP_LAST_VALID_SNAPSHOT" app/src/main/assets/final-hardening.js
           grep -F "R221_SMART_MAX_ROUNDS=5" "$R"
           grep -F "R225_FILL_TARGETS=Object.freeze([100,95,90,80,70])" "$R"
           grep -F "const requiredByFill=nextRound===1?fill<100:fill<target" "$R"
