@@ -38,6 +38,11 @@ jobs:
           grep -F "derivedUpdateAllowed:ok" "$R"
           grep -F "Valid Veriler snapshots publish regardless of fill" "$R"
           ! grep -F "DATA_FILL_BELOW_70_KEEP_LAST_VALID_SNAPSHOT" app/src/main/assets/final-hardening.js
+          grep -F "TEMPORAL_POLICY" app/src/main/assets/runtime.js
+          grep -F "MARKET_LIVE:Object.freeze({maxSkewMinutes:30,sameTradingDay:true,verifiedMarketTime:true})" app/src/main/assets/runtime.js
+          grep -F "FINANCIAL_STATEMENT:Object.freeze({maxSkewMinutes:null" app/src/main/assets/runtime.js
+          grep -F "MARKET_HISTORY:Object.freeze({maxSkewMinutes:null" app/src/main/assets/runtime.js
+          grep -F "MARKET_TIME_UNVERIFIED" app/src/main/assets/runtime.js
           grep -F "R221_SMART_MAX_ROUNDS=5" "$R"
           grep -F "R225_FILL_TARGETS=Object.freeze([100,95,90,80,70])" "$R"
           grep -F "const requiredByFill=nextRound===1?fill<100:fill<target" "$R"
