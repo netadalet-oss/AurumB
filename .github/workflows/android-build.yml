@@ -47,6 +47,11 @@ jobs:
           # Final signing is secret-backed below; no throwaway key generation is permitted.
       - name: Assemble debug APK
         run: gradle --no-daemon :app:assembleDebug --stacktrace
+      - name: Upload Gradle-signed installable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: AurumB-gradle-signed-installable
+          path: app/build/outputs/apk/debug/*.apk
       - name: Align and sign installable APK
         env:
           AURUMB_KEYSTORE_B64: ${{ secrets.AURUMB_KEYSTORE_B64 }}
