@@ -850,8 +850,8 @@ await dbPut('meta',{key:'selectionTableState',value:{dataSnapshotId:job.dataSnap
 await pauseCheckpoint(job,JOB_STATUS.S_RUNNING);const sPrev=(await dbGet('meta','selectionSnapshot'))?.value||{},sTransferredAt=nowISO(),sFingerprint=selectionTableFingerprint(),sChangedAt=sPrev.fingerprint===sFingerprint&&sPrev.changedAt?sPrev.changedAt:sTransferredAt;await dbPut('meta',{key:'selectionSnapshot',value:{dataSnapshotId:job.dataSnapshotId,at:sTransferredAt,transferredAt:sTransferredAt,changedAt:sChangedAt,fingerprint:sFingerprint,symbols:state.selection.map(x=>x.sym)},updatedAt:sTransferredAt});await markDerivedUpdate('S');await refreshTableMeta();await transition(job,JOB_STATUS.COMPLETED,{completedAt:nowISO(),message:`S tamamlandı · ${state.selection.length} hisse`,done:1,total:1});job.completedAt=nowISO();await saveJob(job);try{await maybeRunAIDailyAudit()}catch(e){await log('error','Otomatik AI denetimi çalıştırılamadı',{error:e?.message||String(e)})}return true;}catch(e){if(e?.code==='OPERATION_CANCELLED'||cancelRequested(job)){await transition(job,JOB_STATUS.IDLE,{error:null,message:'S iptal edildi · önceki tablo korundu'});return false;}await transition(job,JOB_STATUS.FAILED,{error:e?.message||String(e),message:'S başarısız'});return false}finally{state.calculating=false;clearCancel(job.id);renderCurrentPagePreservingView();}}
 
 function resolveDataRefreshMode(requested='GENERAL'){const m=normalizeMode(requested);if(m!=='GENERAL')return m;const t=Date.parse(state.lastSuccessfulSync||TABLE_META?.data?.transfer||'');return Number.isFinite(t)&&Date.now()-t<=MARKET_SYNC_WINDOW_MS?'REPAIR':'FULL'}
-const R221_SMART_MAX_ROUNDS=4,R221_PIPELINE_TARGET_MS=6*60*1000,R221_REPAIR_RESERVE_MS=75*1000;
-const R225_FILL_TARGETS=Object.freeze([95,90,80,70]);
+const R221_SMART_MAX_ROUNDS=5,R221_PIPELINE_TARGET_MS=6*60*1000,R221_REPAIR_RESERVE_MS=75*1000;
+const R225_FILL_TARGETS=Object.freeze([100,95,90,80,70]);
 function r225TargetForRound(round){return R225_FILL_TARGETS[Math.max(0,Math.min(R225_FILL_TARGETS.length-1,Number(round||1)-1))]||70;}
 function r221CompletionMetrics(){
   const summary=dataSummary(state.records),plan=currentPendingRepairPlan(),u=Math.max(1,Number(summary.universeCount||currentSymbols().length||1)),missingPct=Math.max(0,100-Number(summary.fillPct||0)),stalePct=100*Number(plan.staleSymbolCount||0)/u,currentPct=100*Math.max(0,u-Number(plan.staleSymbolCount||0))/u;
@@ -864,12 +864,14 @@ async function r221SmartCompletion(job,{alreadyRan=0,origin='AUTO'}={}){
   job.smartCompletion={...(job.smartCompletion||{}),origin,startedAt:job.smartCompletion?.startedAt||nowISO(),rounds,maxRounds:R221_SMART_MAX_ROUNDS,fillTargets:[...R225_FILL_TARGETS]};await saveJob(job);
   while(rounds<R221_SMART_MAX_ROUNDS&&!cancelRequested(job)){
     const nextRound=rounds+1,target=r225TargetForRound(nextRound),fill=Number(m.summary.fillPct||0);
-    const firstRepair=((origin==='MANUAL_MAIN'||origin==='MANUAL_REPAIR_FULL')&&rounds===0&&m.plan.symbolCount>0);
-    if(!firstRepair && (fill>=target || m.plan.symbolCount<=0))break;
+    // Round contract: after every main transfer, any fill below 100 forces round 1.
+    // Later rounds run only while below 95, 90, 80 and 70 respectively.
+    const requiredByFill=nextRound===1?fill<100:fill<target;
+    if(!requiredByFill)break;
     const before={fillPct:fill,missingPct:m.missingPct,stalePct:m.stalePct,symbolCount:m.plan.symbolCount,targetFillPct:target};
     rounds=nextRound;setRuntime({status:JOB_STATUS.FETCHING_DATA,jobId:job.id,mode:job.mode,stage:'Veriler',done:0,total:m.plan.symbolCount,message:`Akıllı tamamlama ${rounds}/${R221_SMART_MAX_ROUNDS} · hedef ≥%${target} · mevcut %${fill.toFixed(2)}`});
     const ok=await prepareMissingData(job);m=r221CompletionMetrics();job.smartCompletion={...(job.smartCompletion||{}),rounds,lastAt:nowISO(),lastBefore:before,lastAfter:{fillPct:m.summary.fillPct,missingPct:m.missingPct,stalePct:m.stalePct,symbolCount:m.plan.symbolCount,targetFillPct:target},lastOk:ok};await saveJob(job);
-    if(!ok){job.smartCompletion.stopped='REPAIR_FAILED_LAST_VALID_TABLE_PRESERVED';try{await transition(job,JOB_STATUS.DATA_COMPLETED,{error:null,message:`Veriler tablosu korundu · akıllı tamamlama ${rounds}. turda durdu`})}catch{}break}
+    if(!ok){job.smartCompletion.lastRepairFailed=true;job.smartCompletion.lastRepairFailureRound=rounds;await saveJob(job);if(!isOnline())break}
   }
   const finalFill=Number(m.summary.fillPct||0),derivationEligible=finalFill>=70;
   job.smartCompletion={...(job.smartCompletion||{}),completedAt:nowISO(),rounds,finalFillPct:finalFill,finalMissingPct:m.missingPct,finalStalePct:m.stalePct,remainingSymbols:m.plan.symbolCount,completed:finalFill>=r225TargetForRound(Math.max(1,rounds)),derivationEligible,minDerivationFillPct:70};job.derivationEligible=derivationEligible;
