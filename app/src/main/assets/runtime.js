@@ -439,14 +439,28 @@ function classifyDataCompleteness(records=state.records,universe=currentSymbols(
 function dataSummary(records=state.records){
   const universe=currentSymbols(),rows=records||[],fields=V141225_ALL_HEADERS,classification=classifyDataCompleteness(rows,universe),zeroBad=new Set(classification.zeroPlaceholderColumns||[]);let filled=0;const sourceCounts={},present=new Set(),fresh=new Set();
   for(const r of rows){if(r?.sym)present.add(r.sym);if(r?.jobDataStatus==='FRESH'&&r?.sym)fresh.add(r.sym);for(const f of fields)if(v141225ValuePresent(r,f)&&!(zeroBad.has(f)&&v141225NumericZero(r,f)))filled++;for(const p of new Set(r?.providers||[]))sourceCounts[p]=(sourceCounts[p]||0)+1;}
-  const fillFields=fields.filter(f=>f!=='Hisse'&&f!=='Veri Tamlık'),filledCells=rows.reduce((n,r)=>n+fillFields.reduce((m,f)=>m+(v141225ValuePresent(r,f)&&!(zeroBad.has(f)&&v141225NumericZero(r,f))?1:0),0),0),total=universe.length*fillFields.length,missing=Math.max(0,total-filledCells),missingDetails=[];for(const sym of universe){const r=rows.find(x=>x.sym===sym);if(!r)missingDetails.push({sym,reason:'TABLOYA_ALINMADI'});else{const e=classification.bySymbol.get(sym);if(!e?.eligible)missingDetails.push({sym,reason:(e?.reasons||[]).join(' · ')||'EKSİK',emptyCells:e?.emptyCells??null,marketAt:r.marketDataAt||null,provider:r.marketTimeProvider||null});}}
+  const fillFields=fields.filter(f=>f!=='Hisse'&&f!=='Veri Tamlık'),canonicalAt=rows.map(r=>r?.jobCanonicalMarketAt||r?.provenance?.canonicalMarketAt).find(Boolean)||null,filledCells=rows.reduce((n,r)=>n+fillFields.reduce((m,f)=>m+(r30ValuePresent(r,f,canonicalAt,zeroBad)?1:0),0),0),total=universe.length*fillFields.length,missing=Math.max(0,total-filledCells),missingDetails=[];for(const sym of universe){const r=rows.find(x=>x.sym===sym);if(!r)missingDetails.push({sym,reason:'TABLOYA_ALINMADI'});else{const e=classification.bySymbol.get(sym);if(!e?.eligible)missingDetails.push({sym,reason:(e?.reasons||[]).join(' · ')||'EKSİK',emptyCells:e?.emptyCells??null,marketAt:r.marketDataAt||null,provider:r.marketTimeProvider||null});}}
   const lastExclusions=TABLE_META?.data?.excludedSymbols||[];for(const x of lastExclusions){const d=missingDetails.find(y=>y.sym===x.sym);if(d)Object.assign(d,{reason:x.reason||d.reason,marketAt:x.marketAt||d.marketAt,provider:x.provider||d.provider,deltaMinutes:x.deltaMinutes??d.deltaMinutes});}
   const exhaustedMissingCells=rows.reduce((n,r)=>n+(Number(r?.repairAttemptCount||0)>=3?bundleRecordMissingFields(r).length:0),0),activeBlockingMissingCells=Math.max(0,missing-exhaustedMissingCells),fillPct=total?100*filledCells/total:0,calculationEligibleRows=[...classification.bySymbol.values()].filter(x=>x.eligible).length;return {integrityRuleVersion:'R26_SINGLE_ENGINE_3_ATTEMPT',universeCount:universe.length,loadedSymbols:rows.length,usableRows:rows.length,eligibleSymbols:rows.length-missingDetails.filter(x=>present.has(x.sym)).length,calculationEligibleRows,freshSymbols:fresh.size,missingSymbolCount:missingDetails.length,missingSymbols:missingDetails.map(x=>x.sym),missingSymbolDetails:missingDetails,totalCells:total,filledCells,emptyCells:missing,realMissingCells:missing,exhaustedMissingCells,activeBlockingMissingCells,fillPct,sourceCounts,missingColumns:classification.incompleteColumns,incompleteColumns:classification.incompleteColumns,zeroPlaceholderColumns:classification.zeroPlaceholderColumns,columnBlankCounts:classification.columnBlankCounts,columnZeroCounts:classification.columnZeroCounts,fields};
 }
 
 const DATA_INTEGRITY_MAX_MISSING=20;
 const DATA_INTEGRITY_REPAIR_ROUNDS=2;
-function publishableStagedRecords(records,job){return (records||[]).filter(rec=>rec?.jobDataStatus==='FRESH'&&marketWindowCheck(rec,job?.canonicalMarketAt).ok);}
+function publishableStagedRecords(records,job){return (records||[]).filter(rec=>rec?.jobDataStatus==='FRESH');}
+/* Temporal eligibility is field-scoped: only live / same-day market fields are bound to
+   the strict 30-minute cohort. Historical bars/technicals are governed by bar-date and
+   adjustment consistency; fundamentals by their reporting period. The completion ladder
+   and publication thresholds remain unchanged. */
+const R30_LIVE_DAILY_FIELDS=new Set(['VeriZamani','Anlik','AnlikDegisim%','FiyatDegisim%_T0','Kapanis_T0','Min_T0','Max_T0','Hacim_T0','HacimDegisim%_T0']);
+function r30FieldTemporalEligible(rec,field,canonicalAt){
+  if(!R30_LIVE_DAILY_FIELDS.has(String(field||'')))return true;
+  return marketWindowCheck(rec,canonicalAt).ok;
+}
+function r30ValuePresent(rec,field,canonicalAt,zeroBad=null){
+  if(!r30FieldTemporalEligible(rec,field,canonicalAt))return false;
+  if(!v141225ValuePresent(rec,field))return false;
+  return !(zeroBad?.has?.(field)&&v141225NumericZero(rec,field));
+}
 function dataIntegrityGate(summary){const fill=Number(summary?.fillPct||0),threshold=fill>=95?95:fill>=90?90:fill>=80?80:fill>=70?70:null,ok=threshold!==null;return {ok,threshold,commitAllowed:ok,derivedUpdateAllowed:ok,ladder:[95,90,80,70],missingSymbols:Number(summary?.missingSymbolCount||0),missingColumns:(summary?.incompleteColumns||summary?.missingColumns||[]).length,rows:Number(summary?.loadedSymbols||0),cols:Number(summary?.fields?.length||0),fillPct:fill,reason:ok?null:'DATA_FILL_BELOW_70_KEEP_LAST_VALID_DERIVED_SNAPSHOT'};}
 function integrityRepairTargets(records,summary,universe){const by=new Map((records||[]).map(r=>[r.sym,r])),targets=new Set(summary?.missingSymbols||[]),zeroBad=new Set(summary?.zeroPlaceholderColumns||[]),fields=(summary?.fields||V141225_ALL_HEADERS).filter(f=>f!=='Hisse'&&f!=='Veri Tamlık');for(const sym of universe){const r=by.get(sym);if(!r){targets.add(sym);continue;}for(const f of fields){if(!v141225ValuePresent(r,f)||(zeroBad.has(f)&&v141225NumericZero(r,f))){targets.add(sym);break;}}}return [...targets];}
 async function repairStagedIntegrity(job,universe,start,end,indexBundle){let staged=(await stageRows(job.id)).map(x=>x.record),summary=dataSummary(publishableStagedRecords(staged,job)),gate=dataIntegrityGate(summary),roundLog=[];if(gate.ok)return {summary,gate,roundLog};for(let round=2;round<=3;round++){
