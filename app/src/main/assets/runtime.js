@@ -6250,9 +6250,9 @@ globalThis.AurumNotifications=Object.freeze({version:'R225.0',open:openJournal,r
  let saved=read(),draft={...(saved||defaults)};
  const hexToHsl=h=>{let r=parseInt(h.slice(1,3),16)/255,g=parseInt(h.slice(3,5),16)/255,b=parseInt(h.slice(5,7),16)/255,max=Math.max(r,g,b),min=Math.min(r,g,b),H=0,S=0,L=(max+min)/2,d=max-min;if(d){S=d/(1-Math.abs(2*L-1));if(max===r)H=60*(((g-b)/d)%6);else if(max===g)H=60*((b-r)/d+2);else H=60*((r-g)/d+4)}if(H<0)H+=360;return[H,S*100,L*100]};
  const hslToHex=(h,s,l)=>{s/=100;l/=100;let c=(1-Math.abs(2*l-1))*s,x=c*(1-Math.abs((h/60)%2-1)),m=l-c/2,r=0,g=0,b=0;if(h<60)[r,g,b]=[c,x,0];else if(h<120)[r,g,b]=[x,c,0];else if(h<180)[r,g,b]=[0,c,x];else if(h<240)[r,g,b]=[0,x,c];else if(h<300)[r,g,b]=[x,0,c];else[r,g,b]=[c,0,x];return'#'+[r,g,b].map(v=>Math.round((v+m)*255).toString(16).padStart(2,'0')).join('')};
- const applyOne=(k,v)=>{const a=AREAS.find(x=>x[0]===k);if(a)document.documentElement.style.setProperty(a[3],v)};
+ const applyOne=(k,v)=>{const a=AREAS.find(x=>x[0]===k);if(!a)return;if(k==='card'&&String(v).toLowerCase()===String(a[2]).toLowerCase()){document.documentElement.style.removeProperty(a[3]);delete document.documentElement.dataset.afCardSolid;return}document.documentElement.style.setProperty(a[3],v);if(k==='card')document.documentElement.dataset.afCardSolid='1'};
  const applyAll=o=>{AREAS.forEach(a=>applyOne(a[0],o[a[0]]));document.documentElement.dataset.afColorTheme='1'};
- const clearAll=()=>{AREAS.forEach(a=>document.documentElement.style.removeProperty(a[3]));delete document.documentElement.dataset.afColorTheme};
+ const clearAll=()=>{AREAS.forEach(a=>document.documentElement.style.removeProperty(a[3]));delete document.documentElement.dataset.afColorTheme;delete document.documentElement.dataset.afCardSolid};
  if(saved)applyAll(saved); // no saved preference => AurumF's existing visual defaults remain byte-for-byte in effect
  function row(a){let[k,n]=a,[h]=hexToHsl(draft[k]);return `<div class="af-color-row" data-af-color-row="${k}"><span class="af-color-name">${n}</span><i class="af-color-preview" style="--pv:${draft[k]}" title="Önizleme"></i><input class="af-color-hue" type="range" min="0" max="360" step="1" value="${Math.round(h)}" aria-label="${n} renk"><button class="af-color-white" data-af-color-white="${k}" type="button" aria-label="${n} beyaz yap">Beyaz</button><button class="af-color-def" data-af-color-def="${k}" type="button">Varsayılan</button><button class="af-color-save" data-af-color-save="${k}" type="button">Kaydet</button></div>`}
  function mount(){
@@ -6278,6 +6278,6 @@ globalThis.AurumNotifications=Object.freeze({version:'R225.0',open:openJournal,r
   if(e.target.closest?.('[data-af-color-all-default]')){saved=null;draft={...defaults};localStorage.removeItem(K);clearAll();document.querySelector('.af-color-studio')?.remove();mount();return}
   if(e.target.closest?.('[data-af-color-all-save]')){saved={...draft};localStorage.setItem(K,JSON.stringify(saved));applyAll(saved);return}
  },true);
- new MutationObserver(mount).observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['class']});queueMicrotask(mount);
+ globalThis.AurumColorStudioMount=mount;new MutationObserver(mount).observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['class','data-page']});document.addEventListener('click',e=>{if(e.target.closest?.('[data-page="settings"]')){queueMicrotask(mount);setTimeout(mount,60);setTimeout(mount,220)}},true);queueMicrotask(mount);setTimeout(mount,120);
 })();
 
