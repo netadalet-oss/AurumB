@@ -144,8 +144,9 @@
   globalThis.AurumDataQuality70={audit,filtered,limit:LIMIT};
   globalThis.aurumQualityRecords=records=>filtered(records);
 
-  if(typeof buildModels==='function'){const base=buildModels;buildModels=function buildModelsR70(records,options){return base(filtered(records),options)}}
+  if(typeof buildModels==='function'){const base=buildModels;buildModels=function buildModelsR70(records,options){const q=filtered(records);return base(q,options&&Array.isArray(options.pool)?{...options,pool:filtered(options.pool)}:options)}}
   if(typeof calculateBehaviorProfiles==='function'){const base=calculateBehaviorProfiles;calculateBehaviorProfiles=function calculateBehaviorProfilesR70(records,options){return base(filtered(records),options)}}
+  if(typeof rebuildModelViews==='function'){const base=rebuildModelViews;rebuildModelViews=function rebuildModelViewsR70(records){return base(filtered(records))}}
 
   function decorate(){
     if(state?.page!=='data')return;
