@@ -209,6 +209,13 @@ class MainActivity : AppCompatActivity() {
                 uri.getQueryParameter("tag").orEmpty(),
                 uri.getQueryParameter("channel").orEmpty().ifBlank { "aurum_pipeline" }
             )
+            "schedule_status" -> AurumScheduler.statusJson(this)
+            "schedule_exact_settings" -> {
+                if (android.os.Build.VERSION.SDK_INT >= 31 && !AurumScheduler.exactAllowed(this)) {
+                    runCatching { startActivity(android.content.Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:$packageName"))) }
+                    "OPENED"
+                } else "OK"
+            }
             "schedule" -> {
                 val enabled = uri.getQueryParameter("enabled") != "0"
                 val kind = uri.getQueryParameter("kind").orEmpty().let { if (it == "market") "market" else "data" }
