@@ -41,6 +41,12 @@ object SchedulerLedger {
         prefs.edit().putString(token, record.toString()).apply()
     }
 
+    fun latest(context: Context): JSONObject {
+        val prefs=context.getSharedPreferences(PREFS,Context.MODE_PRIVATE)
+        val rows=prefs.all.values.mapNotNull { runCatching { JSONObject(it as String) }.getOrNull() }
+        return rows.maxByOrNull { it.optString("startedAt") } ?: JSONObject()
+    }
+
     fun token(epoch: Long, time: String): String =
         "AUTO|" + epoch + "|" + time.replace(":", "")
 }

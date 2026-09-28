@@ -27,7 +27,8 @@ object NativeMarketHttp {
         "theunat.com", "www.theunat.com",
         "borsaistanbulcanli.com", "www.borsaistanbulcanli.com",
         "api.genelpara.com",
-        "borsamatik.com", "www.borsamatik.com.tr", "borsamatik.com.tr"
+        "borsamatik.com", "www.borsamatik.com.tr", "borsamatik.com.tr",
+        "bilancoveri.com", "www.bilancoveri.com", "api.asenax.com", "api.bist-api.com"
     )
 
     fun allowed(url: URL): Boolean =

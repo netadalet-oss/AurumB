@@ -14,7 +14,8 @@
     'www.borsaistanbul.com','borsaistanbul.com',
     'news.google.com','feeds.nos.nl','www.tcmb.gov.tr','tcmb.gov.tr',
     'script.google.com','script.googleusercontent.com',
-    'borsamatik.com','www.borsamatik.com.tr','borsamatik.com.tr'
+    'borsamatik.com','www.borsamatik.com.tr','borsamatik.com.tr',
+    'bilancoveri.com','www.bilancoveri.com','api.asenax.com','api.genelpara.com','api.bist-api.com'
   ]);
   const canHandle=input=>{
     try{const u=new URL(String(input));return u.protocol==='https:'&&allowed.has(u.hostname.toLowerCase())}catch{return false}

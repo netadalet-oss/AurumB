@@ -8,17 +8,14 @@
  function activeFill(){try{return Number(globalThis.dataSummary?.(S.records)?.fillPct||0)}catch{return 0}}
  function candidateGate(records){try{return globalThis.dataIntegrityGate?.(globalThis.dataSummary?.(records))||{ok:false,fillPct:0}}catch{return {ok:false,fillPct:0}}}
 
- /* Every late atomic publisher must retain the same >=70 invariant. */
+ /* Veriler publication is independent of the >=70 derived-calculation gate.
+    Do not wrap atomicPublish with a sub-70 rejection here: runtime.js owns publication,
+    while dataIntegrityGate/calculationGateStatus protects Kn/K_Tarihsel/S/AL-SAT. */
  try{
   const base=globalThis.atomicPublish;
   if(typeof base==='function'&&!base.__r226){
-   const w=async function(job,universe){
-    const staged=(await globalThis.stageRows(job.id)).map(x=>x.record);
-    const eligible=typeof globalThis.publishableStagedRecords==='function'?globalThis.publishableStagedRecords(staged,job):staged;
-    const gate=candidateGate(eligible);
-    if(!gate.ok)throw Object.assign(new Error('DATA_FILL_BELOW_70_KEEP_LAST_VALID_SNAPSHOT'),{code:'DATA_FILL_BELOW_70',gate});
-    return base.apply(this,arguments);
-   };w.__r226=true;globalThis.atomicPublish=w;try{atomicPublish=w}catch{}
+   const w=async function(){return base.apply(this,arguments)};
+   w.__r226=true;globalThis.atomicPublish=w;try{atomicPublish=w}catch{}
   }
  }catch{}
 

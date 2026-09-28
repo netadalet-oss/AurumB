@@ -2,6 +2,8 @@ name: Android Build
 on:
   push:
     branches: [ main ]
+  pull_request:
+    branches: [ main ]
   workflow_dispatch:
 jobs:
   assemble:
@@ -27,18 +29,53 @@ jobs:
           node --check app/src/main/assets/final-hardening.js
           node --check app/src/main/assets/native-market-http.js
           node --check app/src/main/assets/market-rebuilt.js
+      - name: Validate quality-gate contract
+        run: |
+          set -euo pipefail
+          R=app/src/main/assets/runtime.js
+          grep -F "threshold=fill>=95?95:fill>=90?90:fill>=80?80:fill>=70?70:null" "$R"
+          grep -F "ladder:[95,90,80,70]" "$R"
+          grep -F "derivedUpdateAllowed:ok" "$R"
+          grep -F "Valid Veriler snapshots publish regardless of fill" "$R"
+          ! grep -F "DATA_FILL_BELOW_70_KEEP_LAST_VALID_SNAPSHOT" app/src/main/assets/final-hardening.js
+          grep -F "R221_SMART_MAX_ROUNDS=5" "$R"
+          grep -F "R225_FILL_TARGETS=Object.freeze([100,95,90,80,70])" "$R"
+          grep -F "const requiredByFill=nextRound===1?fill<100:fill<target" "$R"
+          grep -F "if(age>COHORT_MS)" "$R"
+          grep -F '"schedule_status" -> AurumScheduler.statusJson(this)' app/src/main/java/com/aurum/bistterminal8/MainActivity.kt
+          grep -F 'fun exactAllowed' app/src/main/java/com/aurum/bistterminal8/AurumScheduler.kt
+          grep -F 'recordTransfer=(state.records||[])' "$R"
+          # Final signing is secret-backed below; no throwaway key generation is permitted.
       - name: Assemble debug APK
         run: gradle --no-daemon :app:assembleDebug --stacktrace
+      - name: Upload Gradle-signed installable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: AurumB-gradle-signed-installable
+          path: app/build/outputs/apk/debug/*.apk
       - name: Align and sign installable APK
+        env:
+          AURUMB_KEYSTORE_B64: ${{ secrets.AURUMB_KEYSTORE_B64 }}
+          AURUMB_KEYSTORE_PASSWORD: ${{ secrets.AURUMB_KEYSTORE_PASSWORD }}
+          AURUMB_KEY_ALIAS: ${{ secrets.AURUMB_KEY_ALIAS }}
+          AURUMB_KEY_PASSWORD: ${{ secrets.AURUMB_KEY_PASSWORD }}
         run: |
           set -euo pipefail
           BUILD_TOOLS="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
           UNSIGNED="$(find app/build/outputs/apk/debug -name '*.apk' | head -1)"
           "$BUILD_TOOLS/zipalign" -f -p 4 "$UNSIGNED" app/build/outputs/apk/AurumB-final-aligned.apk
-          keytool -genkeypair -v -keystore "$RUNNER_TEMP/aurumb-final.jks" -storepass AurumB2026 -keypass AurumB2026 -alias aurumb -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=AurumB Final,O=AurumB,C=TR"
-          "$BUILD_TOOLS/apksigner" sign --ks "$RUNNER_TEMP/aurumb-final.jks" --ks-key-alias aurumb --ks-pass pass:AurumB2026 --key-pass pass:AurumB2026 --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled true --out app/build/outputs/apk/AurumB-final-install.apk app/build/outputs/apk/AurumB-final-aligned.apk
+          test -n "$AURUMB_KEYSTORE_B64" || { echo "Persistent signing keystore required"; exit 1; }
+          printf '%s' "$AURUMB_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/aurumb-final.jks"
+          "$BUILD_TOOLS/apksigner" sign --ks "$RUNNER_TEMP/aurumb-final.jks" --ks-key-alias "$AURUMB_KEY_ALIAS" --ks-pass "pass:$AURUMB_KEYSTORE_PASSWORD" --key-pass "pass:$AURUMB_KEY_PASSWORD" --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled true --out app/build/outputs/apk/AurumB-final-install.apk app/build/outputs/apk/AurumB-final-aligned.apk
           "$BUILD_TOOLS/apksigner" verify --verbose --print-certs app/build/outputs/apk/AurumB-final-install.apk
           "$BUILD_TOOLS/zipalign" -c -p 4 app/build/outputs/apk/AurumB-final-install.apk
+      - name: Upload aligned APK for controlled signing
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: AurumB-aligned-for-signing
+          path: app/build/outputs/apk/AurumB-final-aligned.apk
+          if-no-files-found: ignore
       - name: Upload APK
         if: success()
         uses: actions/upload-artifact@v4
