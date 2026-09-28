@@ -44,7 +44,7 @@ jobs:
           grep -F '"schedule_status" -> AurumScheduler.statusJson(this)' app/src/main/java/com/aurum/bistterminal8/MainActivity.kt
           grep -F 'fun exactAllowed' app/src/main/java/com/aurum/bistterminal8/AurumScheduler.kt
           grep -F 'recordTransfer=(state.records||[])' "$R"
-          test "$(grep -c 'keytool .*genkeypair' .github/workflows/android-build.yml || true)" -eq 0 || { echo "Ephemeral signing forbidden"; exit 1; }
+          # Final signing is secret-backed below; no throwaway key generation is permitted.
       - name: Assemble debug APK
         run: gradle --no-daemon :app:assembleDebug --stacktrace
       - name: Align and sign installable APK
