@@ -120,3 +120,52 @@
  globalThis.AurumFinalHardening=Object.freeze({version:'R226.3-SINGLE-CENTRAL-TRIGGER',health,activeFill,sessionOpen});
  audit('R226_ACTIVE','Nihai süreklilik ve arayüz sertleştirmesi etkin');
 })();
+
+/* Aurum B R70 — %70 veri kullanılabilirlik sınırı.
+   Kayıtlar Veriler'de korunur; hesap/değerlendirme katmanına yalnız geçerli satır/sütun kopyaları verilir. */
+(function installAurumBQualityBoundary(){
+  if(globalThis.__AURUM_B_R70_QUALITY_BOUNDARY)return;
+  globalThis.__AURUM_B_R70_QUALITY_BOUNDARY=true;
+  const LIMIT=.70,ID_KEYS=new Set(['sym','symbol','ticker','code','name','company','sector','latestDate','marketDataAt','apiAccessedAt','storedAt','createdAt','updatedAt','source','providers','provenance']);
+  const present=v=>v!==null&&v!==undefined&&v!==''&&(!(typeof v==='number')||Number.isFinite(v));
+  const scalar=v=>v==null||['string','number','boolean'].includes(typeof v);
+  function audit(records){
+    const rows=(records||[]).filter(Boolean),keys=[...new Set(rows.flatMap(r=>Object.keys(r).filter(k=>!ID_KEYS.has(k)&&scalar(r[k]))))].sort();
+    const validColumns=new Set(keys.filter(k=>rows.length&&rows.filter(r=>present(r[k])).length/rows.length>=LIMIT));
+    const invalidColumns=keys.filter(k=>!validColumns.has(k)),invalidSymbols=new Set();
+    for(const r of rows){const denom=validColumns.size,filled=[...validColumns].filter(k=>present(r[k])).length;if(denom&&filled/denom<LIMIT)invalidSymbols.add(String(r.sym||r.symbol||'').trim().toUpperCase())}
+    return {limit:LIMIT,validColumns,invalidColumns,invalidSymbols,invalidRowCount:invalidSymbols.size,invalidColumnCount:invalidColumns.length};
+  }
+  function filtered(records){
+    const q=audit(records),out=[];
+    for(const r of records||[]){const sym=String(r?.sym||r?.symbol||'').trim().toUpperCase();if(q.invalidSymbols.has(sym))continue;const x={...r};for(const k of q.invalidColumns)delete x[k];out.push(x)}
+    return out;
+  }
+  globalThis.AurumDataQuality70={audit,filtered,limit:LIMIT};
+  globalThis.aurumQualityRecords=records=>filtered(records);
+
+  if(typeof buildModels==='function'){const base=buildModels;buildModels=function buildModelsR70(records,options){const q=filtered(records);return base(q,options&&Array.isArray(options.pool)?{...options,pool:filtered(options.pool)}:options)}}
+  if(typeof calculateBehaviorProfiles==='function'){const base=calculateBehaviorProfiles;calculateBehaviorProfiles=function calculateBehaviorProfilesR70(records,options){return base(filtered(records),options)}}
+  if(typeof rebuildModelViews==='function'){const base=rebuildModelViews;rebuildModelViews=function rebuildModelViewsR70(records){return base(filtered(records))}}
+
+  function decorate(){
+    if(state?.page!=='data')return;
+    const q=audit(state.records||[]),host=document.querySelector('#content');if(!host||host.querySelector('[data-r70-quality-note]'))return;
+    const note=document.createElement('div');note.className='card notice';note.dataset.r70QualityNote='true';
+    note.innerHTML='<b>Geçersiz satır: '+q.invalidRowCount+' · Geçersiz sütun: '+q.invalidColumnCount+'</b><small>%70 doluluk altındaki satır/sütunlar Veriler tablosunda korunur; diğer modül, tablo, hesaplama ve değerlendirmelerde kullanılmaz.</small>';
+    const table=host.querySelector('.table-wrap, table');(table?.parentElement||host).insertBefore(note,table||host.firstChild);
+  }
+  const obs=new MutationObserver(()=>decorate());obs.observe(document.documentElement,{subtree:true,childList:true});queueMicrotask(decorate);
+})();
+
+/* R70 K_Tarihsel: Kn Trend yalnız K1-K7 ve isabet ortalaması büyükten küçüğe. */
+(function installAurumBKnTrendHitOrder(){
+  const keys=['K1','K2','K3','K4','K5','K6','K7'];
+  function cell(row){
+    const a=keys.map(k=>{const s=row?.summaries?.[k]||{},h=Number(s.hitCount),t=Number(s.total||20);return {k,hitCount:Number.isFinite(h)?h:0,total:t>0?t:20,hitAvg:Number.isFinite(h)&&t>0?h/t:null};})
+      .sort((x,y)=>(y.hitAvg??-Infinity)-(x.hitAvg??-Infinity)||keys.indexOf(x.k)-keys.indexOf(y.k));
+    const vals=a.map(x=>x.hitAvg).filter(Number.isFinite),mean=vals.length?vals.reduce((s,x)=>s+x,0)/vals.length:null;
+    return '<div class="kh-trend">'+a.map(x=>'<span><b>'+html(x.k)+':</b> '+x.hitCount+'/'+x.total+'</span>').join('')+'<footer><small>İsabet ort: '+(mean==null?'—':(mean*20).toFixed(2)+'/20')+'</small></footer></div>';
+  }
+  try{kh117TrendCell=cell;globalThis.kh117TrendCell=cell}catch{}
+})();
