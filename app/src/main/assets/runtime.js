@@ -356,6 +356,7 @@ const V141225_ZERO_ALWAYS_MISSING=new Set(['Anlik','Kapanis_T0','Min_T0','Max_T0
 function v141225ZeroMeansMissing(field,v){if(Number(v)!==0)return false;if(V141225_ZERO_ALWAYS_MISSING.has(field))return true;if(/^(Kapanis|Min|Max|Hacim)_T\d+$/.test(field))return true;return false;}
 function vRecordCompleteness(rec){let filled=0,total=0;for(const h of V141225_DRIVE_HEADERS){if(h==='Hisse')continue;total++;const v=v141225Raw(rec,h,true);if(!(v===null||v===undefined||v===''||(typeof v==='number'&&!Number.isFinite(v))||v141225ZeroMeansMissing(h,v)))filled++;}return total?100*filled/total:0}
 function v141225Raw(rec,key,skipCompleteness=false){
+  if(rec&&['FD_T0','FAVOK_T0','FD_FAVOK_T0','F_K_T0','PD_DD_T0','ROE_Yaklasik_T0'].includes(key))repairCriticalFundamentals(rec);
   const s=rec?.series||{},n=s.date?.length||0,ix=n-1,fm=rec?.fundamentals||{};
   if(key==='Hisse')return rec?.sym||null;
   if(key==='VeriZamani')return rec?.marketDataAt||rec?.datasetMarketAt||rec?.provenance?.marketAt||rec?.apiAccessedAt||rec?.tableTransferredAt||rec?.storedAt||null;
@@ -454,7 +455,35 @@ function maskIncompleteColumn(rec,key){
   const rets={Getiri_TL_1A_T0:['retTL1','retTL21'],Getiri_TL_3A_T0:['retTL3','retTL63'],Getiri_TL_6A_T0:['retTL6','retTL126'],Getiri_USD_1A_T0:['retUSD1','retUSD21'],Getiri_USD_3A_T0:['retUSD3','retUSD63'],Getiri_USD_6A_T0:['retUSD6','retUSD126'],Getiri_XU_1A_T0:['retXU1','retXU21'],Getiri_XU_3A_T0:['retXU3','retXU63'],Getiri_XU_6A_T0:['retXU6','retXU126']};for(const k of rets[key]||[])rec[k]=null;
   return rec;
 }
+function repairCriticalFundamentals(rec){
+  const fm=rec.fundamentals={...(rec.fundamentals||{})};
+  const pick=(...xs)=>{for(const x of xs){const n=vFinite(x);if(n!=null&&n!==0)return n}return null};
+  const price=pick(rec.livePrice,rec.price,rec.series?.calcClose?.at?.(-1),rec.series?.close?.at?.(-1));
+  const shares=pick(fm.sharesOutstanding,fm.shares,fm.shareCount,rec.sharesOutstanding,rec.shares,rec.shareCount);
+  let marketCap=pick(fm.marketCap,rec.marketCap,rec.companyCard?.marketCap,rec.companyCard?.marketValue);
+  if(marketCap==null&&price!=null&&price>0&&shares!=null&&shares>0)marketCap=price*shares;
+  const cash=pick(fm.totalCash,fm.cash,fm.cashAndEquivalents,rec.totalCash,rec.cash);
+  const debt=pick(fm.totalDebt,fm.debt,rec.totalDebt,rec.debt);
+  let ev=pick(fm.enterpriseValue,fm.fd,rec.enterpriseValue,rec.fd);
+  if(ev==null&&marketCap!=null){const q=marketCap+(debt||0)-(cash||0);if(Number.isFinite(q)&&q!==0)ev=q}
+  const ebitda=pick(fm.ebitda,fm.favok,rec.ebitda,rec.favok);
+  let evEbitda=pick(fm.evEbitda,fm.fdFavok,rec.evEbitda,rec.fdFavok);
+  if(evEbitda==null&&ev!=null&&ebitda!=null&&ebitda!==0){const q=ev/ebitda;if(Number.isFinite(q)&&Math.abs(q)<10000)evEbitda=q}
+  const eps=pick(fm.eps,fm.trailingEps,rec.eps,rec.trailingEps);
+  let pe=pick(fm.pe,fm.trailingPE,fm.priceEarnings,rec.pe,rec.trailingPE);
+  if(pe==null&&price!=null&&price>0&&eps!=null&&eps>0)pe=price/eps;
+  const book=pick(fm.bookValue,fm.bookValuePerShare,rec.bookValue,rec.bookValuePerShare);
+  let pb=pick(fm.pb,fm.priceToBook,rec.pb,rec.priceToBook);
+  if(pb==null&&price!=null&&price>0&&book!=null&&book>0)pb=price/book;
+  const equity=pick(fm.totalEquity,fm.stockholdersEquity,fm.equity,rec.totalEquity,rec.equity);
+  const netIncome=pick(fm.netIncome,fm.netProfit,rec.netIncome,rec.netProfit);
+  let roe=pick(fm.roe,fm.roePct,fm.returnOnEquity,rec.roe,rec.roePct,rec.returnOnEquity);
+  if(roe==null&&netIncome!=null&&equity!=null&&equity!==0){roe=100*netIncome/equity}
+  Object.assign(fm,{...(marketCap!=null?{marketCap}:{}),...(ev!=null?{enterpriseValue:ev}:{}),...(ebitda!=null?{ebitda}:{}),...(evEbitda!=null?{evEbitda}:{}),...(pe!=null&&pe>0?{pe}:{}),...(pb!=null&&pb>0?{pb}:{}),...(roe!=null?{roe}:{}),...(shares!=null?{sharesOutstanding:shares}:{})});
+  return rec;
+}
 function normalizeCalculationRecord(rec){
+  repairCriticalFundamentals(rec);
   rec.dayChange=safeRecordDayChange(rec);
   const s=rec.series||{};
   const tl1=safeSeriesReturn(s.calcClose,21)??safeSeriesReturn(s.close,21),tl3=safeSeriesReturn(s.calcClose,63)??safeSeriesReturn(s.close,63),tl6=safeSeriesReturn(s.calcClose,126)??safeSeriesReturn(s.close,126);
