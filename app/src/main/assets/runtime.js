@@ -130,7 +130,7 @@ function adaptiveWorkerCount(total=1){const configured=Math.max(1,Number(state.s
 async function updateSourceHealth(code,{ok,latencyMs,status,stale=false,error=null}={}){const h=await sourceHealth(code),failGate=Math.max(1,Math.min(20,Number(state.settings?.circuitBreakerFailures||3))),rateCooldown=Math.max(1000,Math.min(900000,Number(state.settings?.rateLimitCooldownMs||60000))),circuitBase=Math.max(1000,Math.min(900000,Number(state.settings?.circuitBreakerCooldownMs||30000)));if(ok){h.success=(h.success||0)+1;h.lastSuccessAt=nowISO();if(stale)h.stale=(h.stale||0)+1;}else{h.failed=(h.failed||0)+1;h.lastFailureAt=nowISO();h.lastError=String(error||'');if(status===429)h.rateLimitedUntil=Date.now()+rateCooldown;if((h.failed||0)>=failGate&&(h.failed||0)>(h.success||0)*.5)h.circuitUntil=Date.now()+Math.min(10*60*1000,circuitBase*Math.max(1,Math.ceil((h.failed||1)/failGate)));}if(Number.isFinite(latencyMs))h.avgLatencyMs=h.avgLatencyMs==null?latencyMs:(.8*h.avgLatencyMs+.2*latencyMs);h.updatedAt=nowISO();SOURCE_HEALTH_CACHE.set(String(code),h);SOURCE_HEALTH_DIRTY.set(String(code),(SOURCE_HEALTH_DIRTY.get(String(code))||0)+1);await flushSourceHealth(code,status===429||(!ok&&(h.failed||0)%Math.max(2,failGate)===0));return h;}
 function providerScore(h,baseRank){const total=(h.success||0)+(h.failed||0),rate=total?(h.success||0)/total:.75,lat=Number(h.avgLatencyMs||1500),stalePenalty=total?(h.stale||0)/total:0,circuit=(h.circuitUntil||0)>Date.now()?1000:0,rateLimit=(h.rateLimitedUntil||0)>Date.now()?500:0;return baseRank*10+(1-rate)*35+Math.min(20,lat/1000)+stalePenalty*20+circuit+rateLimit;}
 async function providerOrder(liveOnly=false){
-  const base=['ISYATIRIM','ISYATIRIM_FINANCIALS','YAHOO','BIGPARA','BIGPARA_LIVE','YAHOO_ALT','FOREKS','STOOQ','ISYATIRIM_LIVE','YAHOO_QUOTE'],configured=(state.settings?.providerOrder||[]).map(x=>String(x).toUpperCase()),all=[...new Set([...base,...configured])],contentRank=new Map(base.map((c,i)=>[c,i])),allowed=liveOnly?new Set(['ISYATIRIM_LIVE','YAHOO','YAHOO_ALT','YAHOO_QUOTE','BIGPARA','BIGPARA_LIVE']):null,scored=[];
+  const base=['BILANCOVERI','ISYATIRIM','ISYATIRIM_FINANCIALS','YAHOO','BIGPARA','BIGPARA_LIVE','YAHOO_ALT','FOREKS','STOOQ','ISYATIRIM_LIVE','YAHOO_QUOTE'],configured=(state.settings?.providerOrder||[]).map(x=>String(x).toUpperCase()),all=[...new Set([...base,...configured])],contentRank=new Map(base.map((c,i)=>[c,i])),allowed=liveOnly?new Set(['ISYATIRIM_LIVE','YAHOO','YAHOO_ALT','YAHOO_QUOTE','BIGPARA','BIGPARA_LIVE']):null,scored=[];
   for(let i=0;i<all.length;i++){const c=all[i];if(allowed&&!allowed.has(c))continue;const h=await sourceHealth(c);if((h.circuitUntil||0)>Date.now())continue;const rank=contentRank.has(c)?contentRank.get(c):base.length+i;scored.push({code:c,score:providerScore(h,rank)});}
   return scored.sort((a,b)=>a.score-b.score||a.code.localeCompare(b.code)).map(x=>x.code);
 }
@@ -164,7 +164,11 @@ function mergeBundles(sym,bundles){
 
 function coverage(bundle){const b=bundle?.bars||[],n=b.length,f=bundle?.fundamentals||{};return {bars:n,open:n?b.filter(x=>validNumber(x.open)!=null&&Number(x.open)>0).length/n:0,volume:n?b.filter(x=>validNumber(x.volume)!=null&&Number(x.volume)>0).length/n:0,fund:['marketCap','capital','enterpriseValue','ebitda','pe','pb','evEbitda','roe','freeFloat'].filter(k=>validFundamentalCandidate(k,f[k])!=null).length,live:validNumber(bundle?.live?.price)!=null&&Number(bundle.live.price)>0};}
 function needsMore(bundle,liveOnly=false){const c=coverage(bundle);if(liveOnly)return !c.live;const target=Math.max(120,Math.min(320,Math.round(Number(state.settings?.monthsBack||14)*21)));return c.bars<target||c.open<.80||c.volume<.80||c.fund<4||(state.settings?.liveEnabled!==false&&!c.live);}
+const BILANCOVERI_SNAPSHOT={at:0,promise:null,map:new Map()};
+async function bilancoVeriSnapshot(){const ttl=15*60*1000;if(BILANCOVERI_SNAPSHOT.map.size&&Date.now()-BILANCOVERI_SNAPSHOT.at<ttl)return BILANCOVERI_SNAPSHOT.map;if(BILANCOVERI_SNAPSHOT.promise)return BILANCOVERI_SNAPSHOT.promise;BILANCOVERI_SNAPSHOT.promise=(async()=>{const res=await fetchWithTimeout('https://bilancoveri.com/api/v1/sirketler.json',{__provider:'BILANCOVERI'},12000);if(!res.ok)throw new Error('BilancoVeri HTTP '+res.status);const j=await res.json(),rows=Array.isArray(j)?j:(j.companies||j.sirketler||j.data||[]),m=new Map();for(const x of rows){const k=String(x.ticker||x.symbol||x.kod||x.code||'').toUpperCase().replace(/\.IS$/,'');if(k)m.set(k,x)}BILANCOVERI_SNAPSHOT.map=m;BILANCOVERI_SNAPSHOT.at=Date.now();return m})().finally(()=>{BILANCOVERI_SNAPSHOT.promise=null});return BILANCOVERI_SNAPSHOT.promise}
+async function fetchBilancoVeri(sym){const requestedAt=nowISO(),map=await bilancoVeriSnapshot(),x=map.get(String(sym||'').toUpperCase().replace(/\.IS$/,''));if(!x)throw new Error('BilancoVeri sembol bulunamadı');const n=(...xs)=>{for(const v of xs){const z=validNumber(v);if(z!=null)return z}return null},f={};const marketCap=n(x.market_cap,x.marketCap,x.pd,x.piyasa_degeri),pe=n(x.pe,x.fk,x.price_earnings),pb=n(x.pb,x.pd_dd,x.price_book),evEbitda=n(x.ev_ebitda,x.fd_favok,x.evEbitda),roe=n(x.roe,x.return_on_equity);if(marketCap!=null)f.marketCap=marketCap;if(pe!=null&&pe>0)f.pe=pe;if(pb!=null&&pb>0)f.pb=pb;if(evEbitda!=null&&evEbitda!==0)f.evEbitda=evEbitda;if(roe!=null&&roe!==0)f.roe=roe;return {provider:'BILANCOVERI',symbol:sym,bars:[],fundamentals:f,actions:[],requestedAt,receivedAt:nowISO(),provenance:{source:'KAP/Borsa Istanbul via BilancoVeri',snapshotAt:BILANCOVERI_SNAPSHOT.at}}}
 async function invokeProvider(code,sym,start,end){
+  if(code==='BILANCOVERI')return fetchBilancoVeri(sym);
   if(code==='ISYATIRIM')return fetchIsYatirim(sym,start,end);
   if(code==='ISYATIRIM_FINANCIALS')return fetchIsYatirimFinancials(sym);
   if(code==='ISYATIRIM_LIVE')return {provider:'ISYATIRIM_LIVE',symbol:sym,bars:[],fundamentals:{},live:await fetchIsYatirimLive(sym),actions:[],requestedAt:nowISO(),receivedAt:nowISO()};
@@ -5188,15 +5192,15 @@ try{AurumUpdateAPI.state.r239={version:'REV20.39-STRICT-CADENCE-SAME-SOURCE-MARK
   const LANE_POOLS={
     HIST:['YAHOO','YAHOO_ALT','ISYATIRIM','BIGPARA','FOREKS','STOOQ'],
     LIVE:['YAHOO_QUOTE','BIGPARA_LIVE','ISYATIRIM_LIVE','YAHOO','YAHOO_ALT','BIGPARA'],
-    FUND:['ISYATIRIM_FINANCIALS','ISYATIRIM','YAHOO_QUOTE','BIGPARA_LIVE']
+    FUND:['BILANCOVERI','ISYATIRIM_FINANCIALS','ISYATIRIM','YAHOO_QUOTE','BIGPARA_LIVE']
   };
   const LANE_WHEELS={
     HIST:['YAHOO','YAHOO','YAHOO_ALT','ISYATIRIM','ISYATIRIM','BIGPARA','BIGPARA','FOREKS','STOOQ'],
     LIVE:['YAHOO_QUOTE','YAHOO_QUOTE','BIGPARA_LIVE','BIGPARA_LIVE','ISYATIRIM_LIVE','YAHOO','YAHOO_ALT','BIGPARA'],
-    FUND:['ISYATIRIM_FINANCIALS','ISYATIRIM_FINANCIALS','ISYATIRIM','YAHOO_QUOTE','BIGPARA_LIVE']
+    FUND:['BILANCOVERI','BILANCOVERI','ISYATIRIM_FINANCIALS','ISYATIRIM_FINANCIALS','ISYATIRIM','YAHOO_QUOTE','BIGPARA_LIVE']
   };
-  const PROVIDER_GAP_MS={YAHOO:130,YAHOO_ALT:155,YAHOO_QUOTE:125,ISYATIRIM:180,ISYATIRIM_FINANCIALS:220,ISYATIRIM_LIVE:170,BIGPARA:165,BIGPARA_LIVE:150,FOREKS:220,STOOQ:260};
-  const PROVIDER_CAP={YAHOO:8,YAHOO_ALT:7,YAHOO_QUOTE:6,ISYATIRIM:6,ISYATIRIM_FINANCIALS:4,ISYATIRIM_LIVE:5,BIGPARA:6,BIGPARA_LIVE:5,FOREKS:4,STOOQ:3};
+  const PROVIDER_GAP_MS={BILANCOVERI:80,YAHOO:130,YAHOO_ALT:155,YAHOO_QUOTE:125,ISYATIRIM:180,ISYATIRIM_FINANCIALS:220,ISYATIRIM_LIVE:170,BIGPARA:165,BIGPARA_LIVE:150,FOREKS:220,STOOQ:260};
+  const PROVIDER_CAP={BILANCOVERI:12,YAHOO:8,YAHOO_ALT:7,YAHOO_QUOTE:6,ISYATIRIM:6,ISYATIRIM_FINANCIALS:4,ISYATIRIM_LIVE:5,BIGPARA:6,BIGPARA_LIVE:5,FOREKS:4,STOOQ:3};
   const PACE=new Map(),HEALTH=new Map();let HEALTH_AT=0;
   const hash=s=>{let h=2166136261;for(const c of String(s||'')){h^=c.charCodeAt(0);h=Math.imul(h,16777619)}return h>>>0};
   const uniq=xs=>[...new Set((xs||[]).filter(Boolean).map(x=>String(x).toUpperCase()))];
