@@ -43,6 +43,8 @@ jobs:
           grep -F "FINANCIAL_STATEMENT:Object.freeze({maxSkewMinutes:null" app/src/main/assets/runtime.js
           grep -F "MARKET_HISTORY:Object.freeze({maxSkewMinutes:null" app/src/main/assets/runtime.js
           grep -F "MARKET_TIME_UNVERIFIED" app/src/main/assets/runtime.js
+          grep -F "linear-gradient(145deg, rgba(4,13,38,.99), rgba(1,4,15,.998))" app/src/main/assets/runtime.js
+          grep -F -- "--aurum-page-bg:#000526" app/src/main/assets/runtime.js
           grep -F "R221_SMART_MAX_ROUNDS=5" "$R"
           grep -F "R225_FILL_TARGETS=Object.freeze([100,95,90,80,70])" "$R"
           grep -F "const requiredByFill=nextRound===1?fill<100:fill<target" "$R"
