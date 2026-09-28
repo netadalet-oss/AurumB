@@ -6296,6 +6296,16 @@ globalThis.AurumNotifications=Object.freeze({version:'R225.0',open:openJournal,r
 })();
 
 
+/* === Canonical Aurum card/page palette — APK source of truth === */
+(function installCanonicalAurumPalette(){
+ const id='aurum-canonical-card-palette';
+ const css=`:root{--aurum-page-bg:#000526;--aurum-card-bg:linear-gradient(145deg, rgba(4,13,38,.99), rgba(1,4,15,.998))}html,body,#app,.app-shell,.page,.content{background-color:#000526}.card{background:linear-gradient(145deg, rgba(4,13,38,.99), rgba(1,4,15,.998))}`;
+ let s=document.getElementById(id);if(!s){s=document.createElement('style');s.id=id;document.head.appendChild(s)}s.textContent=css;
+ document.documentElement.style.setProperty('--af-theme-bg','#000526');
+ document.documentElement.style.removeProperty('--af-theme-card');
+ delete document.documentElement.dataset.afCardSolid;
+})();
+
 /* === AurumF Color Studio — ported from Aurum BIST R11/R13; isolated to Settings === */
 (function(){
  if(window.__AURUMF_COLOR_STUDIO)return;window.__AURUMF_COLOR_STUDIO=1;
@@ -6303,7 +6313,7 @@ globalThis.AurumNotifications=Object.freeze({version:'R225.0',open:openJournal,r
  const AREAS=[
  ['bg','Genel arka plan','#000526','--af-theme-bg'],
  ['surface','Genel arayüz','#030a22','--af-theme-surface'],
- ['card','Kartlar','#030a22','--af-theme-card'],
+ ['card','Kartlar','#040d26','--af-theme-card'],
  ['border','Kart / çizgi','#203052','--af-theme-border'],
  ['text','Ana yazı','#f5f7fb','--af-theme-text'],
  ['muted','İkincil yazı','#9cabc1','--af-theme-muted'],
