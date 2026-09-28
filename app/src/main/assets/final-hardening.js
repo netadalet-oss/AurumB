@@ -130,7 +130,7 @@
   const present=v=>v!==null&&v!==undefined&&v!==''&&(!(typeof v==='number')||Number.isFinite(v));
   const scalar=v=>v==null||['string','number','boolean'].includes(typeof v);
   function audit(records){
-    const rows=(records||[]).filter(Boolean),keys=[...new Set(rows.flatMap(r=>Object.keys(r).filter(k=>!ID_KEYS.has(k)&&scalar(r[k])))].sort();
+    const rows=(records||[]).filter(Boolean),keys=[...new Set(rows.flatMap(r=>Object.keys(r).filter(k=>!ID_KEYS.has(k)&&scalar(r[k]))))].sort();
     const validColumns=new Set(keys.filter(k=>rows.length&&rows.filter(r=>present(r[k])).length/rows.length>=LIMIT));
     const invalidColumns=keys.filter(k=>!validColumns.has(k)),invalidSymbols=new Set();
     for(const r of rows){const denom=validColumns.size,filled=[...validColumns].filter(k=>present(r[k])).length;if(denom&&filled/denom<LIMIT)invalidSymbols.add(String(r.sym||r.symbol||'').trim().toUpperCase())}
@@ -157,17 +157,14 @@
   const obs=new MutationObserver(()=>decorate());obs.observe(document.documentElement,{subtree:true,childList:true});queueMicrotask(decorate);
 })();
 
-/* R70 K_Tarihsel: Kn Trend yalnız K1-K7 ve Kn aritmetik ortalaması büyükten küçüğe. */
-(function installAurumBKnTrendMeanOrder(){
+/* R70 K_Tarihsel: Kn Trend yalnız K1-K7 ve isabet ortalaması büyükten küçüğe. */
+(function installAurumBKnTrendHitOrder(){
   const keys=['K1','K2','K3','K4','K5','K6','K7'];
-  const n=v=>{const x=Number(v);return Number.isFinite(x)?x:null};
-  const avg=a=>{const v=a.map(n).filter(x=>x!==null);return v.length?v.reduce((s,x)=>s+x,0)/v.length:null};
   function cell(row){
-    const a=keys.map(k=>{const list=(row?.criteria?.[k]||[]).slice(0,20),s=row?.summaries?.[k]||{},vals=list.map(x=>x?.knReturn??x?.returnAvg??x?.avgReturn);return {k,knAvg:avg(vals)??n(s.knAvg)};})
-      .sort((x,y)=>(y.knAvg??-Infinity)-(x.knAvg??-Infinity)||keys.indexOf(x.k)-keys.indexOf(y.k));
-    const all=a.map(x=>x.knAvg).filter(x=>x!==null);
-    const show=v=>v===null||v===undefined?'—':(typeof kn117Pct==='function'?kn117Pct(v):(Number(v)*100).toFixed(2)+'%');
-    return '<div class="kh-trend">'+a.map(x=>'<span><b>'+html(x.k)+':</b> '+html(show(x.knAvg))+'</span>').join('')+'<footer><small>Kn aritmetik ort: '+html(show(avg(all)))+'</small></footer></div>';
+    const a=keys.map(k=>{const s=row?.summaries?.[k]||{},h=Number(s.hitCount),t=Number(s.total||20);return {k,hitCount:Number.isFinite(h)?h:0,total:t>0?t:20,hitAvg:Number.isFinite(h)&&t>0?h/t:null};})
+      .sort((x,y)=>(y.hitAvg??-Infinity)-(x.hitAvg??-Infinity)||keys.indexOf(x.k)-keys.indexOf(y.k));
+    const vals=a.map(x=>x.hitAvg).filter(Number.isFinite),mean=vals.length?vals.reduce((s,x)=>s+x,0)/vals.length:null;
+    return '<div class="kh-trend">'+a.map(x=>'<span><b>'+html(x.k)+':</b> '+x.hitCount+'/'+x.total+'</span>').join('')+'<footer><small>İsabet ort: '+(mean==null?'—':(mean*20).toFixed(2)+'/20')+'</small></footer></div>';
   }
   try{kh117TrendCell=cell;globalThis.kh117TrendCell=cell}catch{}
 })();
