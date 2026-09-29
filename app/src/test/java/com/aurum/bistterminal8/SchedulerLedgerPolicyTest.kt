@@ -31,4 +31,9 @@ class SchedulerLedgerPolicyTest {
 
     @Test fun freshPendingIsPreserved() =
         assertFalse(SchedulerLedgerPolicy.isStalePending("PENDING", 1_000L, 7_201_000L, 7_200_000L))
+    @Test fun negativeAttemptIsNormalizedToOne() =
+        assertEquals(1, SchedulerLedgerPolicy.nextAttempt(-4))
+
+    @Test fun exactlyAtStaleThresholdIsNotRecovered() =
+        assertFalse(SchedulerLedgerPolicy.isStaleRunning("RUNNING", 1_000L, 7_201_000L, 7_200_000L))
 }
