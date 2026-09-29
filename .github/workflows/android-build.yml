@@ -19,7 +19,6 @@ jobs:
           node --check app/src/main/assets/core.js
           node --check app/src/main/assets/features.js
           node --check app/src/main/assets/runtime.js
-          node --check app/src/main/assets/ota-engine.js
           node --check app/src/main/assets/offline-first.js
           node --check app/src/main/assets/netherlands-news-portal.js
           node --check app/src/main/assets/scheduler-settings.js
