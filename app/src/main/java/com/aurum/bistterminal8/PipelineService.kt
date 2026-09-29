@@ -29,6 +29,7 @@ class PipelineService : Service() {
     private var transferWakeLock: PowerManager.WakeLock? = null
     private var watchdog: android.os.Handler? = null
     private var watchdogTask: Runnable? = null
+    private var operationLockToken: String? = null
 
     private inner class BackgroundNativeBridge {
         @JavascriptInterface
@@ -57,11 +58,20 @@ class PipelineService : Service() {
             ?: run { stopSelf(startId); return START_NOT_STICKY }
         val kind = intent.getStringExtra("pipelineKind").let { if (it == "market") "market" else "data" }
 
+        if (!PipelineOperationLock.acquire(this, jobToken, kind, if (kind == "market") "SCHEDULED_MARKET" else "SCHEDULED_DATA")) {
+            SchedulerLedger.complete(this, jobToken, "FAILED", "OPERATION_LOCK_BUSY")
+            stopSelf(startId)
+            return START_NOT_STICKY
+        }
+        operationLockToken = jobToken
+
         // Never destroy an already-running background WebView to start another pipeline.
         // Duplicate same-slot alarms are filtered by SchedulerLedger; different overlapping
         // schedules fail closed and keep the first atomic job intact.
         if (webView != null) {
             SchedulerLedger.complete(this, jobToken, "FAILED", "PIPELINE_BUSY_ALREADY_RUNNING")
+            PipelineOperationLock.release(this, jobToken)
+            operationLockToken = null
             return START_NOT_STICKY
         }
 
@@ -121,6 +131,8 @@ class PipelineService : Service() {
                             detail
                         )
                         releaseTransferWakeLock()
+                        PipelineOperationLock.release(this@PipelineService, jobToken)
+                        operationLockToken = null
                         stopSelf(startId)
                         return true
                     }
@@ -215,6 +227,8 @@ class PipelineService : Service() {
         watchdogTask = null
         watchdog = null
         releaseTransferWakeLock()
+        operationLockToken?.let { PipelineOperationLock.release(this, it) }
+        operationLockToken = null
         destroyWebView()
         super.onDestroy()
     }
