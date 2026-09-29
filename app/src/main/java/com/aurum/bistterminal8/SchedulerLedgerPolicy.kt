@@ -12,4 +12,7 @@ object SchedulerLedgerPolicy {
 
     fun isStaleRunning(status: String, lastActivityAt: Long, now: Long, staleMs: Long): Boolean =
         status == "RUNNING" && lastActivityAt > 0L && now - lastActivityAt > staleMs
+
+    fun isStalePending(status: String, acceptedAt: Long, now: Long, staleMs: Long): Boolean =
+        status == "PENDING" && acceptedAt > 0L && now - acceptedAt > staleMs
 }
