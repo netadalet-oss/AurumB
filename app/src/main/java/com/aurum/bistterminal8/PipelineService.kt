@@ -29,7 +29,8 @@ class PipelineService : Service() {
     private var transferWakeLock: PowerManager.WakeLock? = null
     private var watchdog: android.os.Handler? = null
     private var watchdogTask: Runnable? = null
-    private data class PendingJob(val intent: Intent, val startId: Int)\n    private val pendingJobs = ArrayDeque<PendingJob>()
+    private data class PendingJob(val intent: Intent, val startId: Int)
+    private val pendingJobs = ArrayDeque<PendingJob>()
     private var activeToken: String? = null
     private var activeStartId: Int? = null
 
