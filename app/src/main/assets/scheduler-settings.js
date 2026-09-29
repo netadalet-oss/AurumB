@@ -10,11 +10,11 @@
    try{
      if(localStorage.getItem(DATA_KEY)==null){
        let old=null;try{old=JSON.parse(localStorage.getItem(LEGACY)||'null')}catch{}
-       const legacyTimes=Array.isArray(old?.weekday)?old.weekday.filter(x=>/^([01]\\d|2[0-3]):[0-5]\\d$/.test(String(x))):[];
+       const legacyTimes=Array.isArray(old?.weekday)?old.weekday.filter(x=>/^([01]\d|2[0-3]):[0-5]\d$/.test(String(x))):[];
        if(legacyTimes.length){set(DATA_KEY,[...new Set(legacyTimes)].sort().join(','));set(DATA_ON,old?.enabled===false?'0':'1');}
        else{
          let native=null;try{native=JSON.parse(call('schedule_status')||'null')}catch{}
-         const nativeTimes=Array.isArray(native?.dataTimes)?native.dataTimes.filter(x=>/^([01]\\d|2[0-3]):[0-5]\\d$/.test(String(x))):[];
+         const nativeTimes=Array.isArray(native?.dataTimes)?native.dataTimes.filter(x=>/^([01]\d|2[0-3]):[0-5]\d$/.test(String(x))):[];
          if(nativeTimes.length)set(DATA_KEY,[...new Set(nativeTimes)].sort().join(','));
          if(typeof native?.dataEnabled==='boolean')set(DATA_ON,native.dataEnabled?'1':'0');
        }
