@@ -36,8 +36,11 @@ jobs:
           grep -F "threshold=fill>=95?95:fill>=90?90:fill>=80?80:fill>=70?70:null" "$R"
           grep -F "ladder:[95,90,80,70]" "$R"
           grep -F "derivedUpdateAllowed:ok" "$R"
-          grep -F "Valid Veriler snapshots publish regardless of fill" "$R"
-          ! grep -F "DATA_FILL_BELOW_70_KEEP_LAST_VALID_SNAPSHOT" app/src/main/assets/final-hardening.js
+          grep -F "DATA_FILL_BELOW_70_KEEP_LAST_VALID_SNAPSHOT" "$R"
+          grep -F "READY_TO_PUBLISH:'READY_TO_PUBLISH'" "$R"
+          grep -F "CANCELLED:'CANCELLED'" "$R"
+          grep -F "STAGING:'STAGING'" "$R"
+          grep -F "VALIDATING:'VALIDATING'" "$R"
           grep -F "R221_SMART_MAX_ROUNDS=5" "$R"
           grep -F "R225_FILL_TARGETS=Object.freeze([100,95,90,80,70])" "$R"
           grep -F "const requiredByFill=nextRound===1?fill<100:fill<target" "$R"
@@ -46,14 +49,24 @@ jobs:
           grep -F 'fun exactAllowed' app/src/main/java/com/aurum/bistterminal8/AurumScheduler.kt
           grep -F 'recordTransfer=(state.records||[])' "$R"
           # Final signing is secret-backed below; no throwaway key generation is permitted.
-      - name: Assemble debug APK
-        run: gradle --no-daemon :app:assembleDebug --stacktrace
+      - name: Full Android verification
+        run: |
+          gradle --no-daemon clean \
+            :app:compileDebugKotlin \
+            :app:compileDebugJavaWithJavac \
+            :app:mergeDebugResources \
+            :app:processDebugMainManifest \
+            :app:assembleDebug \
+            :app:assembleRelease \
+            :app:lintDebug \
+            --stacktrace
       - name: Upload Gradle-signed installable APK
         uses: actions/upload-artifact@v4
         with:
           name: AurumB-gradle-signed-installable
           path: app/build/outputs/apk/debug/*.apk
       - name: Align and sign installable APK
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         env:
           AURUMB_KEYSTORE_B64: ${{ secrets.AURUMB_KEYSTORE_B64 }}
           AURUMB_KEYSTORE_PASSWORD: ${{ secrets.AURUMB_KEYSTORE_PASSWORD }}
@@ -70,14 +83,14 @@ jobs:
           "$BUILD_TOOLS/apksigner" verify --verbose --print-certs app/build/outputs/apk/AurumB-final-install.apk
           "$BUILD_TOOLS/zipalign" -c -p 4 app/build/outputs/apk/AurumB-final-install.apk
       - name: Upload aligned APK for controlled signing
-        if: always()
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && always()
         uses: actions/upload-artifact@v4
         with:
           name: AurumB-aligned-for-signing
           path: app/build/outputs/apk/AurumB-final-aligned.apk
           if-no-files-found: ignore
       - name: Upload APK
-        if: success()
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && success()
         uses: actions/upload-artifact@v4
         with:
           name: AurumB-final-installable-apk

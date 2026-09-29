@@ -4,8 +4,27 @@
  const DATA_DEF='00:30,04:30,08:20,09:20,10:20,11:20,12:20,13:20,14:20,15:20,16:20,17:20,18:20,19:20,20:30,21:30,22:30,23:30';
  const plus30=t=>{const m=String(t).match(/^(\d\d):(\d\d)$/);if(!m)return t;const n=(+m[1]*60 + +m[2]+30)%1440;return String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0')};
  const get=(k,d)=>{try{return localStorage.getItem(k)??d}catch{return d}},set=(k,v)=>{try{localStorage.setItem(k,v)}catch{}};
- const times=kind=>get(kind==='data'?DATA_KEY:MARKET_KEY,kind==='data'?DATA_DEF:DATA_DEF.split(',').map(plus30).join(',')).split(',').map(x=>x.trim()).filter(Boolean);
- const enabled=kind=>get(kind==='data'?DATA_ON:MARKET_ON,'1')!=='0';
+ const MIG='aurum.ui.dualScheduleMigrated.v1',LEGACY='aurum.b.scheduler.model.v13';
+ function migrate(){
+   if(get(MIG,'0')==='1')return;
+   try{
+     if(localStorage.getItem(DATA_KEY)==null){
+       let old=null;try{old=JSON.parse(localStorage.getItem(LEGACY)||'null')}catch{}
+       const legacyTimes=Array.isArray(old?.weekday)?old.weekday.filter(x=>/^([01]\\d|2[0-3]):[0-5]\\d$/.test(String(x))):[];
+       if(legacyTimes.length){set(DATA_KEY,[...new Set(legacyTimes)].sort().join(','));set(DATA_ON,old?.enabled===false?'0':'1');}
+       else{
+         let native=null;try{native=JSON.parse(call('schedule_status')||'null')}catch{}
+         const nativeTimes=Array.isArray(native?.dataTimes)?native.dataTimes.filter(x=>/^([01]\\d|2[0-3]):[0-5]\\d$/.test(String(x))):[];
+         if(nativeTimes.length)set(DATA_KEY,[...new Set(nativeTimes)].sort().join(','));
+         if(typeof native?.dataEnabled==='boolean')set(DATA_ON,native.dataEnabled?'1':'0');
+       }
+     }
+     if(localStorage.getItem(MARKET_KEY)==null)set(MARKET_KEY,(localStorage.getItem(DATA_KEY)||DATA_DEF).split(',').map(plus30).join(','));
+     if(localStorage.getItem(MARKET_ON)==null)set(MARKET_ON,'0');
+   }finally{set(MIG,'1')}
+ }
+ const times=kind=>{migrate();return get(kind==='data'?DATA_KEY:MARKET_KEY,kind==='data'?DATA_DEF:DATA_DEF.split(',').map(plus30).join(',')).split(',').map(x=>x.trim()).filter(Boolean)};
+ const enabled=kind=>{migrate();return get(kind==='data'?DATA_ON:MARKET_ON,'0')!=='0'};
  const call=(cmd,p={})=>{const u='aurum://native?cmd='+encodeURIComponent(cmd)+Object.entries(p).map(([k,v])=>'&'+encodeURIComponent(k)+'='+encodeURIComponent(v)).join('');try{return globalThis.AurumNativeBridge?.call?.(u,'')??prompt(u,'')}catch{return''}};
  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  function editor(kind,title,sub){const xs=times(kind),cap=kind==='data'?'Data':'Market';return '<div class="aurum-schedule-profile" data-schedule-kind="'+kind+'"><div class="aurum-schedule-profile-head"><div><b>'+title+'</b><small>'+sub+'</small></div><label class="aurum-schedule-toggle"><input id="aurum'+cap+'ScheduleEnabled" type="checkbox" '+(enabled(kind)?'checked':'')+'><span>Aktif</span></label></div><div class="aurum-schedule-chips">'+xs.map(t=>'<span class="aurum-schedule-chip"><b>'+esc(t)+'</b><button type="button" onclick="AurumDualScheduler.remove(\''+kind+'\',\''+esc(t)+'\')">−</button></span>').join('')+'</div><div class="aurum-schedule-add"><input type="time" step="60" id="aurumScheduleAdd_'+kind+'" value="'+(kind==='data'?'09:20':'09:50')+'"><button class="ghost-btn" type="button" onclick="AurumDualScheduler.add(\''+kind+'\')">+ Ekle</button></div><input type="hidden" id="aurum'+cap+'ScheduleTimes" value="'+esc(xs.join(','))+'"></div>'}

@@ -57,6 +57,15 @@ class PipelineService : Service() {
             ?: run { stopSelf(startId); return START_NOT_STICKY }
         val kind = intent.getStringExtra("pipelineKind").let { if (it == "market") "market" else "data" }
 
+        // Never destroy an already-running background WebView to start another pipeline.
+        // Duplicate same-slot alarms are filtered by SchedulerLedger; different overlapping
+        // schedules fail closed and keep the first atomic job intact.
+        if (webView != null) {
+            SchedulerLedger.complete(this, jobToken, "FAILED", "PIPELINE_BUSY_ALREADY_RUNNING")
+            return START_NOT_STICKY
+        }
+
+        acquireTransferWakeLock()
         watchdogTask?.let { watchdog?.removeCallbacks(it) }
         watchdog = android.os.Handler(mainLooper)
         watchdogTask = Runnable {
@@ -111,6 +120,7 @@ class PipelineService : Service() {
                             if (ok) "COMPLETED" else "FAILED",
                             detail
                         )
+                        releaseTransferWakeLock()
                         stopSelf(startId)
                         return true
                     }

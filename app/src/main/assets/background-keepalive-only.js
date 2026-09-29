@@ -7,5 +7,7 @@
  const busy=()=>{try{const r=typeof currentRuntime==='function'?currentRuntime():null;return !!(r&&typeof operationBusyStatus==='function'&&operationBusyStatus(r.status))}catch{return false}};
  let held=false;
  const sync=()=>{const b=busy();if(b!==held){held=b;keep(b)}};
- /* No polling/lifecycle trigger: keepalive is controlled by the authorized Veriler job itself. */
+ globalThis.AurumTransferKeepalive=Object.freeze({sync,held:()=>held});
+ sync();
+ /* No polling/lifecycle trigger: runtime state transitions call sync directly. */
 })();

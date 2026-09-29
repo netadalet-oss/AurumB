@@ -8,14 +8,22 @@
    const jobs=[];
    if(typeof globalThis.refreshAurumFinancePortal==='function')jobs.push(globalThis.refreshAurumFinancePortal(true));
    if(typeof globalThis.refreshAurumFundMarketIntel==='function')jobs.push(globalThis.refreshAurumFundMarketIntel(true));
-   if(typeof globalThis.AurumNLPortal?.refresh==='function')jobs.push(globalThis.AurumNLPortal.refresh()); // same Piyasa Özeti manual/scheduled market refresh
+   if(typeof globalThis.AurumNLPortal?.refresh==='function')jobs.push(globalThis.AurumNLPortal.refresh(true)); // explicit market pipeline refresh
    return Promise.allSettled(jobs);
  }
  async function market(manual=false){
-   const a=globalThis.AurumRebuiltMarket?.refresh?globalThis.AurumRebuiltMarket.refresh({manual,scheduled:!manual}):Promise.resolve(null);
-   const [indicators,financePortal]=await Promise.all([a,portal()]);
-   try{globalThis.renderCurrentPagePreservingView?.();globalThis.renderCurrent?.()}catch{}
-   return {indicators,financePortal};
+   if(globalThis.__aurumMarketRefreshActive)return {coalesced:true};
+   globalThis.__aurumMarketRefreshActive=true;
+   try{
+     const a=globalThis.AurumRebuiltMarket?.refresh?globalThis.AurumRebuiltMarket.refresh({manual,scheduled:!manual}):Promise.resolve(null);
+     const [indicators,financePortal]=await Promise.allSettled([a,portal()]);
+     try{globalThis.renderCurrentPagePreservingView?.();globalThis.renderCurrent?.()}catch{}
+     const result={indicators:indicators.status==='fulfilled'?indicators.value:null,financePortal:financePortal.status==='fulfilled'?financePortal.value:null,errors:[]};
+     if(indicators.status==='rejected')result.errors.push('MARKET:'+String(indicators.reason?.message||indicators.reason));
+     if(financePortal.status==='rejected')result.errors.push('PORTAL:'+String(financePortal.reason?.message||financePortal.reason));
+     if(result.errors.length===2)throw new Error(result.errors.join(' | '));
+     return result;
+   }finally{globalThis.__aurumMarketRefreshActive=false}
  }
  globalThis.AurumStrictMarketRuntime=Object.freeze({manual:()=>market(true),scheduled:()=>market(false)});
  globalThis.AurumMarketRuntime=Object.freeze({manualRefresh:()=>market(true),scheduledRefresh:()=>market(false)});
