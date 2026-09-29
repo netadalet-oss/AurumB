@@ -28,9 +28,8 @@ android {
 
     buildTypes {
         release {
-            // Release-compatible compile/resource/manifest validation is required in CI.
-            // Final installable signing is performed by the persistent-keystore CI step.
-            signingConfig signingConfigs.debug
+            // Keep release unsigned. CI aligns and signs this exact artifact with the
+            // persistent production/update key after all compile/lint checks pass.
         }
     }
 }
