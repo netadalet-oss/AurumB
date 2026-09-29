@@ -135,6 +135,11 @@ test('Manifest background security',()=>{
   must(manifest,'android:exported="false"');
   must(manifest,'android.permission.FOREGROUND_SERVICE_DATA_SYNC');
 });
+test('Last-20 histories are wired to real events',()=>{
+  must(scheduler,'__aurumNoticeHistoryHook','general user notices are not persisted');
+  must(scheduler,'slice(-20)','notification/log history is not bounded to 20');
+  must(runtime,'AurumSettingsHistory20?.log','job state transitions are not persisted to system history');
+});
 
 const fail=results.filter(x=>x.status==='FAIL');
 for(const r of results) console.log((r.status==='PASS'?'PASS':'FAIL')+' | '+r.name+(r.detail?' | '+r.detail:''));
