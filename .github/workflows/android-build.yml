@@ -1,6 +1,4 @@
 name: Android Build
-permissions:
-  contents: write
 on:
   push:
     branches: [ main ]
@@ -12,41 +10,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-        with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
       - uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.9'
-      - name: Bootstrap verified Gradle wrapper
-        id: wrapper
+      - name: Verify Gradle wrapper
         run: |
-          if [ ! -f gradle/wrapper/gradle-wrapper.jar ]; then
-            gradle wrapper --gradle-version 8.9 --distribution-type bin --gradle-distribution-sha256-sum d725d707bfabd4dfdc958c624003b3c80accc03f7037b5122c4b1d0ef15cecab
-            echo "generated=true" >> "$GITHUB_OUTPUT"
-          fi
           chmod +x gradlew
           echo "498495120a03b9a6ab5d155f5de3c8f0d986a449153702fb80fc80e134484f17  gradle/wrapper/gradle-wrapper.jar" | sha256sum -c -
-      - name: Commit verified wrapper to audit branch
-        if: steps.wrapper.outputs.generated == 'true' && github.event.pull_request.head.repo.full_name == github.repository
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add gradlew gradlew.bat gradle/wrapper/gradle-wrapper.jar gradle/wrapper/gradle-wrapper.properties
-          git commit -m "Add verified Gradle 8.9 wrapper"
-          git push origin "HEAD:${GITHUB_HEAD_REF}"
-      - name: Upload verified wrapper bootstrap
-        uses: actions/upload-artifact@v4
-        with:
-          name: gradle-wrapper-8.9-verified
-          path: |
-            gradlew
-            gradlew.bat
-            gradle/wrapper/gradle-wrapper.jar
-            gradle/wrapper/gradle-wrapper.properties
+          grep -F "distributionUrl=https\\://services.gradle.org/distributions/gradle-8.9-bin.zip" gradle/wrapper/gradle-wrapper.properties
+          grep -F "distributionSha256Sum=d725d707bfabd4dfdc958c624003b3c80accc03f7037b5122c4b1d0ef15cecab" gradle/wrapper/gradle-wrapper.properties
       - name: Validate JavaScript syntax
         run: |
           node --check app/src/main/assets/core.js
