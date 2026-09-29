@@ -8,7 +8,6 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.net.Uri
 import android.os.Bundle
-import android.os.PowerManager
 import android.webkit.JavascriptInterface
 import android.webkit.JsPromptResult
 import android.webkit.WebChromeClient
@@ -20,6 +19,7 @@ import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import androidx.webkit.WebViewAssetLoader
 import org.json.JSONObject
 import java.io.OutputStreamWriter
@@ -27,7 +27,6 @@ import java.io.OutputStreamWriter
 class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
     private var exportFolder: Uri? = null
-    private var transferWakeLock: PowerManager.WakeLock? = null
     private var dataOperationOwner: String? = null
 
     private val folderPicker = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
@@ -151,14 +150,12 @@ class MainActivity : AppCompatActivity() {
             "transfer_keepalive" -> {
                 val enabled = uri.getQueryParameter("enabled") != "0"
                 if (enabled) {
-                    if (transferWakeLock?.isHeld != true) {
-                        transferWakeLock = (getSystemService(POWER_SERVICE) as PowerManager)
-                            .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "AurumB:ActiveTransfer")
-                            .apply { setReferenceCounted(false); acquire(6 * 60 * 60 * 1000L) }
-                    }
+                    ContextCompat.startForegroundService(
+                        this,
+                        android.content.Intent(this, TransferKeepaliveService::class.java)
+                    )
                 } else {
-                    transferWakeLock?.let { if (it.isHeld) it.release() }
-                    transferWakeLock = null
+                    stopService(android.content.Intent(this, TransferKeepaliveService::class.java))
                 }
                 "OK"
             }
@@ -346,8 +343,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
-        transferWakeLock?.let { if (it.isHeld) it.release() }
-        transferWakeLock = null
+        stopService(android.content.Intent(this, TransferKeepaliveService::class.java))
         dataOperationOwner?.let { OperationLock.release("data", it) }
         dataOperationOwner = null
         webView.removeJavascriptInterface("AurumNativeBridge")
