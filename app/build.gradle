@@ -16,7 +16,7 @@ android {
         jvmTarget = '17'
     }
 
-    defaultConfig {
+    buildTypes {\n        debug { debuggable true }\n        release { minifyEnabled false; shrinkResources false }\n    }\n\n    defaultConfig {
         applicationId 'com.aurum.rev20.smartfastx.debug'
         minSdk 26
         targetSdk 35
