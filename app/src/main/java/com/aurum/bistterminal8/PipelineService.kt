@@ -5,6 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.IBinder
 import android.os.PowerManager
@@ -14,21 +15,21 @@ import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import androidx.webkit.WebViewAssetLoader
 import org.json.JSONObject
+import java.util.ArrayDeque
 
-/**
- * Headless execution host for scheduled Aurum pipelines.
- *
- * The background WebView must expose the same native market HTTP transport used by MainActivity.
- * Without this bridge native-market-http.js falls back to an unhandled JS prompt and every
- * allow-listed market request is rejected although the same operation works in the foreground.
- */
 class PipelineService : Service() {
+    private data class Run(val epoch: Long, val token: String, val kind: String, val startId: Int)
+
     private var webView: WebView? = null
     private var transferWakeLock: PowerManager.WakeLock? = null
     private var watchdog: android.os.Handler? = null
     private var watchdogTask: Runnable? = null
+    private val queue = ArrayDeque<Run>()
+    private var active: Run? = null
 
     private inner class BackgroundNativeBridge {
         @JavascriptInterface
@@ -53,16 +54,29 @@ class PipelineService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val epoch = intent?.getLongExtra("epoch", 0L)?.takeIf { it > 0L }
             ?: run { stopSelf(startId); return START_NOT_STICKY }
-        val jobToken = intent.getStringExtra("jobToken")
+        val token = intent.getStringExtra("jobToken")
             ?: run { stopSelf(startId); return START_NOT_STICKY }
         val kind = intent.getStringExtra("pipelineKind").let { if (it == "market") "market" else "data" }
 
+        // A Service has one WebView execution host. Never destroy an active run when a second
+        // alarm arrives; queue it and execute deterministically after the current run completes.
+        if (active?.token == token || queue.any { it.token == token }) return START_NOT_STICKY
+        queue.addLast(Run(epoch, token, kind, startId))
+        startNextIfIdle()
+        return START_NOT_STICKY
+    }
+
+    private fun startNextIfIdle() {
+        if (active != null) return
+        val run = queue.removeFirstOrNull() ?: run {
+            stopSelf()
+            return
+        }
+        active = run
         watchdogTask?.let { watchdog?.removeCallbacks(it) }
         watchdog = android.os.Handler(mainLooper)
-        watchdogTask = Runnable {
-            SchedulerLedger.complete(this, jobToken, "FAILED", "PIPELINE_TIMEOUT")
-            stopSelf(startId)
-        }.also { watchdog?.postDelayed(it, 2 * 60 * 60 * 1000L) }
+        watchdogTask = Runnable { finishActive(false, "PIPELINE_TIMEOUT") }
+            .also { watchdog?.postDelayed(it, 2 * 60 * 60 * 1000L) }
 
         val loader = WebViewAssetLoader.Builder()
             .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
@@ -76,16 +90,10 @@ class PipelineService : Service() {
             settings.allowFileAccess = false
             settings.allowContentAccess = false
             settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
-
-            // native-bridge.js prefers this interface and only falls back to window.prompt.
             addJavascriptInterface(BackgroundNativeBridge(), "AurumNativeBridge")
             webChromeClient = object : WebChromeClient() {
                 override fun onJsPrompt(
-                    view: WebView?,
-                    url: String?,
-                    message: String?,
-                    defaultValue: String?,
-                    result: JsPromptResult?
+                    view: WebView?, url: String?, message: String?, defaultValue: String?, result: JsPromptResult?
                 ): Boolean {
                     if (message?.startsWith("aurum://native?") == true) {
                         result?.confirm(handleNative(message, defaultValue.orEmpty()))
@@ -94,7 +102,6 @@ class PipelineService : Service() {
                     return super.onJsPrompt(view, url, message, defaultValue, result)
                 }
             }
-
             webViewClient = object : WebViewClient() {
                 override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest) =
                     loader.shouldInterceptRequest(request.url)
@@ -102,40 +109,37 @@ class PipelineService : Service() {
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                     val uri = request.url
                     if (uri.scheme == "aurum" && uri.host == "complete") {
-                        val ok = uri.getQueryParameter("ok") != "0"
-                        val detail = uri.getQueryParameter("detail").orEmpty()
-                        watchdogTask?.let { watchdog?.removeCallbacks(it) }
-                        SchedulerLedger.complete(
-                            this@PipelineService,
-                            jobToken,
-                            if (ok) "COMPLETED" else "FAILED",
-                            detail
+                        finishActive(
+                            uri.getQueryParameter("ok") != "0",
+                            uri.getQueryParameter("detail").orEmpty()
                         )
-                        stopSelf(startId)
                         return true
                     }
                     return uri.scheme != "https" || uri.host != "appassets.androidplatform.net"
                 }
             }
-            loadUrl("https://appassets.androidplatform.net/assets/index.html?background=1&epoch=$epoch&pipeline=$kind")
+            loadUrl("https://appassets.androidplatform.net/assets/index.html?background=1&epoch=" + run.epoch + "&pipeline=" + run.kind)
         }
-        return START_NOT_STICKY
     }
 
-    /**
-     * Deliberately small background command surface. UI-only commands remain in MainActivity.
-     */
+    private fun finishActive(ok: Boolean, detail: String) {
+        val run = active ?: return
+        watchdogTask?.let { watchdog?.removeCallbacks(it) }
+        watchdogTask = null
+        SchedulerLedger.complete(this, run.token, if (ok) "COMPLETED" else "FAILED", detail)
+        destroyWebView()
+        active = null
+        stopSelfResult(run.startId)
+        if (queue.isNotEmpty()) startNextIfIdle() else stopSelf()
+    }
+
     private fun handleNative(message: String, body: String): String {
         if (!message.startsWith("aurum://native?")) return "ERR:INVALID_NATIVE_URI"
         val uri = runCatching { Uri.parse(message) }.getOrNull() ?: return "ERR:INVALID_NATIVE_URI"
         return when (uri.getQueryParameter("cmd").orEmpty()) {
             "http_cancel" -> {
                 val id = uri.getQueryParameter("requestId").orEmpty()
-                if (id.isBlank()) "ERR:MISSING_REQUEST_ID"
-                else {
-                    NativeMarketHttp.cancel(id)
-                    "OK"
-                }
+                if (id.isBlank()) "ERR:MISSING_REQUEST_ID" else { NativeMarketHttp.cancel(id); "OK" }
             }
             "http_request" -> {
                 val id = uri.getQueryParameter("requestId").orEmpty()
@@ -144,15 +148,9 @@ class PipelineService : Service() {
                 else if (url.isBlank()) "ERR:MISSING_URL"
                 else {
                     NativeMarketHttp.request(
-                        this,
-                        id,
-                        uri.getQueryParameter("method") ?: "GET",
-                        url,
-                        body,
+                        this, id, uri.getQueryParameter("method") ?: "GET", url, body,
                         (uri.getQueryParameter("timeout")?.toIntOrNull() ?: 15000).coerceIn(1000, 120000)
-                    ) { payload ->
-                        resolveJs("window.AurumNativeHTTP&&window.AurumNativeHTTP.resolve", id, payload)
-                    }
+                    ) { payload -> resolveJs("window.AurumNativeHTTP&&window.AurumNativeHTTP.resolve", id, payload) }
                     "ACCEPTED"
                 }
             }
@@ -161,15 +159,37 @@ class PipelineService : Service() {
                 if (enabled) acquireTransferWakeLock() else releaseTransferWakeLock()
                 "OK"
             }
+            "notification" -> postNotification(
+                uri.getQueryParameter("title").orEmpty(),
+                uri.getQueryParameter("body").orEmpty(),
+                uri.getQueryParameter("tag").orEmpty(),
+                uri.getQueryParameter("channel").orEmpty().ifBlank { "aurum_pipeline" }
+            )
             else -> "ERR:UNSUPPORTED_NATIVE_COMMAND"
         }
+    }
+
+    private fun postNotification(title: String, body: String, tag: String, channel: String): String {
+        if (android.os.Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) return "ERR:NOTIFICATION_PERMISSION"
+        val nm = getSystemService(NotificationManager::class.java)
+        nm.createNotificationChannel(NotificationChannel(channel, "Aurum Bildirimleri", NotificationManager.IMPORTANCE_DEFAULT))
+        val notification = NotificationCompat.Builder(this, channel)
+            .setSmallIcon(android.R.drawable.stat_notify_more)
+            .setContentTitle(title.ifBlank { "Aurum" })
+            .setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setAutoCancel(true)
+            .build()
+        nm.notify(if (tag.isBlank()) body.hashCode() else tag.hashCode(), notification)
+        return "OK"
     }
 
     private fun resolveJs(function: String, id: String, payload: String) {
         android.os.Handler(mainLooper).post {
             webView?.evaluateJavascript(
-                function + "(" + JSONObject.quote(id) + "," + JSONObject.quote(payload) + ")",
-                null
+                function + "(" + JSONObject.quote(id) + "," + JSONObject.quote(payload) + ")", null
             )
         }
     }
@@ -178,10 +198,7 @@ class PipelineService : Service() {
         if (transferWakeLock?.isHeld == true) return
         transferWakeLock = (getSystemService(POWER_SERVICE) as PowerManager)
             .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "AurumB:BackgroundTransfer")
-            .apply {
-                setReferenceCounted(false)
-                acquire(2 * 60 * 60 * 1000L)
-            }
+            .apply { setReferenceCounted(false); acquire(2 * 60 * 60 * 1000L) }
     }
 
     private fun releaseTransferWakeLock() {
@@ -200,7 +217,15 @@ class PipelineService : Service() {
         webView = null
     }
 
+    override fun onTimeout(startId: Int, fgsType: Int) {
+        finishActive(false, "ANDROID_FGS_TIMEOUT")
+    }
+
     override fun onDestroy() {
+        active?.let { SchedulerLedger.complete(this, it.token, "FAILED", "SERVICE_DESTROYED") }
+        queue.forEach { SchedulerLedger.complete(this, it.token, "FAILED", "SERVICE_DESTROYED_BEFORE_START") }
+        queue.clear()
+        active = null
         watchdogTask?.let { watchdog?.removeCallbacks(it) }
         watchdogTask = null
         watchdog = null
