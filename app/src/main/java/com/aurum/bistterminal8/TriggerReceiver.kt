@@ -1,12 +1,10 @@
 package com.aurum.bistterminal8
 
-// RECONSTRUCTED_FROM_DEX
-// Receiver flow, extra names and ledger handoff are DEX-proven.
-
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import androidx.core.content.ContextCompat
+import java.time.Instant
 
 class TriggerReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -14,12 +12,22 @@ class TriggerReceiver : BroadcastReceiver() {
         val kind = intent.getStringExtra("pipelineKind").let { if (it == "market") "market" else "data" }
         val epoch = intent.getLongExtra("epoch", 0L).takeIf { it > 0L }
             ?: System.currentTimeMillis()
-        val jobToken = SchedulerLedger.begin(context, epoch, slotTime)
+
+        AurumScheduler.scheduleNextForTime(context, slotTime, Instant.now(), kind)
+
+        val jobToken = SchedulerLedger.begin(context, epoch, slotTime, kind) ?: return
         val service = Intent(context, PipelineService::class.java)
             .putExtra("epoch", epoch)
-            .putExtra("jobToken", jobToken).putExtra("pipelineKind",kind)
-        ContextCompat.startForegroundService(context, service)
-        // Every alarm is one-shot; immediately arm the next valid occurrence for this slot.
-        AurumScheduler.scheduleNextForTime(context, slotTime, java.time.Instant.ofEpochMilli(epoch).plusSeconds(1), kind)
+            .putExtra("jobToken", jobToken)
+            .putExtra("pipelineKind", kind)
+        runCatching { ContextCompat.startForegroundService(context, service) }
+            .onFailure {
+                SchedulerLedger.complete(
+                    context,
+                    jobToken,
+                    "FAILED",
+                    "FOREGROUND_SERVICE_START_FAILED:" + it.javaClass.simpleName + ":" + it.message.orEmpty()
+                )
+            }
     }
 }
