@@ -107,7 +107,7 @@ class MainActivity : AppCompatActivity() {
             webView.restoreState(savedInstanceState)
         }
         webView.requestFocus()
-        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+        if (android.os.Build.VERSION.SDK_INT >= 33 && androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {\n            notificationPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)\n        }\n        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 if (webView.canGoBack()) webView.goBack() else finish()
             }
