@@ -1285,12 +1285,11 @@ async function bootstrapClean(){
     await nextPaint();
 
     await loadState();
+    await applyStoredAurumUpdates();
     /* Foreground launch is read-only: no migrations, repairs, calculations or network work. */
     /* Background alarm/service launches keep the original strict sequencing; the
        progressive first-paint path is only for the foreground UI. */
     if(BACKGROUND_SYNC){
-      /* AUTOFIX2: background alarm WebView must activate the same verified update slot as foreground before scheduled execution. */
-      await applyStoredAurumUpdates();
       await repairLegacyCorruptRecordsLocal();
       if(!readLocal(INSTALL_EPOCH_KEY,null))writeLocal(INSTALL_EPOCH_KEY,{establishedAt:nowISO()});
       writeLocal(PAUSE_KEY,{requested:false,jobId:null,requestedAt:null});
