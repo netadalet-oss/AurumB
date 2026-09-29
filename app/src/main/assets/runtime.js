@@ -22,10 +22,11 @@ try{
   }
 }catch{}
 const JOB_STATUS=Object.freeze({
-  IDLE:'IDLE',SCHEDULED:'SCHEDULED',FETCHING_DATA:'FETCHING_DATA',DATA_COMPLETED:'DATA_COMPLETED',
+  IDLE:'IDLE',SCHEDULED:'SCHEDULED',FETCHING_DATA:'FETCHING_DATA',VALIDATING:'VALIDATING',
+  STAGING:'STAGING',READY_TO_PUBLISH:'READY_TO_PUBLISH',DATA_COMPLETED:'DATA_COMPLETED',
   KN_RUNNING:'KN_RUNNING',KN_COMPLETED:'KN_COMPLETED',K_TARIHSEL_RUNNING:'K_TARIHSEL_RUNNING',
   K_TARIHSEL_COMPLETED:'K_TARIHSEL_COMPLETED',S_RUNNING:'S_RUNNING',COMPLETED:'COMPLETED',FAILED:'FAILED',
-  WAITING_FOR_NETWORK:'WAITING_FOR_NETWORK',RETRY_PENDING:'RETRY_PENDING',PAUSED:'PAUSED'
+  WAITING_FOR_NETWORK:'WAITING_FOR_NETWORK',RETRY_PENDING:'RETRY_PENDING',PAUSED:'PAUSED',CANCELLED:'CANCELLED'
 });
 const LIVE_WINDOW_MS=60*60*1000;
 const MARKET_SYNC_WINDOW_MS=30*60*1000;
@@ -60,7 +61,7 @@ function currentRuntime(){return readLocal(RUNTIME_META_KEY,{status:JOB_STATUS.I
 function setRuntime(patch){const next={...currentRuntime(),...patch,updatedAt:nowISO()};writeLocal(RUNTIME_META_KEY,next);updateLiveStatus(next);return next;}
 const OPERATION_SCOPE_STAGE=Object.freeze({data:'Veriler',kn:'Kn',history:'K_Tarihsel',s:'S'});
 function operationStage(scope){return OPERATION_SCOPE_STAGE[String(scope||'')]||String(scope||'');}
-function operationBusyStatus(status){return !['IDLE','COMPLETED','FAILED','DATA_COMPLETED','KN_COMPLETED','K_TARIHSEL_COMPLETED'].includes(String(status||''));}
+function operationBusyStatus(status){return !['IDLE','COMPLETED','FAILED','CANCELLED','DATA_COMPLETED','KN_COMPLETED','K_TARIHSEL_COMPLETED'].includes(String(status||''));}
 function operationView(scope,rt=currentRuntime()){
   const expected=operationStage(scope),active=String(rt.stage||'')===expected,done=active?Number(rt.done||0):0,total=active?Number(rt.total||0):0,p=active&&total?Math.max(0,Math.min(100,Math.round(100*done/total))):0,pause=pauseState(),paused=active&&pause.requested&&pause.jobId===rt.jobId,busy=active&&operationBusyStatus(rt.status)&&!!rt.jobId;
   const validated=active?Number(rt.validated||0):0,failed=active?Number(rt.failed||0):0;
@@ -280,7 +281,8 @@ async function recoverOrphanStagingRecords(){
   const reread=(await dbAll('records')).map(x=>x.value);state.records=reread;state.recordMap=new Map(reread.map(x=>[x.sym,x]));try{await refreshTableMeta()}catch{}return {recovered:publish.filter(x=>!x.__discardOnly).length,retained:orph.length-publish.length};
 }
 async function atomicPublish(job,universe){
-  /* Valid Veriler snapshots publish regardless of fill. The >=70% rule belongs only to derived calculations. */
+  /* Atomic publisher is the final invariant boundary: a candidate below the 70% safety floor
+     can never replace the last valid active snapshot. */
   if(HARD_CANCELLED_JOBS.has(String(job?.id))||cancelRequested(job))throw Object.assign(new Error('İşlem kullanıcı tarafından iptal edildi'),{code:'OPERATION_CANCELLED'});
   const rows=await stageRows(job.id),by=new Map(rows.map(x=>[x.sym,x.record]));
   if(by.size!==universe.length)throw new Error(`STAGING_COUNT_MISMATCH:${by.size}/${universe.length}`);
@@ -298,6 +300,8 @@ async function atomicPublish(job,universe){
   }
   job.excludedSymbols=exclusions;
   const eligibility=classifyDataCompleteness(records,universe);for(const rec of records){const e=eligibility.bySymbol.get(rec.sym);rec.emptyCellCount=e?.emptyCells??0;if(rec?.jobDataStatus==='FRESH'&&rec?.marketWindowEligible===true){rec.calculationEligible=!!e?.eligible;rec.calculationExclusionReasons=e?.reasons||[];}rec.incompleteColumns=eligibility.incompleteColumns;}
+  const candidateSummary=dataSummary(records),candidateGate=dataIntegrityGate(candidateSummary);
+  if(!candidateGate.ok)throw Object.assign(new Error('DATA_FILL_BELOW_70_KEEP_LAST_VALID_SNAPSHOT'),{code:'DATA_FILL_BELOW_70_KEEP_LAST_VALID_SNAPSHOT',fillPct:candidateGate.fillPct});
   const transferredAt=nowISO(),verifiedTimes=records.map(r=>externalMarketTime(r)).filter(Number.isFinite),marketAt=canonical!=null?new Date(canonical).toISOString():(verifiedTimes.length?new Date(Math.max(...verifiedTimes)).toISOString():(previous.marketAt||null));
   for(const rec of records){const prev=previousRecords.get(rec.sym),rf=dataRecordFingerprint(rec),prevRf=prev?.recordFingerprint||(prev?dataRecordFingerprint(prev):null);rec.recordFingerprint=rf;rec.tableTransferredAt=transferredAt;rec.recordChangedAt=prev&&prevRf===rf?(prev.recordChangedAt||prev.tableTransferredAt||previous.changedAt||transferredAt):transferredAt;rec.datasetMarketAt=rec?.jobDataStatus==='FRESH'?(marketAt||rec.marketDataAt||prev?.datasetMarketAt||null):(prev?.datasetMarketAt||previous.marketAt||rec.datasetMarketAt||null);rec.provenance={...(rec.provenance||{}),marketAt:rec.marketDataAt||null,marketTimeVerified:rec.marketTimeVerified===true,marketTimeProvider:rec.marketTimeProvider||null,datasetMarketAt:rec.datasetMarketAt,tableTransferredAt:transferredAt,recordChangedAt:rec.recordChangedAt,marketWindowDeltaMinutes:rec.marketWindowDeltaMinutes};}
   const fingerprint=dataTableFingerprint(records),changedAt=previous.fingerprint===fingerprint&&previous.changedAt?previous.changedAt:transferredAt;
@@ -582,7 +586,7 @@ async function createJob(mode,trigger,scheduledAt=null,stage='DATA',existingId=n
 async function transition(job,status,extra={}){job.status=status;Object.assign(job,extra);job.history=[...(job.history||[]),{status,at:nowISO(),stage:job.currentStage,error:extra.error||null}].slice(-80);await saveJob(job);const isData=job.currentStage==='Veriler';const done=extra.done??(isData?(job.processedSymbols||0):(/COMPLETED$/.test(status)||status==='COMPLETED'?1:0)),total=extra.total??(isData?(job.totalSymbols||0):1);setRuntime({status,jobId:job.id,mode:job.mode,stage:job.currentStage,done,total,message:extra.error?`${extra.message||status} · ${extra.error}`:(extra.message||''),error:extra.error||null});return job;}
 
 async function prepareGeneralData(job,mode='GENERAL'){
-  const universe=currentSymbols(),__resumeStage=['FETCHING_DATA','WAITING_FOR_NETWORK','RETRY_PENDING'].includes(String(job?.status||''));job.totalSymbols=universe.length;job.currentStage='Veriler';job.requestedDataMode=mode;
+  const universe=currentSymbols(),__resumeStage=['FETCHING_DATA','STAGING','VALIDATING','READY_TO_PUBLISH','WAITING_FOR_NETWORK','RETRY_PENDING'].includes(String(job?.status||''));job.totalSymbols=universe.length;job.currentStage='Veriler';job.requestedDataMode=mode;
   const __resumeRows=__resumeStage?await stageRows(job.id):[];const __resumeFresh=new Set(__resumeRows.filter(x=>x?.record?.jobDataStatus==='FRESH').map(x=>x.sym));job.processedSymbols=__resumeFresh.size;
   await transition(job,JOB_STATUS.FETCHING_DATA,{message:__resumeFresh.size?`Geçici depodan devam · ${__resumeFresh.size}/${universe.length} hazır`:'Kaynaklar taranıyor · adaptif paralellik',done:__resumeFresh.size,total:universe.length});state.syncing=true;state.sourceStats={};if(!__resumeStage)await clearStage(job.id);
   try{
@@ -607,6 +611,8 @@ async function prepareGeneralData(job,mode='GENERAL'){
       await stagePut(job.id,sym,rec);completed++;job.processedSymbols=completed;const completedSource=(rec?.providers||[]).find(x=>x&&x!=='LOCAL_PREVIOUS')||(rec?.providers||[])[0]||null;setRuntime({status:JOB_STATUS.FETCHING_DATA,jobId:job.id,mode:job.mode,stage:'Veriler',done:completed,total:universe.length,message:rec?.jobDataStatus==='FRESH'?(completedSource?`${sym} · ${sourceName(completedSource)}`:sym):`${sym} · pas geçildi, önceki veri korundu`,symbol:sym,provider:completedSource});if(completed%48===0)await saveJob(job);await pauseCheckpoint(job,JOB_STATUS.FETCHING_DATA);
     }};
     await Promise.all(Array.from({length:concurrency},worker));await indicatorPromise.catch(()=>null);await flushStageBatch(job.id);await pauseCheckpoint(job,JOB_STATUS.FETCHING_DATA);
+    await transition(job,JOB_STATUS.STAGING,{message:'Yeni veri geçici alana yazıldı · mevcut aktif snapshot korunuyor',done:completed,total:universe.length});
+    await transition(job,JOB_STATUS.VALIDATING,{message:'Staging bütünlüğü ve veri kalitesi doğrulanıyor',done:completed,total:universe.length});
     /* R22 snapshot-coherence: do not publish a half-new/half-old market snapshot. Missing or stale
        symbols remain in durable staging and are retried from alternative providers. */
     const __repair=await repairStagedIntegrity(job,universe,start,end,indexBundle);await flushStageBatch(job.id);
@@ -615,16 +621,17 @@ async function prepareGeneralData(job,mode='GENERAL'){
     if(!__repair?.gate?.ok){job.retryCount=(job.retryCount||0)+1;await transition(job,JOB_STATUS.RETRY_PENDING,{error:'DATA_FILL_BELOW_70',message:`Veri doluluğu %${Number(__repair?.gate?.fillPct||0).toFixed(1)} · %70 eşiği aşılmadı; mevcut tablolar ve zaman damgaları korunuyor`,done:freshStaged.length,total:universe.length});return false;}
     if(!freshStaged.length)throw Object.assign(new Error('NO_FRESH_DATA_TRANSFERRED'),{code:'NO_FRESH_DATA_TRANSFERRED'});
     if(marketFreshStaged.length&&!temporal.ok)throw new Error('MARKET_TIME_WINDOW_VIOLATION_BEFORE_PUBLISH');
+    await transition(job,JOB_STATUS.READY_TO_PUBLISH,{message:'Kalite kapısı geçti · atomic publish hazırlanıyor',done:freshStaged.length,total:universe.length});
     const published=await atomicPublish(job,universe),freshPublished=published.filter(x=>x?.jobDataStatus==='FRESH'),marketFreshPublished=freshPublished.filter(x=>x?.marketWindowEligible===true),summary=dataSummary(published),postTemporal=liveTemporalAudit(marketFreshPublished),repairPlan=await persistPendingRepairPlan(published,universe);
     if(!freshPublished.length)throw Object.assign(new Error('NO_FRESH_DATA_PUBLISHED'),{code:'NO_FRESH_DATA_PUBLISHED'});
     summary.transferredFreshSymbols=freshPublished.length;summary.integrityRepairRounds=[];summary.integrityGate=dataIntegrityGate(summary);summary.pendingRepair=repairPlan;summary.missingSymbolDetails=(summary.missingSymbolDetails||[]).map(d=>{const x=(job.excludedSymbols||[]).find(e=>e.sym===d.sym);return x?{...d,...x}:d;});if(marketFreshPublished.length&&!postTemporal.ok)throw new Error('MARKET_TIME_WINDOW_VIOLATION_AFTER_PUBLISH');
     job.sourceStats={...state.sourceStats};job.dataSummary=summary;job.liveTemporalAudit=postTemporal;job.criticalUnavailable=critical;job.pendingRepair=repairPlan;state.lastSuccessfulSync=nowISO();await dbPut('meta',{key:'lastSuccessfulSync',value:state.lastSuccessfulSync,updatedAt:state.lastSuccessfulSync});await dbPut('meta',{key:'lastDataSummary',value:summary,updatedAt:nowISO()});await persistLiveSnapshots(job.dataSnapshotId);await pruneSnapshots();await clearStage(job.id);await refreshTableMeta();await transition(job,JOB_STATUS.DATA_COMPLETED,{message:`${summary.transferredFreshSymbols}/${summary.universeCount} fresh hisse · ${repairPlan.symbolCount} onarım bekliyor`,done:universe.length,total:universe.length});return true;
-  }catch(e){job.error=e?.message||String(e);if(e?.code==='OPERATION_CANCELLED'||cancelRequested(job)){await transition(job,JOB_STATUS.IDLE,{error:null,message:'İşlem iptal edildi · önceki tablo korundu'});return false;}if(!isOnline()||/network|offline|failed to fetch|ERR_/i.test(job.error)){job.retryCount=(job.retryCount||0)+1;await transition(job,job.retryCount<=Number(state.settings.maxJobRetries??MAX_JOB_RETRIES)?JOB_STATUS.WAITING_FOR_NETWORK:JOB_STATUS.FAILED,{error:job.error,message:job.retryCount<=Number(state.settings.maxJobRetries??MAX_JOB_RETRIES)?'Ağ bağlantısı bekleniyor':'Azami retry aşıldı'});}else await transition(job,JOB_STATUS.FAILED,{error:job.error,message:'Veri aktarımı başarısız · önceki tablo korundu'});return false;
+  }catch(e){job.error=e?.message||String(e);if(e?.code==='OPERATION_CANCELLED'||cancelRequested(job)){await transition(job,JOB_STATUS.CANCELLED,{error:null,message:'İşlem iptal edildi · önceki tablo korundu'});return false;}if(!isOnline()||/network|offline|failed to fetch|ERR_/i.test(job.error)){job.retryCount=(job.retryCount||0)+1;await transition(job,job.retryCount<=Number(state.settings.maxJobRetries??MAX_JOB_RETRIES)?JOB_STATUS.WAITING_FOR_NETWORK:JOB_STATUS.FAILED,{error:job.error,message:job.retryCount<=Number(state.settings.maxJobRetries??MAX_JOB_RETRIES)?'Ağ bağlantısı bekleniyor':'Azami retry aşıldı'});}else await transition(job,JOB_STATUS.FAILED,{error:job.error,message:'Veri aktarımı başarısız · önceki tablo korundu'});return false;
   }finally{try{await flushStageBatch(job.id)}catch{}state.syncing=false;clearCancel(job.id);renderCurrentPagePreservingView();}
 }
 
 async function prepareMissingData(job){
-  const initialPlan=currentPendingRepairPlan(),targets=initialPlan.items.map(x=>x.sym),__resumeStage=['FETCHING_DATA','WAITING_FOR_NETWORK','RETRY_PENDING'].includes(String(job?.status||''));const __resumeRows=__resumeStage?await stageRows(job.id):[],__resumeFresh=new Set(__resumeRows.filter(x=>x?.record?.jobDataStatus==='FRESH').map(x=>x.sym));job.totalSymbols=targets.length;job.currentStage='Veriler';job.processedSymbols=__resumeFresh.size;job.requestedDataMode='REPAIR';await transition(job,JOB_STATUS.FETCHING_DATA,{message:targets.length?(__resumeFresh.size?`Eksik onarımına staging'den devam · ${__resumeFresh.size}/${targets.length}`:'Yalnız eksikler onarılıyor · adaptif paralellik'):'Eksik veri yok',done:__resumeFresh.size,total:targets.length});state.syncing=true;state.sourceStats={};if(!__resumeStage)await clearStage(job.id);
+  const initialPlan=currentPendingRepairPlan(),targets=initialPlan.items.map(x=>x.sym),__resumeStage=['FETCHING_DATA','STAGING','VALIDATING','READY_TO_PUBLISH','WAITING_FOR_NETWORK','RETRY_PENDING'].includes(String(job?.status||''));const __resumeRows=__resumeStage?await stageRows(job.id):[],__resumeFresh=new Set(__resumeRows.filter(x=>x?.record?.jobDataStatus==='FRESH').map(x=>x.sym));job.totalSymbols=targets.length;job.currentStage='Veriler';job.processedSymbols=__resumeFresh.size;job.requestedDataMode='REPAIR';await transition(job,JOB_STATUS.FETCHING_DATA,{message:targets.length?(__resumeFresh.size?`Eksik onarımına staging'den devam · ${__resumeFresh.size}/${targets.length}`:'Yalnız eksikler onarılıyor · adaptif paralellik'):'Eksik veri yok',done:__resumeFresh.size,total:targets.length});state.syncing=true;state.sourceStats={};if(!__resumeStage)await clearStage(job.id);
   try{
     if(!targets.length){await transition(job,JOB_STATUS.DATA_COMPLETED,{message:'Eksik hisse/hücre yok',done:0,total:0});return true;}
     if(!isOnline()){await transition(job,JOB_STATUS.WAITING_FOR_NETWORK,{error:'OFFLINE',message:'Ağ bağlantısı bekleniyor'});return false;}
@@ -639,7 +646,7 @@ async function prepareMissingData(job){
       await stagePut(job.id,sym,rec);completed++;job.processedSymbols=completed;setRuntime({status:JOB_STATUS.FETCHING_DATA,jobId:job.id,mode:job.mode,stage:'Veriler',done:completed,total:targets.length,message:`${sym} · onarım denendi`,symbol:sym,provider:null});if(completed%8===0){await saveJob(job);await new Promise(r=>setTimeout(r,0));}
     }};
     await Promise.all(Array.from({length:concurrency},worker));const result=await atomicRepairPublish(job,targets),summary=dataSummary(result.records);summary.pendingRepair=result.plan;summary.integrityGate=dataIntegrityGate(summary);job.dataSummary=summary;job.pendingRepair=result.plan;await dbPut('meta',{key:'lastDataSummary',value:summary,updatedAt:nowISO()});await clearStage(job.id);await refreshTableMeta();await transition(job,JOB_STATUS.DATA_COMPLETED,{message:`Onarım: ${targets.length} hedef · ${result.plan.symbolCount} hedef kaldı`,done:targets.length,total:targets.length});return true;
-  }catch(e){job.error=e?.message||String(e);if(e?.code==='OPERATION_CANCELLED'||cancelRequested(job)){await transition(job,JOB_STATUS.IDLE,{error:null,message:'Onarım iptal edildi · mevcut tablo korundu'});return false;}if(!isOnline()||/network|offline|failed to fetch|ERR_/i.test(job.error)){job.retryCount=(job.retryCount||0)+1;await transition(job,job.retryCount<=Number(state.settings.maxJobRetries??MAX_JOB_RETRIES)?JOB_STATUS.WAITING_FOR_NETWORK:JOB_STATUS.FAILED,{error:job.error,message:job.retryCount<=Number(state.settings.maxJobRetries??MAX_JOB_RETRIES)?'Ağ bağlantısı bekleniyor':'Azami retry aşıldı'});}else await transition(job,JOB_STATUS.FAILED,{error:job.error,message:'Eksik veri onarımı başarısız · mevcut tablo korundu'});return false;
+  }catch(e){job.error=e?.message||String(e);if(e?.code==='OPERATION_CANCELLED'||cancelRequested(job)){await transition(job,JOB_STATUS.CANCELLED,{error:null,message:'Onarım iptal edildi · mevcut tablo korundu'});return false;}if(!isOnline()||/network|offline|failed to fetch|ERR_/i.test(job.error)){job.retryCount=(job.retryCount||0)+1;await transition(job,job.retryCount<=Number(state.settings.maxJobRetries??MAX_JOB_RETRIES)?JOB_STATUS.WAITING_FOR_NETWORK:JOB_STATUS.FAILED,{error:job.error,message:job.retryCount<=Number(state.settings.maxJobRetries??MAX_JOB_RETRIES)?'Ağ bağlantısı bekleniyor':'Azami retry aşıldı'});}else await transition(job,JOB_STATUS.FAILED,{error:job.error,message:'Eksik veri onarımı başarısız · mevcut tablo korundu'});return false;
   }finally{try{await flushStageBatch(job.id)}catch{}state.syncing=false;clearCancel(job.id);renderCurrentPagePreservingView();}
 }
 
@@ -2706,7 +2713,7 @@ try{AurumUpdateAPI.state.cleanREV20={version:'REV20.0-CLEAN',activatedAt:new Dat
   }
 
   prepareGeneralData=async function prepareGeneralDataR23(job,mode='GENERAL'){
-    const universe=currentSymbols(),resume=['FETCHING_DATA','WAITING_FOR_NETWORK','RETRY_PENDING'].includes(String(job?.status||''));
+    const universe=currentSymbols(),resume=['FETCHING_DATA','STAGING','VALIDATING','READY_TO_PUBLISH','WAITING_FOR_NETWORK','RETRY_PENDING'].includes(String(job?.status||''));
     job.totalSymbols=universe.length;job.currentStage='Veriler';job.requestedDataMode=mode;
     const oldRows=resume?await stageRows(job.id):[],doneSet=new Set(oldRows.filter(x=>x?.record?.singlePassAttemptComplete===true).map(x=>x.sym));job.processedSymbols=doneSet.size;
     await transition(job,JOB_STATUS.FETCHING_DATA,{message:doneSet.size?`Tek geçiş staging'den devam · ${doneSet.size}/${universe.length}`:'Tek geçiş · kaynaklar/veri alanları eşzamanlı',done:doneSet.size,total:universe.length});
@@ -2751,12 +2758,12 @@ try{AurumUpdateAPI.state.cleanREV20={version:'REV20.0-CLEAN',activatedAt:new Dat
       job.sourceStats={...state.sourceStats};job.dataSummary=summary;job.liveTemporalAudit=temporal;job.criticalUnavailable=critical;job.pendingRepair=repairPlan;job.integrityRepairRounds=[];state.lastSuccessfulSync=nowISO();
       await dbPut('meta',{key:'lastSuccessfulSync',value:state.lastSuccessfulSync,updatedAt:state.lastSuccessfulSync});await dbPut('meta',{key:'lastDataSummary',value:summary,updatedAt:nowISO()});await persistLiveSnapshots(job.dataSnapshotId);await pruneSnapshots();await clearStage(job.id);await refreshTableMeta();
       await transition(job,JOB_STATUS.DATA_COMPLETED,{message:`Tek geçiş tamamlandı · ${freshPublished.length}/${universe.length} güncel · ${repairPlan.symbolCount} eksik için “Eksikleri tamamla”`,done:universe.length,total:universe.length});return true;
-    }catch(e){job.error=e?.message||String(e);if(e?.code==='OPERATION_CANCELLED'||cancelRequested(job)){await transition(job,JOB_STATUS.IDLE,{error:null,message:'İşlem iptal edildi · önceki tablo korundu'});return false;}if(!isOnline()||/network|offline|failed to fetch|ERR_/i.test(job.error)){await transition(job,JOB_STATUS.WAITING_FOR_NETWORK,{error:job.error,message:'Ağ bağlantısı bekleniyor · staging korunuyor'});}else await transition(job,JOB_STATUS.FAILED,{error:job.error,message:'Tek geçiş başarısız · önceki tablo korundu'});return false;
+    }catch(e){job.error=e?.message||String(e);if(e?.code==='OPERATION_CANCELLED'||cancelRequested(job)){await transition(job,JOB_STATUS.CANCELLED,{error:null,message:'İşlem iptal edildi · önceki tablo korundu'});return false;}if(!isOnline()||/network|offline|failed to fetch|ERR_/i.test(job.error)){await transition(job,JOB_STATUS.WAITING_FOR_NETWORK,{error:job.error,message:'Ağ bağlantısı bekleniyor · staging korunuyor'});}else await transition(job,JOB_STATUS.FAILED,{error:job.error,message:'Tek geçiş başarısız · önceki tablo korundu'});return false;
     }finally{try{await flushStageBatch(job.id)}catch{}state.settings.sourceRetryCount=oldRetry;state.settings.maxProvider429Retries=old429;state.settings.symbolRepairRounds=oldRepair;state.settings.marketRecoveryRounds=oldRecovery;state.syncing=false;clearCancel(job.id);renderCurrentPagePreservingView();}
   };
 
   prepareMissingData=async function prepareMissingDataR23(job){
-    const initialPlan=currentPendingRepairPlan(),targets=initialPlan.items.map(x=>x.sym),resume=['FETCHING_DATA','WAITING_FOR_NETWORK','RETRY_PENDING'].includes(String(job?.status||'')),rows=resume?await stageRows(job.id):[],doneSet=new Set(rows.filter(x=>x?.record?.singlePassAttemptComplete===true).map(x=>x.sym));
+    const initialPlan=currentPendingRepairPlan(),targets=initialPlan.items.map(x=>x.sym),resume=['FETCHING_DATA','STAGING','VALIDATING','READY_TO_PUBLISH','WAITING_FOR_NETWORK','RETRY_PENDING'].includes(String(job?.status||'')),rows=resume?await stageRows(job.id):[],doneSet=new Set(rows.filter(x=>x?.record?.singlePassAttemptComplete===true).map(x=>x.sym));
     job.totalSymbols=targets.length;job.currentStage='Veriler';job.processedSymbols=doneSet.size;job.requestedDataMode='REPAIR';
     await transition(job,JOB_STATUS.FETCHING_DATA,{message:targets.length?(doneSet.size?`Eksikler staging'den devam · ${doneSet.size}/${targets.length}`:'Eksikleri tamamla · yalnız eksik alanlar · tek geçiş'):'Eksik veri yok',done:doneSet.size,total:targets.length});state.syncing=true;state.sourceStats={};if(!resume)await clearStage(job.id);
     const oldRetry=Number(state.settings.sourceRetryCount||0),old429=Number(state.settings.maxProvider429Retries||0);state.settings.sourceRetryCount=0;state.settings.maxProvider429Retries=0;
@@ -2778,7 +2785,7 @@ try{AurumUpdateAPI.state.cleanREV20={version:'REV20.0-CLEAN',activatedAt:new Dat
       }};
       await Promise.all(Array.from({length:concurrency},worker));await flushStageBatch(job.id);if(!isOnline()){await transition(job,JOB_STATUS.WAITING_FOR_NETWORK,{error:'OFFLINE_AFTER_REPAIR',message:'Ağ kesildi · staging korunuyor'});return false;}
       const result=await atomicRepairPublish(job,targets),summary=dataSummary(result.records);summary.pendingRepair=result.plan;summary.singlePassRepair=true;summary.integrityGate=dataIntegrityGate(summary);job.dataSummary=summary;job.pendingRepair=result.plan;await dbPut('meta',{key:'lastDataSummary',value:summary,updatedAt:nowISO()});await clearStage(job.id);await refreshTableMeta();await transition(job,JOB_STATUS.DATA_COMPLETED,{message:`Eksik tamamlama tek geçişi bitti · ${targets.length} hedef · ${result.plan.symbolCount} eksik kaldı`,done:targets.length,total:targets.length});return true;
-    }catch(e){job.error=e?.message||String(e);if(e?.code==='OPERATION_CANCELLED'||cancelRequested(job)){await transition(job,JOB_STATUS.IDLE,{error:null,message:'Onarım iptal edildi · mevcut tablo korundu'});return false;}if(!isOnline()||/network|offline|failed to fetch|ERR_/i.test(job.error))await transition(job,JOB_STATUS.WAITING_FOR_NETWORK,{error:job.error,message:'Ağ bağlantısı bekleniyor · staging korunuyor'});else await transition(job,JOB_STATUS.FAILED,{error:job.error,message:'Eksik tamamlama başarısız · mevcut tablo korundu'});return false;
+    }catch(e){job.error=e?.message||String(e);if(e?.code==='OPERATION_CANCELLED'||cancelRequested(job)){await transition(job,JOB_STATUS.CANCELLED,{error:null,message:'Onarım iptal edildi · mevcut tablo korundu'});return false;}if(!isOnline()||/network|offline|failed to fetch|ERR_/i.test(job.error))await transition(job,JOB_STATUS.WAITING_FOR_NETWORK,{error:job.error,message:'Ağ bağlantısı bekleniyor · staging korunuyor'});else await transition(job,JOB_STATUS.FAILED,{error:job.error,message:'Eksik tamamlama başarısız · mevcut tablo korundu'});return false;
     }finally{try{await flushStageBatch(job.id)}catch{}state.settings.sourceRetryCount=oldRetry;state.settings.maxProvider429Retries=old429;state.syncing=false;clearCancel(job.id);renderCurrentPagePreservingView();}
   };
 
@@ -2846,7 +2853,7 @@ try{AurumUpdateAPI.state.cleanREV20={version:'REV20.0-CLEAN',activatedAt:new Dat
   function workerCount(total){const net=String(navigator?.connection?.effectiveType||''),hc=Math.max(4,Number(navigator?.hardwareConcurrency||8));let cap=Math.max(16,Math.min(36,Number(state.settings?.concurrency||28),Math.max(16,hc*3)));if(/2g/.test(net))cap=Math.min(cap,6);else if(/3g/.test(net))cap=Math.min(cap,16);return Math.max(1,Math.min(total,cap));}
 
   prepareGeneralData=async function prepareGeneralDataR24(job,mode='GENERAL'){
-    const universe=currentSymbols(),resume=['FETCHING_DATA','WAITING_FOR_NETWORK','RETRY_PENDING'].includes(String(job?.status||''));job.totalSymbols=universe.length;job.currentStage='Veriler';job.requestedDataMode=mode;
+    const universe=currentSymbols(),resume=['FETCHING_DATA','STAGING','VALIDATING','READY_TO_PUBLISH','WAITING_FOR_NETWORK','RETRY_PENDING'].includes(String(job?.status||''));job.totalSymbols=universe.length;job.currentStage='Veriler';job.requestedDataMode=mode;
     const oldRows=resume?await stageRows(job.id):[],doneSet=new Set(oldRows.filter(x=>x?.record?.singlePassAttemptComplete===true).map(x=>x.sym));job.processedSymbols=doneSet.size;
     const resumedValid=oldRows.filter(x=>x?.record?.jobDataStatus==='FRESH'&&Array.isArray(x?.record?.series?.date)&&x.record.series.date.length>=20).length,resumedFailed=Math.max(0,doneSet.size-resumedValid);
     await transition(job,JOB_STATUS.FETCHING_DATA,{message:doneSet.size?`Staging'den devam · ${doneSet.size}/${universe.length} denendi · ${resumedValid} doğrulandı`:'Veri çekimi · doğrulanmış veri bekleniyor',done:doneSet.size,total:universe.length,validated:resumedValid,failed:resumedFailed});state.syncing=true;state.sourceStats={};if(!resume)await clearStage(job.id);
@@ -5357,7 +5364,7 @@ try{AurumUpdateAPI.state.r239={version:'REV20.39-STRICT-CADENCE-SAME-SOURCE-MARK
   ]);const cp=rs[3]?.status==='fulfilled'?rs[3].value:null;return {indexBundle,canonical:cp}}
 
   globalThis.prepareGeneralData=prepareGeneralData=async function prepareGeneralDataR206(job,mode='GENERAL'){
-    const universe=currentSymbols(),resume=['FETCHING_DATA','WAITING_FOR_NETWORK','RETRY_PENDING'].includes(String(job?.status||''));job.totalSymbols=universe.length;job.currentStage='Veriler';job.requestedDataMode=mode==='GENERAL'?'FULL':mode;state.syncing=true;state.sourceStats={};
+    const universe=currentSymbols(),resume=['FETCHING_DATA','STAGING','VALIDATING','READY_TO_PUBLISH','WAITING_FOR_NETWORK','RETRY_PENDING'].includes(String(job?.status||''));job.totalSymbols=universe.length;job.currentStage='Veriler';job.requestedDataMode=mode==='GENERAL'?'FULL':mode;state.syncing=true;state.sourceStats={};
     const existing=resume?await stageRows(job.id):[],doneSet=new Set(existing.filter(x=>x?.record?.r206AttemptComplete===true).map(x=>x.sym));job.processedSymbols=doneSet.size;if(!resume)await clearStage(job.id);
     const restore={retry:state.settings.sourceRetryCount,r429:state.settings.maxProvider429Retries,timeout:state.settings.requestTimeoutMs};state.settings.sourceRetryCount=0;state.settings.maxProvider429Retries=0;state.settings.requestTimeoutMs=Math.max(4500,Math.min(10000,Number(state.settings.requestTimeoutMs||7000)));
     try{
