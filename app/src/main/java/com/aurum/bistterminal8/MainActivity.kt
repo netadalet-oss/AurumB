@@ -8,7 +8,6 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.net.Uri
 import android.os.Bundle
-import android.os.PowerManager
 import android.webkit.JavascriptInterface
 import android.webkit.JsPromptResult
 import android.webkit.WebChromeClient
@@ -20,6 +19,7 @@ import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import androidx.webkit.WebViewAssetLoader
 import org.json.JSONObject
 import java.io.OutputStreamWriter
@@ -27,7 +27,7 @@ import java.io.OutputStreamWriter
 class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
     private var exportFolder: Uri? = null
-    private var transferWakeLock: PowerManager.WakeLock? = null
+    private var dataOperationOwner: String? = null
 
     private val folderPicker = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) {
@@ -126,6 +126,28 @@ class MainActivity : AppCompatActivity() {
             }
             "secret_delete" -> { SecureSecretStore.delete(this); "OK" }
             "secret_input" -> { runOnUiThread { openSecretEditor() }; "OPENED" }
+            "operation_lock_acquire" -> {
+                val kind = uri.getQueryParameter("kind").orEmpty().lowercase().let {
+                    if (it == "market") "market" else "data"
+                }
+                val owner = uri.getQueryParameter("owner").orEmpty()
+                if (owner.isBlank()) "ERR:MISSING_OWNER"
+                else if (OperationLock.acquire(kind, owner)) {
+                    if (kind == "data") dataOperationOwner = owner
+                    "OK"
+                } else "BUSY"
+            }
+            "operation_lock_release" -> {
+                val kind = uri.getQueryParameter("kind").orEmpty().lowercase().let {
+                    if (it == "market") "market" else "data"
+                }
+                val owner = uri.getQueryParameter("owner").orEmpty()
+                if (owner.isBlank()) "ERR:MISSING_OWNER"
+                else if (OperationLock.release(kind, owner)) {
+                    if (kind == "data" && dataOperationOwner == owner) dataOperationOwner = null
+                    "OK"
+                } else "ERR:NOT_OWNER"
+            }
             "http_cancel" -> {
                 val id = uri.getQueryParameter("requestId").orEmpty()
                 if (id.isBlank()) "ERR:MISSING_REQUEST_ID"
@@ -134,14 +156,12 @@ class MainActivity : AppCompatActivity() {
             "transfer_keepalive" -> {
                 val enabled = uri.getQueryParameter("enabled") != "0"
                 if (enabled) {
-                    if (transferWakeLock?.isHeld != true) {
-                        transferWakeLock = (getSystemService(POWER_SERVICE) as PowerManager)
-                            .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "AurumB:ActiveTransfer")
-                            .apply { setReferenceCounted(false); acquire(6 * 60 * 60 * 1000L) }
-                    }
+                    ContextCompat.startForegroundService(
+                        this,
+                        android.content.Intent(this, TransferKeepaliveService::class.java)
+                    )
                 } else {
-                    transferWakeLock?.let { if (it.isHeld) it.release() }
-                    transferWakeLock = null
+                    stopService(android.content.Intent(this, TransferKeepaliveService::class.java))
                 }
                 "OK"
             }
@@ -212,8 +232,16 @@ class MainActivity : AppCompatActivity() {
             "schedule_status" -> AurumScheduler.statusJson(this)
             "schedule_exact_settings" -> {
                 if (android.os.Build.VERSION.SDK_INT >= 31 && !AurumScheduler.exactAllowed(this)) {
-                    runCatching { startActivity(android.content.Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:$packageName"))) }
-                    "OPENED"
+                    val opened = runCatching {
+                        startActivity(
+                            android.content.Intent(
+                                android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+                                Uri.parse("package:$packageName")
+                            )
+                        )
+                        true
+                    }.getOrDefault(false)
+                    if (opened) "OPENED" else "ERR:EXACT_SETTINGS_UNAVAILABLE"
                 } else "OK"
             }
             "schedule" -> {
@@ -329,8 +357,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
-        transferWakeLock?.let { if (it.isHeld) it.release() }
-        transferWakeLock = null
+        stopService(android.content.Intent(this, TransferKeepaliveService::class.java))
+        dataOperationOwner?.let { OperationLock.release("data", it) }
+        dataOperationOwner = null
         webView.removeJavascriptInterface("AurumNativeBridge")
         webView.destroy()
         super.onDestroy()

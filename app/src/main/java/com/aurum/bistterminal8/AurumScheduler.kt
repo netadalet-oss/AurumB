@@ -156,6 +156,7 @@ object AurumScheduler {
 
     private fun cancel(context: Context, times: List<String>, kind: String) {
         val alarmManager = context.getSystemService(AlarmManager::class.java)
+        val editor = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
         times.forEach { time ->
             PendingIntent.getBroadcast(
                 context,
@@ -166,7 +167,9 @@ object AurumScheduler {
                 alarmManager.cancel(pendingIntent)
                 pendingIntent.cancel()
             }
+            editor.remove("next_" + kind + "_" + time.replace(":", ""))
         }
+        editor.apply()
     }
 
     fun pending(context: Context, time: String, epoch: Long, kind: String): PendingIntent =

@@ -14,7 +14,14 @@
  async function market(manual=false){
    if(globalThis.__aurumMarketRefreshActive)return {coalesced:true};
    globalThis.__aurumMarketRefreshActive=true;
+   const owner='MARKET|'+Date.now().toString(36)+'|'+Math.random().toString(36).slice(2,8);
+   let nativeLock=false;
    try{
+     if(manual){
+       const r=String(call('operation_lock_acquire',{kind:'market',owner})||'');
+       if(r!=='OK')throw new Error('MARKET_OPERATION_ALREADY_RUNNING');
+       nativeLock=true;
+     }
      const a=globalThis.AurumRebuiltMarket?.refresh?globalThis.AurumRebuiltMarket.refresh({manual,scheduled:!manual}):Promise.resolve(null);
      const [indicators,financePortal]=await Promise.allSettled([a,portal()]);
      try{globalThis.renderCurrentPagePreservingView?.();globalThis.renderCurrent?.()}catch{}
@@ -23,11 +30,22 @@
      if(financePortal.status==='rejected')result.errors.push('PORTAL:'+String(financePortal.reason?.message||financePortal.reason));
      if(result.errors.length===2)throw new Error(result.errors.join(' | '));
      return result;
-   }finally{globalThis.__aurumMarketRefreshActive=false}
+   }finally{
+     if(nativeLock)try{call('operation_lock_release',{kind:'market',owner})}catch{}
+     globalThis.__aurumMarketRefreshActive=false
+   }
  }
  globalThis.AurumStrictMarketRuntime=Object.freeze({manual:()=>market(true),scheduled:()=>market(false)});
  globalThis.AurumMarketRuntime=Object.freeze({manualRefresh:()=>market(true),scheduledRefresh:()=>market(false)});
  globalThis.AurumFundRefreshMarketModule=({manual=false}={})=>market(!!manual);
+ // Final UI binding: late-loaded contract must use the rebuilt indicator engine plus finance/Nederland.
+ globalThis.AurumMarketModuleRefresh=()=>market(true);
+ globalThis.refreshAurumDataMarketStrip=async function(ev){
+   const btn=ev?.currentTarget||document.querySelector('.aurum-r209-market-refresh');
+   try{if(btn){btn.disabled=true;btn.dataset.busy='1'}await market(true);return true}
+   catch(e){globalThis.showAurumNotice?.('Piyasa modülü yenilenemedi: '+String(e?.message||e),'error',2800);return false}
+   finally{const b=document.querySelector('.aurum-r209-market-refresh');if(b){b.disabled=false;delete b.dataset.busy}}
+ };
  globalThis.AurumScheduleSettings={
    saveData:()=>call('schedule',{kind:'data',enabled:document.getElementById('aurumDataScheduleEnabled')?.checked?'1':'0',times:parseTimes('aurumDataScheduleTimes').join(',')}),
    saveMarket:()=>call('schedule',{kind:'market',enabled:document.getElementById('aurumMarketScheduleEnabled')?.checked?'1':'0',times:parseTimes('aurumMarketScheduleTimes').join(',')})

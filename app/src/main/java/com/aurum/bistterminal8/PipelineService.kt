@@ -29,6 +29,8 @@ class PipelineService : Service() {
     private var transferWakeLock: PowerManager.WakeLock? = null
     private var watchdog: android.os.Handler? = null
     private var watchdogTask: Runnable? = null
+    private var operationLockKind: String? = null
+    private var operationLockOwner: String? = null
 
     private inner class BackgroundNativeBridge {
         @JavascriptInterface
@@ -64,12 +66,21 @@ class PipelineService : Service() {
             SchedulerLedger.complete(this, jobToken, "FAILED", "PIPELINE_BUSY_ALREADY_RUNNING")
             return START_NOT_STICKY
         }
+        if (!OperationLock.acquire(kind, jobToken)) {
+            SchedulerLedger.complete(this, jobToken, "CANCELLED", kind.uppercase() + "_OPERATION_ALREADY_RUNNING")
+            return START_NOT_STICKY
+        }
+        operationLockKind = kind
+        operationLockOwner = jobToken
 
         acquireTransferWakeLock()
         watchdogTask?.let { watchdog?.removeCallbacks(it) }
         watchdog = android.os.Handler(mainLooper)
         watchdogTask = Runnable {
             SchedulerLedger.complete(this, jobToken, "FAILED", "PIPELINE_TIMEOUT")
+            operationLockOwner?.let { owner -> operationLockKind?.let { kindKey -> OperationLock.release(kindKey, owner) } }
+            operationLockKind = null
+            operationLockOwner = null
             stopSelf(startId)
         }.also { watchdog?.postDelayed(it, 2 * 60 * 60 * 1000L) }
 
@@ -121,6 +132,9 @@ class PipelineService : Service() {
                             detail
                         )
                         releaseTransferWakeLock()
+                        operationLockOwner?.let { owner -> operationLockKind?.let { kindKey -> OperationLock.release(kindKey, owner) } }
+                        operationLockKind = null
+                        operationLockOwner = null
                         stopSelf(startId)
                         return true
                     }
@@ -215,6 +229,9 @@ class PipelineService : Service() {
         watchdogTask = null
         watchdog = null
         releaseTransferWakeLock()
+        operationLockOwner?.let { owner -> operationLockKind?.let { kindKey -> OperationLock.release(kindKey, owner) } }
+        operationLockKind = null
+        operationLockOwner = null
         destroyWebView()
         super.onDestroy()
     }

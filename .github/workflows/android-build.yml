@@ -41,6 +41,40 @@ jobs:
           grep -F "CANCELLED:'CANCELLED'" "$R"
           grep -F "STAGING:'STAGING'" "$R"
           grep -F "VALIDATING:'VALIDATING'" "$R"
+          grep -F "applicationId 'com.aurum.nextrevised09'" app/build.gradle
+          grep -F "const DB_NAME='bist_optimizasyon_r38_separate'" app/src/main/assets/core.js
+          grep -F "const DB_VERSION=12" app/src/main/assets/core.js
+          ! grep -R -F "indexedDB.deleteDatabase" app/src/main/assets
+          grep -F "errorCount:0" "$R"
+          grep -F "activeSnapshotId:activeMeta?.snapshotId||null" "$R"
+          grep -F "targetSymbolCount:currentSymbols().length" "$R"
+          grep -F "job.errorCount=Number(job.errorCount||0)+1" "$R"
+          grep -F '"script.google.com", "script.googleusercontent.com"' app/src/main/java/com/aurum/bistterminal8/NativeMarketHttp.kt
+          grep -F 'Regex("^/macros/s/[^/]+/exec$")' app/src/main/java/com/aurum/bistterminal8/NativeMarketHttp.kt
+          grep -F 'initialAppsScript = isAppsScriptExec(url)' app/src/main/java/com/aurum/bistterminal8/NativeMarketHttp.kt
+          grep -F 'object OperationLock' app/src/main/java/com/aurum/bistterminal8/OperationLock.kt
+          grep -F 'OperationLock.acquire(kind, owner)' app/src/main/java/com/aurum/bistterminal8/MainActivity.kt
+          grep -F 'OperationLock.acquire(kind, jobToken)' app/src/main/java/com/aurum/bistterminal8/PipelineService.kt
+          grep -F 'class TransferKeepaliveService : Service()' app/src/main/java/com/aurum/bistterminal8/TransferKeepaliveService.kt
+          grep -F 'PowerManager.PARTIAL_WAKE_LOCK' app/src/main/java/com/aurum/bistterminal8/TransferKeepaliveService.kt
+          grep -F 'wakeLock?.let { if (it.isHeld) it.release() }' app/src/main/java/com/aurum/bistterminal8/TransferKeepaliveService.kt
+          grep -F 'android:name="com.aurum.bistterminal8.TransferKeepaliveService"' app/src/main/AndroidManifest.xml
+          grep -F 'ContextCompat.startForegroundService' app/src/main/java/com/aurum/bistterminal8/MainActivity.kt
+          grep -F 'ERR:EXACT_SETTINGS_UNAVAILABLE' app/src/main/java/com/aurum/bistterminal8/MainActivity.kt
+          grep -F 'editor.remove("next_" + kind + "_" + time.replace(":", ""))' app/src/main/java/com/aurum/bistterminal8/AurumScheduler.kt
+          grep -F 'Kesin alarm izin ekranı açılamadı' app/src/main/assets/scheduler-settings.js
+          grep -F 'operation_lock_acquire&owner=' "$R"
+          grep -F "operation_lock_acquire',{kind:'market',owner}" app/src/main/assets/trigger-contract.js
+          grep -F "globalThis.AurumMarketModuleRefresh=()=>market(true)" app/src/main/assets/trigger-contract.js
+          grep -F "await market(true)" app/src/main/assets/trigger-contract.js
+          grep -F "Orphan staging aktif tabloya yayınlanmadı" "$R"
+          grep -F "AURUM_BACKGROUND_PIPELINE=new URLSearchParams(location.search).get('pipeline')||'data'" "$R"
+          grep -F "if(!BACKGROUND_SYNC||AURUM_BACKGROUND_PIPELINE==='market')return false" "$R"
+          grep -F "if(BACKGROUND_SYNC&&AURUM_BACKGROUND_PIPELINE==='market')" "$R"
+          ! grep -F "PROFILE_SKIP" "$R"
+          node - <<'NODE'
+          const fs=require('fs');const s=fs.readFileSync('app/src/main/assets/runtime.js','utf8');const a=s.indexOf('async function recoverOrphanStagingRecords(){'),b=s.indexOf('\nasync function atomicPublish(job,universe){',a);const body=s.slice(a,b);if(/objectStore\(['\"]records['\"]\)|dbPut\(['\"]records['\"]/.test(body)){throw new Error('orphan staging must not write active records')}
+          NODE
           grep -F "R221_SMART_MAX_ROUNDS=5" "$R"
           grep -F "R225_FILL_TARGETS=Object.freeze([100,95,90,80,70])" "$R"
           grep -F "const requiredByFill=nextRound===1?fill<100:fill<target" "$R"
@@ -53,6 +87,12 @@ jobs:
           ! grep -F "await refreshMarket('DATA_COMMAND')" "$R"
           grep -F "Sağlık / Süreklilik" app/src/main/assets/scheduler-settings.js
           grep -F "Salt okunur" app/src/main/assets/scheduler-settings.js
+          grep -F "__aurumHistory20Bridged" app/src/main/assets/scheduler-settings.js
+          grep -F "globalThis.showAurumNotice=function" app/src/main/assets/scheduler-settings.js
+          grep -F "globalThis.log=async function" app/src/main/assets/scheduler-settings.js
+          grep -F "if (u.protocol !== 'https:') return false;" app/src/main/assets/offline-first.js
+          grep -F "/^([01]\\d|2[0-3]):[0-5]\\d$/" app/src/main/assets/scheduler-settings.js
+          ! grep -F "/^([01]\\\\d|2[0-3]):[0-5]\\\\d$/" app/src/main/assets/scheduler-settings.js
           ! grep -F "c=Number(x.changePct)" "$R"
           ! grep -F "p=x.stale?null:Number(x.changePct)" "$R"
           ! grep -F "Number.isFinite(Number(x.changePct))" "$R"
@@ -66,8 +106,10 @@ jobs:
             :app:processDebugMainManifest \
             :app:assembleDebug \
             :app:assembleRelease \
+            :app:testDebugUnitTest \
             :app:lintDebug \
             --stacktrace
+          test -f app/build/outputs/apk/release/app-release-unsigned.apk
       - name: Upload Gradle-signed installable APK
         uses: actions/upload-artifact@v4
         with:
@@ -83,7 +125,8 @@ jobs:
         run: |
           set -euo pipefail
           BUILD_TOOLS="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
-          UNSIGNED="$(find app/build/outputs/apk/debug -name '*.apk' | head -1)"
+          UNSIGNED="$(find app/build/outputs/apk/release -name '*-unsigned.apk' | head -1)"
+          test -n "$UNSIGNED" && test -f "$UNSIGNED" || { echo "Unsigned release APK not found"; exit 1; }
           "$BUILD_TOOLS/zipalign" -f -p 4 "$UNSIGNED" app/build/outputs/apk/AurumB-final-aligned.apk
           if [[ -z "$AURUMB_KEYSTORE_B64" || -z "$AURUMB_KEYSTORE_PASSWORD" || -z "$AURUMB_KEY_ALIAS" || -z "$AURUMB_KEY_PASSWORD" ]]; then
             echo "::warning::Persistent signing keystore secrets are not configured. Build verification remains valid; update-compatible final APK is not produced."
