@@ -6198,7 +6198,20 @@ try{AurumUpdateAPI.state.r225={version:'REV20.25-RELIABILITY-FILL-NEWS',activate
     }catch{}
     return out;
   }
-  function cached(){return state.marketIndicators?.source==='REV20.40_DIRECT_PROVIDER'?state.marketIndicators:readLocal(KEY,null)}
+  function legacyCached(){
+    for(const key of ['marketIndicatorsR47','marketIndicatorsR40','marketIndicatorsR3']){
+      const x=readLocal(key,null),f=x?.fields||{};
+      if(KEYS.some(k=>valid(k,f[k]?.value??x?.values?.[k])))return {...x,migratedFrom:key};
+    }
+    return null;
+  }
+  function cached(){
+    if(state.marketIndicators?.source==='REV20.40_DIRECT_PROVIDER')return state.marketIndicators;
+    const current=readLocal(KEY,null);if(current)return current;
+    /* Read-only compatibility: preserve a valid pre-REV20.40 cache on upgrade. New writes stay
+       canonical under KEY, so legacy keys remain migration inputs rather than active owners. */
+    return legacyCached();
+  }
   async function refresh(){
     const fields={},errors=[],merge=src=>{for(const [k,q] of Object.entries(src||{})){if(!q?.value||!valid(k,q.value))continue;if(!fields[k])fields[k]=q;else if(!Number.isFinite(Number(fields[k].changePct))&&Number.isFinite(Number(q.changePct)))fields[k]={...fields[k],changePct:Number(q.changePct),percentOrigin:q.percentOrigin||'PROVIDER_PUBLISHED',percentSource:q.source}}};
     const providers=[['ALTINKAYNAK',altinkaynak],['YAHOO_Q1',()=>yahoo('query1.finance.yahoo.com')],['YAHOO_Q2',()=>yahoo('query2.finance.yahoo.com')],['BIGPARA_BAND',bigparaBand],['BIGPARA_EXTRA',bigparaExtra]];
