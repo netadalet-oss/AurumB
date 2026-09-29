@@ -14,8 +14,9 @@ class NativeMarketHttpPolicyTest {
     }
 
     @Test
-    fun unusedAppsScriptHostsAreRejected() {
-        assertFalse(NativeMarketHttp.allowed(URL("https://script.google.com/macros/s/ABC123/exec")))
+    fun appsScriptEntryIsStructurallyNarrowAndRedirectHostIsNotDirectlyCallable() {
+        assertTrue(NativeMarketHttp.allowed(URL("https://script.google.com/macros/s/ABC123/exec?token=secret")))
+        assertFalse(NativeMarketHttp.allowed(URL("https://script.google.com/home?token=secret")))
         assertFalse(NativeMarketHttp.allowed(URL("https://script.googleusercontent.com/macros/echo?x=1")))
     }
 }
