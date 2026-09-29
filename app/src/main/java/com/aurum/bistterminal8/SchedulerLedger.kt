@@ -21,7 +21,7 @@ object SchedulerLedger {
             .put("eventTime", Instant.ofEpochMilli(epoch).toString())
             .put("scheduledTime", time)
             .put("jobToken", token)
-            .put("calendarType", "BIST")\n            .put("pipelineKind", if (kind == "market") "market" else "data")
+            .put("calendarType", "BIST")
             .put("startedAt", Instant.now().toString())
             .put("status", "RUNNING")
             .put("attempt", 1)
