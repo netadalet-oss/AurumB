@@ -68,6 +68,11 @@ object NativeMarketHttp {
                 var url = URL(rawUrl)
                 val initialAppsScript = isAppsScriptExec(url)
                 require(allowed(url)) { "İzin verilmeyen veri sağlayıcısı" }
+                if (initialAppsScript) {
+                    require(SavedRelayPolicy.matches(context, url)) {
+                        "Kaydedilmemiş Apps Script endpointi"
+                    }
+                }
 
                 var redirects = 0
                 while (true) {
