@@ -1,52 +1,20 @@
 package com.aurum.bistterminal8
-
-// RECONSTRUCTED_FROM_DEX
 import android.content.Context
+import org.json.JSONArray
 import org.json.JSONObject
-import java.time.Instant
-
 object SchedulerLedger {
-    private const val PREFS = "aurum_scheduler_ledger"
-
-    fun begin(context: Context, epoch: Long, time: String): String {
-        val token = token(epoch, time)
-        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val previous = prefs.getString(token, null)
-        if (previous != null) {
-            val status = runCatching { JSONObject(previous).optString("status") }.getOrDefault("")
-            if (status in setOf("RUNNING", "COMPLETED")) return token
-        }
-        val record = JSONObject()
-            .put("eventId", token)
-            .put("eventTime", Instant.ofEpochMilli(epoch).toString())
-            .put("scheduledTime", time)
-            .put("jobToken", token)
-            .put("calendarType", "BIST")
-            .put("startedAt", Instant.now().toString())
-            .put("status", "RUNNING")
-            .put("attempt", 1)
-        prefs.edit().putString(token, record.toString()).apply()
-        return token
-    }
-
-    fun complete(context: Context, token: String, status: String, detail: String) {
-        if (token.isBlank()) return
-        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val record = runCatching { JSONObject(prefs.getString(token, "{}") ?: "{}") }
-            .getOrElse { JSONObject() }
-        record.put("jobToken", token)
-            .put("completedAt", Instant.now().toString())
-            .put("status", status)
-            .put("error", detail)
-        prefs.edit().putString(token, record.toString()).apply()
-    }
-
-    fun latest(context: Context): JSONObject {
-        val prefs=context.getSharedPreferences(PREFS,Context.MODE_PRIVATE)
-        val rows=prefs.all.values.mapNotNull { runCatching { JSONObject(it as String) }.getOrNull() }
-        return rows.maxByOrNull { it.optString("startedAt") } ?: JSONObject()
-    }
-
-    fun token(epoch: Long, time: String): String =
-        "AUTO|" + epoch + "|" + time.replace(":", "")
+ private const val PREFS="aurum_scheduler_ledger"; private const val STALE_MS=7200000L
+ enum class BeginResult { STARTED, SKIPPED_DUPLICATE }
+ fun begin(c:Context,token:String,epoch:Long,time:String,kind:String):BeginResult=synchronized(this){
+  val p=c.getSharedPreferences(PREFS,0); p.getString(token,null)?.let{val s=runCatching{JSONObject(it).optString("status")}.getOrDefault("");if(s=="RUNNING"||s=="COMPLETED"){recordDuplicate(c,token);return@synchronized BeginResult.SKIPPED_DUPLICATE}}
+  val now=System.currentTimeMillis();val r=JSONObject().put("eventId",token).put("jobToken",token).put("source",kind).put("scheduledAt",epoch).put("scheduledTime",time).put("startedAt",now).put("lastHeartbeatAt",now).put("status","RUNNING").put("attempt",1)
+  p.edit().putString(token,r.toString()).commit();BeginResult.STARTED
+ }
+ fun heartbeat(c:Context,token:String)=mutate(c,token){if(it.optString("status")=="RUNNING")it.put("lastHeartbeatAt",System.currentTimeMillis())}
+ fun complete(c:Context,token:String,status:String,detail:String="",stage:String="")=mutate(c,token){it.put("finishedAt",System.currentTimeMillis()).put("status",status).put("errorMessage",detail).put("failureStage",stage)}
+ fun reconcileStale(c:Context,now:Long=System.currentTimeMillis()):Int{synchronized(this){val p=c.getSharedPreferences(PREFS,0);var n=0;p.all.forEach{(k,v)->val r=runCatching{JSONObject(v as String)}.getOrNull()?:return@forEach;if(r.optString("status")=="RUNNING"){val h=r.optLong("lastHeartbeatAt",r.optLong("startedAt",0));if(h>0&&now-h>STALE_MS){r.put("status","TIMED_OUT").put("finishedAt",now).put("failureStage","RECOVERY").put("errorCode","STALE_RUNNING");p.edit().putString(k,r.toString()).commit();n++}}};return n}}
+ fun latest(c:Context):JSONObject{val rows=c.getSharedPreferences(PREFS,0).all.values.mapNotNull{runCatching{JSONObject(it as String)}.getOrNull()}.sortedByDescending{it.optLong("startedAt",0)};return JSONObject().put("latest",rows.firstOrNull()?:JSONObject()).put("recent",JSONArray(rows.take(20)))}
+ fun token(epoch:Long,time:String,kind:String)="AUTO|"+kind+"|"+epoch+"|"+time.replace(":","")
+ private fun recordDuplicate(c:Context,token:String){val p=c.getSharedPreferences(PREFS,0);val k=token+"|duplicate|"+System.currentTimeMillis();p.edit().putString(k,JSONObject().put("jobToken",token).put("status","SKIPPED_DUPLICATE").put("finishedAt",System.currentTimeMillis()).put("errorMessage","IDEMPOTENCY_GATE").toString()).commit()}
+ private fun mutate(c:Context,token:String,block:(JSONObject)->Unit){if(token.isBlank())return;synchronized(this){val p=c.getSharedPreferences(PREFS,0);val r=runCatching{JSONObject(p.getString(token,"{}")?:"{}")}.getOrElse{JSONObject()};r.put("jobToken",token);block(r);p.edit().putString(token,r.toString()).commit()}}
 }
