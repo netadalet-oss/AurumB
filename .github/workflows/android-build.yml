@@ -46,13 +46,8 @@ jobs:
           grep -F 'fun exactAllowed' app/src/main/java/com/aurum/bistterminal8/AurumScheduler.kt
           grep -F 'recordTransfer=(state.records||[])' "$R"
           # Final signing is secret-backed below; no throwaway key generation is permitted.
-      - name: Assemble debug APK
-        run: gradle --no-daemon :app:assembleDebug --stacktrace
-      - name: Upload Gradle-signed installable APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: AurumB-gradle-signed-installable
-          path: app/build/outputs/apk/debug/*.apk
+      - name: Assemble release APK
+        run: gradle --no-daemon :app:assembleRelease --stacktrace
       - name: Align and sign installable APK
         env:
           AURUMB_KEYSTORE_B64: ${{ secrets.AURUMB_KEYSTORE_B64 }}
@@ -62,7 +57,8 @@ jobs:
         run: |
           set -euo pipefail
           BUILD_TOOLS="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
-          UNSIGNED="$(find app/build/outputs/apk/debug -name '*.apk' | head -1)"
+          UNSIGNED="$(find app/build/outputs/apk/release -name '*.apk' | head -1)"
+          test -n "$UNSIGNED" || { echo "Release APK not found"; exit 1; }
           "$BUILD_TOOLS/zipalign" -f -p 4 "$UNSIGNED" app/build/outputs/apk/AurumB-final-aligned.apk
           test -n "$AURUMB_KEYSTORE_B64" || { echo "Persistent signing keystore required"; exit 1; }
           printf '%s' "$AURUMB_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/aurumb-final.jks"
