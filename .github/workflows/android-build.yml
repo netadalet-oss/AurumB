@@ -68,6 +68,37 @@ jobs:
             :app:assembleRelease \
             :app:lintDebug \
             --stacktrace
+      - name: Android emulator launch and offline smoke
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_5
+          disable-animations: true
+          script: |
+            set -euo pipefail
+            APK="$(find app/build/outputs/apk/debug -name '*.apk' | head -1)"
+            adb install -r "$APK"
+            adb logcat -c
+            adb shell am force-stop com.aurum.nextrevised09
+            adb shell monkey -p com.aurum.nextrevised09 -c android.intent.category.LAUNCHER 1
+            sleep 8
+            test -n "$(adb shell pidof com.aurum.nextrevised09 | tr -d '\r')" || { echo "AurumB process did not start"; exit 1; }
+            adb shell svc wifi disable || true
+            adb shell svc data disable || true
+            adb shell am force-stop com.aurum.nextrevised09
+            adb shell monkey -p com.aurum.nextrevised09 -c android.intent.category.LAUNCHER 1
+            sleep 8
+            test -n "$(adb shell pidof com.aurum.nextrevised09 | tr -d '\r')" || { echo "AurumB did not reopen offline"; exit 1; }
+            adb logcat -d -v brief > "$RUNNER_TEMP/aurumb-logcat.txt"
+            if grep -A10 -B3 "FATAL EXCEPTION" "$RUNNER_TEMP/aurumb-logcat.txt" | grep -q "com.aurum.nextrevised09"; then
+              echo "Fatal crash detected for AurumB"
+              grep -A12 -B4 "FATAL EXCEPTION" "$RUNNER_TEMP/aurumb-logcat.txt" | tail -80
+              exit 1
+            fi
+            adb shell svc wifi enable || true
+            adb shell svc data enable || true
       - name: Upload Gradle-signed installable APK
         uses: actions/upload-artifact@v4
         with:
