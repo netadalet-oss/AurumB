@@ -5619,7 +5619,14 @@ try{AurumUpdateAPI.state.r239={version:'REV20.39-STRICT-CADENCE-SAME-SOURCE-MARK
   /* Wrap qualified AL/SAT without touching the strategy/ranking rules. */
   try{
     const oldQ=globalThis.AurumQualifiedBuySell;
-    if(oldQ?.advance){globalThis.AurumQualifiedBuySell=Object.freeze({...oldQ,advance:async job=>{const r=await oldQ.advance(job);try{await enqueue(r,job)}catch{};try{audit()}catch{};return r}})}
+    if(oldQ?.advance&&!oldQ.deliveryIntegrated){
+      globalThis.AurumQualifiedBuySell=Object.freeze({...oldQ,deliveryIntegrated:true,advance:async job=>{
+        const r=await oldQ.advance(job);
+        try{await enqueue(r,job)}catch{}
+        try{audit()}catch{}
+        return r;
+      }});
+    }
   }catch{}
   /* Re-audit after every portfolio reconciliation. */
   try{
