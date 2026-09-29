@@ -127,18 +127,24 @@ class MainActivity : AppCompatActivity() {
             "secret_delete" -> { SecureSecretStore.delete(this); "OK" }
             "secret_input" -> { runOnUiThread { openSecretEditor() }; "OPENED" }
             "operation_lock_acquire" -> {
+                val kind = uri.getQueryParameter("kind").orEmpty().lowercase().let {
+                    if (it == "market") "market" else "data"
+                }
                 val owner = uri.getQueryParameter("owner").orEmpty()
                 if (owner.isBlank()) "ERR:MISSING_OWNER"
-                else if (OperationLock.acquire("data", owner)) {
-                    dataOperationOwner = owner
+                else if (OperationLock.acquire(kind, owner)) {
+                    if (kind == "data") dataOperationOwner = owner
                     "OK"
                 } else "BUSY"
             }
             "operation_lock_release" -> {
+                val kind = uri.getQueryParameter("kind").orEmpty().lowercase().let {
+                    if (it == "market") "market" else "data"
+                }
                 val owner = uri.getQueryParameter("owner").orEmpty()
                 if (owner.isBlank()) "ERR:MISSING_OWNER"
-                else if (OperationLock.release("data", owner)) {
-                    if (dataOperationOwner == owner) dataOperationOwner = null
+                else if (OperationLock.release(kind, owner)) {
+                    if (kind == "data" && dataOperationOwner == owner) dataOperationOwner = null
                     "OK"
                 } else "ERR:NOT_OWNER"
             }
