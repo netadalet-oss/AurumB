@@ -52,6 +52,12 @@ jobs:
           grep -F '"script.google.com", "script.googleusercontent.com"' app/src/main/java/com/aurum/bistterminal8/NativeMarketHttp.kt
           grep -F 'Regex("^/macros/s/[^/]+/exec$")' app/src/main/java/com/aurum/bistterminal8/NativeMarketHttp.kt
           grep -F 'initialAppsScript = isAppsScriptExec(url)' app/src/main/java/com/aurum/bistterminal8/NativeMarketHttp.kt
+          grep -F 'object SavedRelayPolicy' app/src/main/java/com/aurum/bistterminal8/SavedRelayPolicy.kt
+          grep -F 'SavedRelayPolicy.matches(context, url)' app/src/main/java/com/aurum/bistterminal8/NativeMarketHttp.kt
+          grep -F '"relay_endpoint_set"' app/src/main/java/com/aurum/bistterminal8/MainActivity.kt
+          grep -F '"relay_endpoint_set"' app/src/main/java/com/aurum/bistterminal8/PipelineService.kt
+          grep -F "relay_endpoint_set" "$R"
+          grep -F "RELAY_ENDPOINT_NOT_REGISTERED" "$R"
           grep -F 'object OperationLock' app/src/main/java/com/aurum/bistterminal8/OperationLock.kt
           grep -F 'OperationLock.acquire(kind, owner)' app/src/main/java/com/aurum/bistterminal8/MainActivity.kt
           grep -F 'OperationLock.acquire(kind, jobToken)' app/src/main/java/com/aurum/bistterminal8/PipelineService.kt
