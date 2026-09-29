@@ -48,6 +48,11 @@ jobs:
           grep -F '"schedule_status" -> AurumScheduler.statusJson(this)' app/src/main/java/com/aurum/bistterminal8/MainActivity.kt
           grep -F 'fun exactAllowed' app/src/main/java/com/aurum/bistterminal8/AurumScheduler.kt
           grep -F 'recordTransfer=(state.records||[])' "$R"
+          grep -F "let MANUAL_DATA_LOCK=false" "$R"
+          grep -F "job.operationType='REPAIR'" "$R"
+          ! grep -F "await refreshMarket('DATA_COMMAND')" "$R"
+          grep -F "Sağlık / Süreklilik" app/src/main/assets/scheduler-settings.js
+          grep -F "Salt okunur" app/src/main/assets/scheduler-settings.js
           # Final signing is secret-backed below; no throwaway key generation is permitted.
       - name: Full Android verification
         run: |
