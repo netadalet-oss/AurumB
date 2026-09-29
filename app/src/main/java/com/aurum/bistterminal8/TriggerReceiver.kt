@@ -11,7 +11,7 @@ class TriggerReceiver:BroadcastReceiver(){
   val epoch=i.getLongExtra("epoch",0L).takeIf{it>0}?:System.currentTimeMillis()
   val token=SchedulerLedger.token(epoch,time,kind)
   val gate=SchedulerLedger.begin(c,token,epoch,time,kind)
-  if(gate==SchedulerLedger.BeginResult.STARTED){
+  if(gate==SchedulerLedger.BeginResult.ACCEPTED){
    runCatching{ContextCompat.startForegroundService(c,Intent(c,PipelineService::class.java).putExtra("epoch",epoch).putExtra("jobToken",token).putExtra("pipelineKind",kind))}
     .onFailure{SchedulerLedger.complete(c,token,"FAILED",it.javaClass.simpleName,"SERVICE_START")}
   }
