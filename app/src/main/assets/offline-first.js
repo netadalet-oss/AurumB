@@ -87,7 +87,7 @@
   function allowed(url){
     let u;
     try{u=new URL(String(url),location.href);}catch{return false;}
-    if (u.protocol !== 'https:') return true;
+    if (u.protocol !== 'https:') return false;
     const host=u.hostname.toLowerCase();
     if (runtimeBusy()) return true;
     if (marketLive() && NEWS_HOSTS.has(host)) return true;
