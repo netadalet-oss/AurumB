@@ -13,6 +13,12 @@
  }
  async function market(manual=false){
    if(globalThis.__aurumMarketRefreshActive)return {coalesced:true};
+   let lockId=null;
+   if(manual&&!background){
+     lockId='MANUAL_MARKET|'+Date.now().toString(36)+'|'+Math.random().toString(36).slice(2,9);
+     const ans=call('job_lock_acquire',{jobId:lockId,kind:'market',source:'MANUAL'});
+     if(ans!=='ACQUIRED')throw new Error('Başka bir veri/piyasa işi sürüyor; ikinci paralel iş başlatılmadı');
+   }
    globalThis.__aurumMarketRefreshActive=true;
    try{
      const a=globalThis.AurumRebuiltMarket?.refresh?globalThis.AurumRebuiltMarket.refresh({manual,scheduled:!manual}):Promise.resolve(null);
@@ -23,7 +29,7 @@
      if(financePortal.status==='rejected')result.errors.push('PORTAL:'+String(financePortal.reason?.message||financePortal.reason));
      if(result.errors.length===2)throw new Error(result.errors.join(' | '));
      return result;
-   }finally{globalThis.__aurumMarketRefreshActive=false}
+   }finally{globalThis.__aurumMarketRefreshActive=false;if(lockId)try{call('job_lock_release',{jobId:lockId})}catch{}}
  }
  globalThis.AurumStrictMarketRuntime=Object.freeze({manual:()=>market(true),scheduled:()=>market(false)});
  globalThis.AurumMarketRuntime=Object.freeze({manualRefresh:()=>market(true),scheduledRefresh:()=>market(false)});
