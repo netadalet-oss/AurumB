@@ -1,5 +1,6 @@
 package com.aurum.bistterminal8
 
+// RECONSTRUCTED_FROM_DEX
 import android.content.Context
 import org.json.JSONObject
 import java.time.Instant
@@ -7,9 +8,8 @@ import java.time.Instant
 object SchedulerLedger {
     private const val PREFS = "aurum_scheduler_ledger"
 
-    fun begin(context: Context, epoch: Long, time: String, kind: String = "data"): String {
-        val normalizedKind = if (kind == "market") "market" else "data"
-        val token = token(epoch, time, normalizedKind)
+    fun begin(context: Context, epoch: Long, time: String): String {
+        val token = token(epoch, time)
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val previous = prefs.getString(token, null)
         if (previous != null) {
@@ -21,8 +21,7 @@ object SchedulerLedger {
             .put("eventTime", Instant.ofEpochMilli(epoch).toString())
             .put("scheduledTime", time)
             .put("jobToken", token)
-            .put("calendarType", "BIST")
-            .put("pipelineKind", normalizedKind)
+            .put("calendarType", "BIST")\n            .put("pipelineKind", if (kind == "market") "market" else "data")
             .put("startedAt", Instant.now().toString())
             .put("status", "RUNNING")
             .put("attempt", 1)
@@ -43,12 +42,11 @@ object SchedulerLedger {
     }
 
     fun latest(context: Context): JSONObject {
-        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val rows = prefs.all.values.mapNotNull { runCatching { JSONObject(it as String) }.getOrNull() }
+        val prefs=context.getSharedPreferences(PREFS,Context.MODE_PRIVATE)
+        val rows=prefs.all.values.mapNotNull { runCatching { JSONObject(it as String) }.getOrNull() }
         return rows.maxByOrNull { it.optString("startedAt") } ?: JSONObject()
     }
 
-    fun token(epoch: Long, time: String, kind: String = "data"): String =
-        "AUTO|" + (if (kind == "market") "MARKET" else "DATA") + "|" +
-            epoch + "|" + time.replace(":", "")
+    fun token(epoch: Long, time: String): String =
+        "AUTO|" + epoch + "|" + time.replace(":", "")
 }
