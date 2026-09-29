@@ -17,6 +17,20 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
+      - name: Bootstrap verified Gradle wrapper
+        run: |
+          gradle wrapper --gradle-version 8.9 --distribution-type bin --gradle-distribution-sha256-sum d725d707bfabd4dfdc958c624003b3c80accc03f7037b5122c4b1d0ef15cecab
+          chmod +x gradlew
+          echo "498495120a03b9a6ab5d155f5de3c8f0d986a449153702fb80fc80e134484f17  gradle/wrapper/gradle-wrapper.jar" | sha256sum -c -
+      - name: Upload verified wrapper bootstrap
+        uses: actions/upload-artifact@v4
+        with:
+          name: gradle-wrapper-8.9-verified
+          path: |
+            gradlew
+            gradlew.bat
+            gradle/wrapper/gradle-wrapper.jar
+            gradle/wrapper/gradle-wrapper.properties
       - name: Validate JavaScript syntax
         run: |
           node --check app/src/main/assets/core.js
@@ -52,9 +66,9 @@ jobs:
           grep -F "globalThis.AurumQualifiedBuySell=Object.freeze" "$R"
           # Final signing is secret-backed below; no throwaway key generation is permitted.
       - name: Run JVM unit tests
-        run: gradle --no-daemon :app:testDebugUnitTest --stacktrace
+        run: ./gradlew --no-daemon :app:testDebugUnitTest --stacktrace
       - name: Assemble release APK
-        run: gradle --no-daemon :app:assembleRelease --stacktrace
+        run: ./gradlew --no-daemon :app:assembleRelease --stacktrace
       - name: Align and sign installable APK
         env:
           AURUMB_KEYSTORE_B64: ${{ secrets.AURUMB_KEYSTORE_B64 }}
