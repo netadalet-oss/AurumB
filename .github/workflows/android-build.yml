@@ -85,7 +85,11 @@ jobs:
           test -n "$AURUMB_KEYSTORE_B64" || { echo "Persistent signing keystore required"; exit 1; }
           printf '%s' "$AURUMB_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/aurumb-final.jks"
           "$BUILD_TOOLS/apksigner" sign --ks "$RUNNER_TEMP/aurumb-final.jks" --ks-key-alias "$AURUMB_KEY_ALIAS" --ks-pass "pass:$AURUMB_KEYSTORE_PASSWORD" --key-pass "pass:$AURUMB_KEY_PASSWORD" --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled true --out app/build/outputs/apk/AurumB-final-install.apk app/build/outputs/apk/AurumB-final-aligned.apk
-          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs app/build/outputs/apk/AurumB-final-install.apk
+          VERIFY_OUT="$("$BUILD_TOOLS/apksigner" verify --verbose --print-certs app/build/outputs/apk/AurumB-final-install.apk)"
+          printf '%s\n' "$VERIFY_OUT"
+          CERT_SHA256="$(printf '%s\n' "$VERIFY_OUT" | awk -F': ' '/certificate SHA-256 digest/ {print tolower($2); exit}' | tr -d ':')"
+          EXPECTED_SHA256="150a61d5f6a45b7f8caa10dc62d4944c781aad3e08e6323cc45df3fda935b7e4"
+          test "$CERT_SHA256" = "$EXPECTED_SHA256" || { echo "Signing certificate does not match installed AurumB APK"; exit 1; }
           "$BUILD_TOOLS/zipalign" -c -p 4 app/build/outputs/apk/AurumB-final-install.apk
       - name: Upload aligned APK for controlled signing
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && always()
