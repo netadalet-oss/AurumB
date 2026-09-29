@@ -23,4 +23,9 @@ class SchedulerLedgerPolicyTest {
 
     @Test fun pendingIsNeverRecoveredAsRunning() =
         assertFalse(SchedulerLedgerPolicy.isStaleRunning("PENDING", 1_000L, 20_000_000L, 7_200_000L))
+    @Test fun stalePendingBecomesRecoverableMissed() =
+        assertTrue(SchedulerLedgerPolicy.isStalePending("PENDING", 1_000L, 8_201_001L, 7_200_000L))
+
+    @Test fun freshPendingIsNotMissed() =
+        assertFalse(SchedulerLedgerPolicy.isStalePending("PENDING", 1_000L, 7_201_000L, 7_200_000L))
 }
