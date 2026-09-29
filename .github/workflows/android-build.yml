@@ -49,6 +49,8 @@ jobs:
           grep -F 'fun exactAllowed' app/src/main/java/com/aurum/bistterminal8/AurumScheduler.kt
           grep -F 'recordTransfer=(state.records||[])' "$R"
           # Final signing is secret-backed below; no throwaway key generation is permitted.
+      - name: Run acceptance contracts
+        run: node scripts/acceptance-contract.mjs
       - name: Full Android verification
         run: |
           gradle --no-daemon clean \
