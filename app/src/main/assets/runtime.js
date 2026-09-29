@@ -520,7 +520,7 @@ function normalizeCalculationRecord(rec){
   return rec;
 }
 function calculationGateStatus(){const summary=dataSummary(state.records),fillPct=Number(summary.fillPct||0),ok=fillPct>=70,gate={ok,missingSymbols:Number(summary.missingSymbolCount||0),missingColumns:(summary.incompleteColumns||summary.missingColumns||[]).length,rows:Number(summary.loadedSymbols||0),eligibleRows:Number(summary.calculationEligibleRows||0),fillPct,minFillPct:70,reason:ok?null:`Türev hesaplama kapısı: Veriler doluluğu %${fillPct.toFixed(2)} < %70; önceki Kn/K_Tarihsel/S/AL-SAT korunuyor`};return {summary,gate,reason:gate.reason};}
-function calculationRecords(){const status=calculationGateStatus();if(!status.gate.ok)return [];const out=[];for(const source of state.records||[]){const rec=cloneForCalculation(source);normalizeCalculationRecord(rec);rec.calculationEligible=true;out.push(rec);}return out;}
+function calculationRecords(){const status=calculationGateStatus();if(!status.gate.ok)return [];const out=[];for(const source of state.records||[]){if(source?.calculationEligible===false)continue;const rec=cloneForCalculation(source);normalizeCalculationRecord(rec);rec.calculationEligible=true;out.push(rec);}return out;}
 globalThis.calculationRecords=calculationRecords;
 
 const LOCAL_REPAIR_V117_KEY='aurum.runtime.localRepair.v117';
@@ -5325,7 +5325,7 @@ try{AurumUpdateAPI.state.r239={version:'REV20.39-STRICT-CADENCE-SAME-SOURCE-MARK
   function r221SafeCarryForward(sym,prior,job,issues=[]){
     if(!prior){const p=makePlaceholder(sym,null,issues);p.jobId=job.id;p.dataSnapshotId=job.dataSnapshotId;p.jobMode=job.mode;p.r206AttemptComplete=true;p.marketWindowEligible=false;return p}
     const r=JSON.parse(JSON.stringify(prior));
-    r.sym=sym;r.jobId=job.id;r.dataSnapshotId=job.dataSnapshotId;r.jobMode=job.mode;r.jobDataStatus='FRESH';r.r206AttemptComplete=true;r.r206SafePriorReference=true;r.marketWindowEligible=false;r.marketWindowDeltaMinutes=null;
+    r.sym=sym;r.jobId=job.id;r.dataSnapshotId=job.dataSnapshotId;r.jobMode=job.mode;r.jobDataStatus='CARRY_FORWARD';r.r206AttemptComplete=true;r.r206SafePriorReference=true;r.marketWindowEligible=false;r.marketWindowDeltaMinutes=null;
     r.lastVisiblePrice=(Number.isFinite(Number(r.livePrice))&&Number(r.livePrice)>0)?Number(r.livePrice):(Number.isFinite(Number(r.lastVisiblePrice))?Number(r.lastVisiblePrice):null);r.lastVisibleMarketAt=r.marketDataAt||r.provenance?.marketAt||r.lastVisibleMarketAt||null;r.lastVisibleMarketProvider=r.marketTimeProvider||r.provenance?.marketTimeProvider||r.lastVisibleMarketProvider||null;r.livePrice=null;r.dayChange=null;r.liveAt=null;r.marketDataAt=null;r.marketTimeVerified=false;r.marketTimeProvider=null;r.calculationEligible=false;
     r.calculationExclusionReasons=[...new Set([...(r.calculationExclusionReasons||[]),'CURRENT_LIVE_REQUIRES_REPAIR'])];
     r.dataIssues=[...new Set([...(r.dataIssues||[]),...issues,'OLD_LIVE_NOT_REUSED'])];
