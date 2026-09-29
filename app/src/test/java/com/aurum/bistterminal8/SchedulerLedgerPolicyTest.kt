@@ -41,4 +41,12 @@ class SchedulerLedgerPolicyTest {
 
     @Test fun runningWithoutActivityTimestampIsNotRecovered() =
         assertFalse(SchedulerLedgerPolicy.isStaleRunning("RUNNING", 0L, 20_000_000L, 7_200_000L))
+    @Test fun unknownStatusAllowsControlledRetry() =
+        assertFalse(SchedulerLedgerPolicy.blocksDuplicate("MISSED"))
+
+    @Test fun negativeAttemptNormalizesToOne() =
+        assertEquals(1, SchedulerLedgerPolicy.nextAttempt(-4))
+
+    @Test fun exactStaleBoundaryIsNotRecoveredEarly() =
+        assertFalse(SchedulerLedgerPolicy.isStaleRunning("RUNNING", 1_000L, 7_201_000L, 7_200_000L))
 }
