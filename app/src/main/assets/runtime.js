@@ -5401,7 +5401,7 @@ try{AurumUpdateAPI.state.r239={version:'REV20.39-STRICT-CADENCE-SAME-SOURCE-MARK
       const stats=await enforceCohortAndGate(job,universe);
       await transition(job,JOB_STATUS.READY_TO_PUBLISH,{message:'Onarım snapshotı atomic publish için hazır',done:targets.length,total:targets.length});
       const published=await atomicPublish(job,universe),summary=dataSummary(published);job.repairFreshnessAnchorAt=nowISO();summary.scheduler=VERSION+'_REPAIR';summary.repairAgeMinutes=age/60000;summary.cohortWindowMinutes=30;summary.cohortPct=stats.cohortPct;summary.completenessTarget=TARGET_FILL;job.dataSummary=summary;await persistPendingRepairPlan(published,universe);await dbPut('meta',{key:'lastDataSummary',value:summary,updatedAt:nowISO()});await clearStage(job.id);try{if(typeof rebuildBehaviorProfiles==='function')await rebuildBehaviorProfiles(state.records,{force:false})}catch{}await refreshTableMeta();await transition(job,JOB_STATUS.DATA_COMPLETED,{message:`Eksikler tamamlandı · doluluk %${Number(summary.fillPct||0).toFixed(2)} · 30dk kohort %${stats.cohortPct.toFixed(1)}`,done:targets.length,total:targets.length});state.lastSuccessfulSync=nowISO();return true
-    }catch(e){job.error=e?.message||String(e);if(!isOnline()||/network|offline|failed to fetch|ERR_/i.test(job.error))await transition(job,JOB_STATUS.WAITING_FOR_NETWORK,{error:job.error,message:'Ağ bağlantısı bekleniyor'});else await transition(job,JOB_STATUS.FAILED,{error:job.error,message:`Eksik tamamlama kalite kapısında durdu · önceki tablo korundu · ${job.error}`});return false
+    }catch(e){job.error=e?.message||String(e);if(e?.code==='OPERATION_CANCELLED'||cancelRequested(job)){await transition(job,JOB_STATUS.CANCELLED,{error:null,message:'Onarım iptal edildi · mevcut snapshot korundu'});return false}if(!isOnline()||/network|offline|failed to fetch|ERR_/i.test(job.error))await transition(job,JOB_STATUS.WAITING_FOR_NETWORK,{error:job.error,message:'Ağ bağlantısı bekleniyor'});else await transition(job,JOB_STATUS.FAILED,{error:job.error,message:`Eksik tamamlama kalite kapısında durdu · önceki tablo korundu · ${job.error}`});return false
     }finally{try{await flushStageBatch(job.id)}catch{}state.settings.sourceRetryCount=restore.retry;state.settings.maxProvider429Retries=restore.r429;state.syncing=false;clearCancel(job.id);renderCurrentPagePreservingView()}
   };
 
@@ -5498,10 +5498,10 @@ try{AurumUpdateAPI.state.r239={version:'REV20.39-STRICT-CADENCE-SAME-SOURCE-MARK
 /* ===== REV20.9 MARKET STRIP AUTO-REFRESH + ADVISORY FILL TARGET ===== */
 (()=>{
   if(globalThis.__AURUM_REV209_MARKET_AUTOREFRESH)return;globalThis.__AURUM_REV209_MARKET_AUTOREFRESH=true;
-  const refreshAfter=async ok=>{if(ok){try{await globalThis.refreshMarketIndicators?.();const host=document.getElementById('aurumDataMarketStrip');if(host&&typeof globalThis.marketIndicatorsMarkup==='function')host.outerHTML=globalThis.marketIndicatorsMarkup()}catch{}}return ok};
+  const refreshAfter=async ok=>ok;
   if(typeof prepareGeneralData==='function'){const base=prepareGeneralData;prepareGeneralData=async function prepareGeneralDataR209(){return refreshAfter(await base.apply(this,arguments))};globalThis.prepareGeneralData=prepareGeneralData;}
   if(typeof prepareMissingData==='function'){const base=prepareMissingData;prepareMissingData=async function prepareMissingDataR209(){return refreshAfter(await base.apply(this,arguments))};globalThis.prepareMissingData=prepareMissingData;}
-  queueMicrotask(()=>{try{saveSettings?.()}catch{}try{AurumUpdateAPI.state.r209={version:'REV20.9-MARKET-UX-ADVISORY-FILL',activatedAt:nowISO(),features:['MARKET_STRIP_MANUAL_REFRESH','MARKET_STRIP_AUTO_REFRESH_AFTER_DATA_UPDATE','FILL_95_IS_TARGET_NOT_PUBLISH_GATE','30M_COHORT_GATE_PRESERVED']}}catch{}});
+  queueMicrotask(()=>{try{saveSettings?.()}catch{}try{AurumUpdateAPI.state.r209={version:'REV20.9-MARKET-UX-ADVISORY-FILL',activatedAt:nowISO(),features:['MARKET_STRIP_MANUAL_REFRESH','MARKET_STRIP_SEPARATE_SCHEDULER_ONLY','FILL_95_IS_TARGET_NOT_PUBLISH_GATE','30M_COHORT_GATE_PRESERVED']}}catch{}});
 })();
 
 
