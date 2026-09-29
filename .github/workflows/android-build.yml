@@ -57,6 +57,9 @@ jobs:
           grep -F 'ContextCompat.startForegroundService' app/src/main/java/com/aurum/bistterminal8/MainActivity.kt
           grep -F 'operation_lock_acquire&owner=' "$R"
           grep -F "Orphan staging aktif tabloya yayınlanmadı" "$R"
+          grep -F "AURUM_BACKGROUND_PIPELINE=new URLSearchParams(location.search).get('pipeline')||'data'" "$R"
+          grep -F "if(!BACKGROUND_SYNC||AURUM_BACKGROUND_PIPELINE==='market')return false" "$R"
+          grep -F "if(BACKGROUND_SYNC&&AURUM_BACKGROUND_PIPELINE==='market')" "$R"
           node - <<'NODE'
           const fs=require('fs');const s=fs.readFileSync('app/src/main/assets/runtime.js','utf8');const a=s.indexOf('async function recoverOrphanStagingRecords(){'),b=s.indexOf('\nasync function atomicPublish(job,universe){',a);const body=s.slice(a,b);if(/objectStore\(['\"]records['\"]\)|dbPut\(['\"]records['\"]/.test(body)){throw new Error('orphan staging must not write active records')}
           NODE
