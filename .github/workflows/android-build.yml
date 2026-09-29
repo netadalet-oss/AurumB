@@ -41,6 +41,10 @@ jobs:
           grep -F "CANCELLED:'CANCELLED'" "$R"
           grep -F "STAGING:'STAGING'" "$R"
           grep -F "VALIDATING:'VALIDATING'" "$R"
+          grep -F "applicationId 'com.aurum.nextrevised09'" app/build.gradle
+          grep -F "const DB_NAME='bist_optimizasyon_r38_separate'" app/src/main/assets/core.js
+          grep -F "const DB_VERSION=12" app/src/main/assets/core.js
+          ! grep -R -F "indexedDB.deleteDatabase" app/src/main/assets
           grep -F "errorCount:0" "$R"
           grep -F "activeSnapshotId:activeMeta?.snapshotId||null" "$R"
           grep -F "targetSymbolCount:currentSymbols().length" "$R"
