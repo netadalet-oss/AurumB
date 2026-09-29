@@ -27,7 +27,9 @@ test('S1 atomic publish phases',()=>{
 test('S2 network wait preserves snapshot',()=>{
   must(runtime,"JOB_STATUS.WAITING_FOR_NETWORK");
   must(runtime,"Ağ bağlantısı bekleniyor");
-  mustNot(runtime,"state.records=[]","failure path clears active records");
+  must(runtime,"DATA_FILL_BELOW_70_KEEP_LAST_VALID_SNAPSHOT");
+  must(runtime,"önceki tablo korundu");
+  must(runtime,"async function clearTableScope","record clearing must remain an explicit user-management path");
 });
 test('S3 provider failure isolated/retry aware',()=>{
   must(runtime,'providerConcurrencyLimit');
