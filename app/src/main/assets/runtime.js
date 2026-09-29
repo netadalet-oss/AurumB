@@ -271,14 +271,27 @@ async function stagePut(jobId,sym,record){if(HARD_CANCELLED_JOBS.has(String(jobI
 async function stageRows(jobId){return (await dbAll('stagingRecords')).filter(x=>x.jobId===jobId)}
 async function clearStage(jobId){const rows=await stageRows(jobId);if(!rows.length)return;await new Promise((resolve,reject)=>{const tx=state.db.transaction('stagingRecords','readwrite'),s=tx.objectStore('stagingRecords');for(const x of rows)s.delete(x.id);tx.oncomplete=()=>resolve(true);tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);});}
 async function recoverOrphanStagingRecords(){
-  if(!state.db)return {recovered:0,retained:0};
-  const [rows,jobs]=await Promise.all([dbAll('stagingRecords'),dbAll('jobs')]),active=new Set(jobs.filter(j=>operationBusyStatus(String(j?.status||''))).map(j=>j.id)),orph=rows.filter(x=>!active.has(x.jobId));
-  if(!orph.length)return {recovered:0,retained:0};
-  const current=new Map((state.records||[]).map(r=>[r.sym,r])),publish=[];
-  for(const x of orph){const r=x?.record;if(!r?.sym||r.jobDataStatus!=='FRESH')continue;let valid=true;try{valid=validateRecord(r,r.sym).ok}catch{}if(!valid)continue;const old=current.get(r.sym),nt=Date.parse(r.marketDataAt||r.apiAccessedAt||r.storedAt||''),ot=Date.parse(old?.marketDataAt||old?.apiAccessedAt||old?.storedAt||'');if(!old||!Number.isFinite(ot)||!Number.isFinite(nt)||nt>=ot)publish.push(x);else publish.push({...x,__discardOnly:true});}
-  if(!publish.length)return {recovered:0,retained:orph.length};
-  await new Promise((resolve,reject)=>{const tx=state.db.transaction(['records','stagingRecords'],'readwrite'),rs=tx.objectStore('records'),ss=tx.objectStore('stagingRecords');for(const x of publish){if(!x.__discardOnly)rs.put({key:x.record.sym,value:{...x.record,tableTransferredAt:nowISO()},updatedAt:nowISO()});ss.delete(x.id);}tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error)});
-  const reread=(await dbAll('records')).map(x=>x.value);state.records=reread;state.recordMap=new Map(reread.map(x=>[x.sym,x]));try{await refreshTableMeta()}catch{}return {recovered:publish.filter(x=>!x.__discardOnly).length,retained:orph.length-publish.length};
+  /* Orphan staging is never merged record-by-record into the active table.
+     It is retained for diagnostics / explicit job recovery only. Publishing is legal solely
+     through atomicPublish/atomicRepairPublish after full validation and quality gates. */
+  if(!state.db)return {recovered:0,retained:0,blockedPartialPublish:true};
+  const [rows,jobs]=await Promise.all([dbAll('stagingRecords'),dbAll('jobs')]);
+  const active=new Set(jobs.filter(j=>operationBusyStatus(String(j?.status||''))).map(j=>j.id));
+  const orphanRows=rows.filter(x=>!active.has(x.jobId));
+  if(!orphanRows.length)return {recovered:0,retained:0,blockedPartialPublish:true};
+  try{
+    await dbPut('meta',{
+      key:'orphanStagingHealth',
+      value:{
+        at:nowISO(),
+        rowCount:orphanRows.length,
+        jobIds:[...new Set(orphanRows.map(x=>x.jobId).filter(Boolean))].slice(0,50),
+        policy:'RETAIN_ONLY_NO_PARTIAL_ACTIVE_PUBLISH'
+      },
+      updatedAt:nowISO()
+    });
+  }catch{}
+  return {recovered:0,retained:orphanRows.length,blockedPartialPublish:true};
 }
 async function atomicPublish(job,universe){
   /* Atomic publisher is the final invariant boundary: a candidate below the 70% safety floor
