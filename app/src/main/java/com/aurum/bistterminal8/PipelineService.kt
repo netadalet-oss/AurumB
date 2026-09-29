@@ -29,6 +29,7 @@ class PipelineService : Service() {
     private var transferWakeLock: PowerManager.WakeLock? = null
     private var watchdog: android.os.Handler? = null
     private var watchdogTask: Runnable? = null
+    private var dataLockOwner: String? = null
 
     private inner class BackgroundNativeBridge {
         @JavascriptInterface
@@ -64,12 +65,19 @@ class PipelineService : Service() {
             SchedulerLedger.complete(this, jobToken, "FAILED", "PIPELINE_BUSY_ALREADY_RUNNING")
             return START_NOT_STICKY
         }
+        if (kind == "data" && !OperationLock.acquire("data", jobToken)) {
+            SchedulerLedger.complete(this, jobToken, "CANCELLED", "DATA_OPERATION_ALREADY_RUNNING")
+            return START_NOT_STICKY
+        }
+        if (kind == "data") dataLockOwner = jobToken
 
         acquireTransferWakeLock()
         watchdogTask?.let { watchdog?.removeCallbacks(it) }
         watchdog = android.os.Handler(mainLooper)
         watchdogTask = Runnable {
             SchedulerLedger.complete(this, jobToken, "FAILED", "PIPELINE_TIMEOUT")
+            dataLockOwner?.let { OperationLock.release("data", it) }
+            dataLockOwner = null
             stopSelf(startId)
         }.also { watchdog?.postDelayed(it, 2 * 60 * 60 * 1000L) }
 
@@ -121,6 +129,8 @@ class PipelineService : Service() {
                             detail
                         )
                         releaseTransferWakeLock()
+                        dataLockOwner?.let { OperationLock.release("data", it) }
+                        dataLockOwner = null
                         stopSelf(startId)
                         return true
                     }
@@ -215,6 +225,8 @@ class PipelineService : Service() {
         watchdogTask = null
         watchdog = null
         releaseTransferWakeLock()
+        dataLockOwner?.let { OperationLock.release("data", it) }
+        dataLockOwner = null
         destroyWebView()
         super.onDestroy()
     }
