@@ -57,6 +57,8 @@ jobs:
           ! grep -F "p=x.stale?null:Number(x.changePct)" "$R"
           ! grep -F "Number.isFinite(Number(x.changePct))" "$R"
           # Final signing is secret-backed below; no throwaway key generation is permitted.
+      - name: Run critical acceptance contracts
+        run: node scripts/acceptance-contract.mjs
       - name: Full Android verification
         run: |
           gradle --no-daemon clean \
