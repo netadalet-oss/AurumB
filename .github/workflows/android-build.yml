@@ -76,6 +76,7 @@ jobs:
             :app:processDebugMainManifest \
             :app:assembleDebug \
             :app:assembleRelease \
+            :app:testDebugUnitTest \
             :app:lintDebug \
             --stacktrace
       - name: Upload Gradle-signed installable APK
