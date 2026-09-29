@@ -22,7 +22,7 @@ jobs:
           node --check app/src/main/assets/offline-first.js
           node --check app/src/main/assets/netherlands-news-portal.js
           node --check app/src/main/assets/scheduler-settings.js
-          node --check app/src/main/assets/trigger-contract.js
+          node --check app/src/main/assets/trigger-contract.js\n          node --check app/src/main/assets/clean-core-revision.js
           node --check app/src/main/assets/rev20-final-rules.js
           node --check app/src/main/assets/market-indicators-revision.js
           node --check app/src/main/assets/rev20-final-stability.js
