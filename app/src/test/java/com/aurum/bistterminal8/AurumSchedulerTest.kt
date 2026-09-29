@@ -63,4 +63,27 @@ class AurumSchedulerTest {
         val after = Instant.parse("2026-10-02T21:00:00Z")
         assertEquals(Instant.parse("2026-10-03T10:00:00Z"), AurumScheduler.nextSlot("13:00", after, "market"))
     }
+    @Test fun weekdayDefaultsRemainCanonical() {
+        assertEquals(18, AurumScheduler.defaultTimesForDate(LocalDate.of(2026, 10, 5)).size)
+        assertEquals("00:30", AurumScheduler.defaultTimesForDate(LocalDate.of(2026, 10, 5)).first())
+        assertEquals("23:30", AurumScheduler.defaultTimesForDate(LocalDate.of(2026, 10, 5)).last())
+    }
+
+    @Test fun marketWeekdayDefaultIsPlusThirty() {
+        assertEquals("01:00", AurumScheduler.defaultTimesForDate(LocalDate.of(2026, 10, 5), "market").first())
+    }
+
+    @Test fun sameDayFutureSlotIsSelected() {
+        val after = Instant.parse("2026-10-05T05:00:00Z")
+        assertEquals(Instant.parse("2026-10-05T05:20:00Z"), AurumScheduler.nextSlot("08:20", after))
+    }
+
+    @Test fun elapsedSameDaySlotMovesToNextEligibleDay() {
+        val after = Instant.parse("2026-10-05T05:21:00Z")
+        assertEquals(Instant.parse("2026-10-06T05:20:00Z"), AurumScheduler.nextSlot("08:20", after))
+    }
+
+    @Test fun customListRejectsTimeNotConfigured() {
+        assertNull(AurumScheduler.nextSlot("10:00", Instant.parse("2026-10-05T05:00:00Z"), custom=listOf("09:00")))
+    }
 }
