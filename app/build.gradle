@@ -20,8 +20,8 @@ android {
         applicationId 'com.aurum.rev20.smartfastx.debug'
         minSdk 26
         targetSdk 35
-        versionCode 13
-        versionName '1.0.4-rev20.43'
+        versionCode 14
+        versionName '1.0.5-rev20.44'
     }
 }
 
