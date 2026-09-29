@@ -550,20 +550,87 @@ function recordNeedsLocalIntegrityRepair(rec){
 }
 async function repairLegacyCorruptRecordsLocal(){
   const memo=readLocal(LOCAL_REPAIR_V117_KEY,null);if(memo?.complete)return memo;
-  const candidates=(state.records||[]).filter(recordNeedsLocalIntegrityRepair);if(!candidates.length){const done={complete:true,at:nowISO(),repaired:0,failed:0};writeLocal(LOCAL_REPAIR_V117_KEY,done);return done;}
-  const indexBundle=(await dbGet('meta','indexBundle'))?.value||{bars:[]},changedAt=nowISO();let repairedCount=0,failed=0;
-  for(const old of candidates){try{
-    const rebuilt=enrichBundle(bundleFromRecord(old),indexBundle),next={...old,...rebuilt};
-    for(const k of ['marketDataAt','liveAt','marketTimeVerified','marketTimeProvider','apiAccessedAt','tableTransferredAt','datasetMarketAt','dataSnapshotId','jobId','jobMode','jobDataStatus','marketWindowEligible','marketWindowDeltaMinutes','providers','source','sourceAttempts','providerAttempts','provenance','companyCard','companyCardHistory','crossValidation','enrichmentMetrics','behaviorProfile','behaviorScore','behaviorType','genomeProfile','genomeScore','genomeProbability','genomeType'])if(k in old)next[k]=old[k];
-    next.recordChangedAt=changedAt;next.provenance={...(old.provenance||{}),recordChangedAt:changedAt,localIntegrityRepair:'V117'};next.recordFingerprint=dataRecordFingerprint(next);
-    await dbPut('records',{key:next.sym,value:next,updatedAt:changedAt});const ix=state.records.findIndex(x=>x.sym===next.sym);if(ix>=0)state.records[ix]=next;repairedCount++;
-  }catch(e){failed++;try{await log('warn',`${old.sym}: yerel bütünlük onarımı başarısız`,{error:e?.message||String(e)})}catch{}}}
-  state.recordMap=new Map(state.records.map(x=>[x.sym,x]));
-  const classification=classifyDataCompleteness(state.records,currentSymbols());for(const rec of state.records){const e=classification.bySymbol.get(rec.sym);rec.emptyCellCount=e?.emptyCells??0;rec.calculationEligible=!!e?.eligible;rec.calculationExclusionReasons=e?.reasons||[];rec.incompleteColumns=classification.incompleteColumns;}
-  if(repairedCount){const meta=(await dbGet('meta','activeDataSnapshot'))?.value||null;if(meta){meta.changedAt=changedAt;meta.fingerprint=dataTableFingerprint(state.records);meta.incompleteColumns=classification.incompleteColumns;await dbPut('meta',{key:'activeDataSnapshot',value:meta,updatedAt:changedAt});}for(const rec of state.records.filter(r=>candidates.some(c=>c.sym===r.sym)))await dbPut('records',{key:rec.sym,value:rec,updatedAt:changedAt});}
-  const done={complete:failed===0,at:nowISO(),repaired:repairedCount,failed};if(done.complete)writeLocal(LOCAL_REPAIR_V117_KEY,done);return done;
-}
+  const sourceRecords=(state.records||[]),candidates=sourceRecords.filter(recordNeedsLocalIntegrityRepair);
+  if(!candidates.length){const done={complete:true,at:nowISO(),repaired:0,failed:0,published:false};writeLocal(LOCAL_REPAIR_V117_KEY,done);return done;}
 
+  const indexBundle=(await dbGet('meta','indexBundle'))?.value||{bars:[]},changedAt=nowISO(),candidateSet=new Set(candidates.map(x=>x.sym));
+  const rebuiltBySym=new Map(),failures=[];
+  for(const old of candidates){
+    try{
+      const base=JSON.parse(JSON.stringify(old)),rebuilt=enrichBundle(bundleFromRecord(base),indexBundle),next={...base,...rebuilt};
+      for(const k of ['marketDataAt','liveAt','marketTimeVerified','marketTimeProvider','apiAccessedAt','tableTransferredAt','datasetMarketAt','providers','source','sourceAttempts','providerAttempts','provenance','companyCard','companyCardHistory','crossValidation','enrichmentMetrics','behaviorProfile','behaviorScore','behaviorType','genomeProfile','genomeScore','genomeProbability','genomeType'])if(k in base)next[k]=base[k];
+      next.recordChangedAt=changedAt;
+      next.provenance={...(base.provenance||{}),recordChangedAt:changedAt,localIntegrityRepair:'V117_ATOMIC'};
+      rebuiltBySym.set(old.sym,next);
+    }catch(e){
+      failures.push({sym:old?.sym||'?',error:e?.message||String(e)});
+      try{await log('warn',`${old?.sym||'?'}: yerel bütünlük onarımı staging başarısız`,{error:e?.message||String(e)})}catch{}
+    }
+  }
+
+  /* Fail closed: a partial local-repair set may never alter the active snapshot. */
+  if(failures.length||rebuiltBySym.size!==candidates.length){
+    return {complete:false,at:changedAt,repaired:0,failed:failures.length||Math.max(0,candidates.length-rebuiltBySym.size),published:false,previousSnapshotPreserved:true};
+  }
+
+  const previous=(await dbGet('meta','activeDataSnapshot'))?.value||null;
+  const snapshotId=`LOCAL_REPAIR|${Date.now().toString(36)}|${Math.random().toString(36).slice(2,8)}`;
+  const nextRecords=sourceRecords.map(old=>{
+    const rec=rebuiltBySym.get(old.sym)||JSON.parse(JSON.stringify(old));
+    rec.dataSnapshotId=snapshotId;
+    rec.jobMode='REPAIR';
+    rec.recordFingerprint=dataRecordFingerprint(rec);
+    return rec;
+  });
+
+  const classification=classifyDataCompleteness(nextRecords,currentSymbols());
+  for(const rec of nextRecords){
+    const e=classification.bySymbol.get(rec.sym);
+    rec.emptyCellCount=e?.emptyCells??0;
+    rec.calculationEligible=!!e?.eligible;
+    rec.calculationExclusionReasons=e?.reasons||[];
+    rec.incompleteColumns=classification.incompleteColumns;
+  }
+  const summary=dataSummary(nextRecords),gate=dataIntegrityGate(summary);
+  if(!gate.ok){
+    return {complete:false,at:changedAt,repaired:0,failed:0,published:false,previousSnapshotPreserved:true,reason:'LOCAL_REPAIR_QUALITY_BELOW_70',fillPct:gate.fillPct};
+  }
+
+  const fingerprint=dataTableFingerprint(nextRecords);
+  const meta={
+    ...(previous||{}),
+    snapshotId,
+    sourceSnapshotId:previous?.snapshotId||null,
+    jobId:'LOCAL_REPAIR',
+    mode:'REPAIR',
+    changedAt,
+    localRepairAt:changedAt,
+    fingerprint,
+    incompleteColumns:classification.incompleteColumns,
+    universeCount:nextRecords.length,
+    publishedCount:nextRecords.length,
+    /* External transfer time remains unchanged: local repair must not impersonate fresh market data. */
+    transferredAt:previous?.transferredAt||previous?.completedAt||null,
+    completedAt:previous?.completedAt||previous?.transferredAt||null,
+    marketAt:previous?.marketAt||null
+  };
+
+  await new Promise((resolve,reject)=>{
+    const tx=state.db.transaction(['records','meta'],'readwrite'),rs=tx.objectStore('records'),ms=tx.objectStore('meta');
+    rs.clear();
+    for(const rec of nextRecords)rs.put({key:rec.sym,value:rec,updatedAt:changedAt});
+    ms.put({key:'activeDataSnapshot',value:meta,updatedAt:changedAt});
+    tx.oncomplete=()=>resolve(true);tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);
+  });
+
+  const reread=(await dbAll('records')).map(x=>x.value),symbols=new Set(reread.map(x=>x.sym));
+  if(reread.length!==nextRecords.length||nextRecords.some(x=>!symbols.has(x.sym)))throw new Error('LOCAL_REPAIR_POST_WRITE_VERIFICATION_FAILED');
+  state.records=reread;state.recordMap=new Map(reread.map(x=>[x.sym,x]));
+  try{await refreshTableMeta()}catch{}
+  const done={complete:true,at:changedAt,repaired:candidateSet.size,failed:0,published:true,snapshotId,sourceSnapshotId:previous?.snapshotId||null};
+  writeLocal(LOCAL_REPAIR_V117_KEY,done);
+  return done;
+}
 const REPAIR_QUEUE_KEY='aurum.runtime.repairQueue.r73';
 function r73RepairQueue(){const x=readLocal(REPAIR_QUEUE_KEY,[]);return Array.isArray(x)?x:[];}
 function r73QueueAudit(result){const now=nowISO(),old=new Map(r73RepairQueue().map(x=>[x.id,x])),open=[];for(const i of (result?.issues||[])){const prev=old.get(i.id);open.push({id:i.id,detail:i.detail,severity:i.severity||'error',status:'OPEN',firstSeen:prev?.firstSeen||now,lastSeen:now});}writeLocal(REPAIR_QUEUE_KEY,open);return open;}
