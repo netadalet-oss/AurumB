@@ -988,9 +988,10 @@ async function resumePendingJobs(){if(!isOnline()||state.syncing||state.calculat
 const AURUM_SCHEDULER_NATIVE_HEALTH_KEY='aurum.scheduler.native.health.v14';
 function schedulerNativeHealth(){return readLocal(AURUM_SCHEDULER_NATIVE_HEALTH_KEY,{ok:null,at:null,response:null,reason:null})||{ok:null,at:null,response:null,reason:null}}
 function schedulerWriteNativeHealth(v){const x={...(v||{}),at:v?.at||nowISO()};writeLocal(AURUM_SCHEDULER_NATIVE_HEALTH_KEY,x);return x}
-function schedulerNativeInstall(enabled,times,reason='USER'){
+function schedulerNativeInstall(enabled,times,reason='USER',profile='custom'){
   try{
-    const r=window.prompt(`aurum://native?${new URLSearchParams({cmd:'schedule',enabled:enabled?'1':'0',times:(times||[]).join(',')})}`,'AURUM')||'';
+    const params={cmd:'schedule',enabled:enabled?'1':'0',times:(times||[]).join(','),profile};
+    const r=window.prompt(`aurum://native?${new URLSearchParams(params)}`,'AURUM')||'';
     const ok=r==='OK';schedulerWriteNativeHealth({ok,response:r||'NO_RESPONSE',reason,at:nowISO()});return {ok,response:r||'NO_RESPONSE'};
   }catch(e){const response=e?.message||String(e)||'PROMPT_FAILED';schedulerWriteNativeHealth({ok:false,response,reason,at:nowISO()});return {ok:false,response}}
 }
@@ -999,16 +1000,17 @@ function openExactAlarmSettings(){
   return true;
 }
 async function startScheduler(){
-  if(state.settings?.nativeSchedulerEnabled===false)return schedulerNativeInstall(false,[],'STARTUP_DISABLED').ok;
-  const times=schedulerConfiguredTimes();if(!times.length)return true;
-  return schedulerNativeInstall(true,times,'STARTUP_REARM').ok;
+  if(state.settings?.nativeSchedulerEnabled===false)return schedulerNativeInstall(false,[],'STARTUP_DISABLED','default').ok;
+  /* Native scheduler owns weekday/weekend defaults. The legacy runtime model cannot encode
+     per-day profiles in the Android bridge; sending its union as custom would flatten the
+     weekend separation. Repair/rearm therefore restores the canonical native default profile. */
+  return schedulerNativeInstall(true,[],'STARTUP_REARM','default').ok;
 }
 let AURUM_SCHEDULER_REARM_AT=0;
 async function schedulerForegroundHealthCheck(reason='FOREGROUND'){
   if(document.hidden||state.settings?.nativeSchedulerEnabled===false)return false;
   const now=Date.now();if(now-AURUM_SCHEDULER_REARM_AT<10*60*1000)return true;AURUM_SCHEDULER_REARM_AT=now;
-  const times=schedulerConfiguredTimes();if(!times.length)return true;
-  const out=schedulerNativeInstall(true,times,reason);
+  const out=schedulerNativeInstall(true,[],reason,'default');
   if(!out.ok)showAurumNotice(`Android alarm katmanı yeniden kurulamadı (${out.response}). Kesin alarm iznini kontrol edin.`,'error',5600);
   try{await refreshSchedulerStatus()}catch{}
   return out.ok;
