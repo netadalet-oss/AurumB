@@ -56,6 +56,7 @@ jobs:
           grep -F 'recordTransfer=(state.records||[])' "$R"
           grep -F "canonical:'AurumQualifiedBuySell'" "$R"
           grep -F "globalThis.AurumQualifiedBuySell=Object.freeze" "$R"
+          test "$(grep -Rho '@Test' app/src/test | wc -l)" -eq 23
           # Final signing is secret-backed below; no throwaway key generation is permitted.
       - name: Run JVM unit tests
         run: ./gradlew --no-daemon :app:testDebugUnitTest --stacktrace
