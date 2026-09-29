@@ -271,14 +271,16 @@ async function stagePut(jobId,sym,record){if(HARD_CANCELLED_JOBS.has(String(jobI
 async function stageRows(jobId){return (await dbAll('stagingRecords')).filter(x=>x.jobId===jobId)}
 async function clearStage(jobId){const rows=await stageRows(jobId);if(!rows.length)return;await new Promise((resolve,reject)=>{const tx=state.db.transaction('stagingRecords','readwrite'),s=tx.objectStore('stagingRecords');for(const x of rows)s.delete(x.id);tx.oncomplete=()=>resolve(true);tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);});}
 async function recoverOrphanStagingRecords(){
-  if(!state.db)return {recovered:0,retained:0};
-  const [rows,jobs]=await Promise.all([dbAll('stagingRecords'),dbAll('jobs')]),active=new Set(jobs.filter(j=>operationBusyStatus(String(j?.status||''))).map(j=>j.id)),orph=rows.filter(x=>!active.has(x.jobId));
-  if(!orph.length)return {recovered:0,retained:0};
-  const current=new Map((state.records||[]).map(r=>[r.sym,r])),publish=[];
-  for(const x of orph){const r=x?.record;if(!r?.sym||r.jobDataStatus!=='FRESH')continue;let valid=true;try{valid=validateRecord(r,r.sym).ok}catch{}if(!valid)continue;const old=current.get(r.sym),nt=Date.parse(r.marketDataAt||r.apiAccessedAt||r.storedAt||''),ot=Date.parse(old?.marketDataAt||old?.apiAccessedAt||old?.storedAt||'');if(!old||!Number.isFinite(ot)||!Number.isFinite(nt)||nt>=ot)publish.push(x);else publish.push({...x,__discardOnly:true});}
-  if(!publish.length)return {recovered:0,retained:orph.length};
-  await new Promise((resolve,reject)=>{const tx=state.db.transaction(['records','stagingRecords'],'readwrite'),rs=tx.objectStore('records'),ss=tx.objectStore('stagingRecords');for(const x of publish){if(!x.__discardOnly)rs.put({key:x.record.sym,value:{...x.record,tableTransferredAt:nowISO()},updatedAt:nowISO()});ss.delete(x.id);}tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error)});
-  const reread=(await dbAll('records')).map(x=>x.value);state.records=reread;state.recordMap=new Map(reread.map(x=>[x.sym,x]));try{await refreshTableMeta()}catch{}return {recovered:publish.filter(x=>!x.__discardOnly).length,retained:orph.length-publish.length};
+  /* Orphan staging is never merged row-by-row into the active table. Partial recovery would
+     create a hybrid snapshot and violate the atomic-publish invariant. Keep it durable for
+     explicit resume/diagnostics; only atomicPublish/atomicRepairPublish may change active data. */
+  if(!state.db)return {recovered:0,retained:0,quarantined:0};
+  const [rows,jobs]=await Promise.all([dbAll('stagingRecords'),dbAll('jobs')]),
+    active=new Set(jobs.filter(j=>operationBusyStatus(String(j?.status||''))).map(j=>j.id)),
+    orph=rows.filter(x=>!active.has(x.jobId));
+  if(!orph.length)return {recovered:0,retained:0,quarantined:0};
+  try{await log('warn','Orphan staging aktif tabloya yayınlanmadı; atomic publish için korundu',{count:orph.length,jobIds:[...new Set(orph.map(x=>x.jobId))].slice(0,12)})}catch{}
+  return {recovered:0,retained:orph.length,quarantined:orph.length};
 }
 async function atomicPublish(job,universe){
   /* Atomic publisher is the final invariant boundary: a candidate below the 70% safety floor
@@ -1223,14 +1225,14 @@ async function r44RepairReport(){
   const report={at:nowISO(),online:isOnline(),records:state.records.length,staged:(await dbAll('stagingRecords')).length,jobs:(await dbAll('jobs')).filter(x=>!['COMPLETED','FAILED'].includes(String(x.status))).map(x=>({id:x.id,status:x.status,stage:x.currentStage,error:x.error||null})),integrity:dataIntegrityGate(dataSummary(state.records)),schedulerTimes:schedulerConfiguredTimes(),aiConfigured:!!(state.settings.aiEnabled&&globalThis.AurumNativeAI?.configured?.())};await dbPut('meta',{key:'r44LastRepairReport',value:report,updatedAt:report.at});return report;
 }
 async function r73FastTransferRepair(){state.settings.adaptiveConcurrency=true;state.settings.providerHealthAdaptive=true;state.settings.richParallelAllProviders=true;state.settings.fastFailoverEnabled=true;state.settings.concurrency=32;state.settings.maxGlobalConcurrency=32;state.settings.providerWaveSize=10;state.settings.interRequestDelayMs=0;state.settings.sourceRetryCount=Math.max(1,Number(state.settings.sourceRetryCount||0));state.settings.stageBatchSize=256;state.settings.stageFlushMs=4;await saveSettings();for(const id of [...STAGE_BATCHES.keys()])try{await flushStageBatch(id)}catch{};return true;}
-async function r73StagingRepair(){const r=await recoverOrphanStagingRecords();return {recovered:r.recovered,retained:r.retained,removed:0};}
+async function r73StagingRepair(){const r=await recoverOrphanStagingRecords();return {recovered:0,retained:r.retained,quarantined:r.quarantined||r.retained,removed:0};}
 async function runRepairCenter(mode='DIAGNOSE'){
   try{const report=await r44RepairReport();if(mode==='DIAGNOSE'){const a=await r73ExtendedAudit();showAurumNotice(`Tanı: ${a.summary.issues} bulgu · ${report.staged} staging · ${report.jobs.length} bekleyen iş`,'info',3800);return a}
-    if(mode==='AUTO_FIX'){await r73FastTransferRepair();const st=await r73StagingRepair();try{await repairLegacyCorruptRecordsLocal()}catch{};const sch=await startScheduler();const a=await r73ExtendedAudit();showAurumNotice(`Onarım tamamlandı · staging ${st.recovered||0} kurtarıldı · zamanlayıcı ${sch?'OK':'kontrol gerekli'} · ${a.summary.issues} bulgu kaldı`,a.ok?'success':'info',4800);return a}
+    if(mode==='AUTO_FIX'){await r73FastTransferRepair();const st=await r73StagingRepair();try{await repairLegacyCorruptRecordsLocal()}catch{};const sch=await startScheduler();const a=await r73ExtendedAudit();showAurumNotice(`Onarım tamamlandı · staging ${st.retained||0} kayıt atomic publish için korundu · zamanlayıcı ${sch?'OK':'kontrol gerekli'} · ${a.summary.issues} bulgu kaldı`,a.ok?'success':'info',4800);return a}
     if(mode==='CONTROL'){for(const c of [...state.activeControllers])try{if(cancelState()?.requested)c.abort()}catch{};await r73FastTransferRepair();showAurumNotice('Buton/iptal ve hızlı aktarım motoru yeniden uygulandı','success',2400);return true}
     if(mode==='TRANSFER'){await r73FastTransferRepair();showAurumNotice('Hızlı aktarım profili uygulandı · 28 adaptif işçi · 12 provider dalgası','success',2600);return true}
     if(mode==='BACKGROUND'){await r73FastTransferRepair();showAurumNotice('Arka plan staging kuyruğu ve hızlı aktarım profili yeniden uygulandı','success',2600);return true}
-    if(mode==='STAGING'){const x=await r73StagingRepair();showAurumNotice(`${x.recovered||0} staging kaydı ana depoya kurtarıldı · ${x.retained||0} doğrulanamayan kayıt korundu`,'success',3000);return x}
+    if(mode==='STAGING'){const x=await r73StagingRepair();showAurumNotice(`${x.retained||0} staging kaydı korundu · aktif snapshot değiştirilmedi`,'info',3000);return x}
     if(mode==='SCHEDULER'){const ok=await startScheduler();const d=await r73SchedulerDiagnostic();showAurumNotice(ok&&d.ok?'Zamanlayıcı yeniden kuruldu ve geçmiş zinciri sağlıklı':d.detail,ok&&d.ok?'success':'error',4200);return {ok,d}}
     if(mode==='ONLINE'){if(!isOnline())throw new Error('Ağ bağlantısı yok');return runManualData('REPAIR')}
     if(mode==='RESUME')return resumePendingJobs();
