@@ -959,8 +959,19 @@ async function resumeAutoJob(job,mode='GENERAL'){
 }
 async function resumeManualStage(job){const stage=String(job?.currentStage||'Veriler'),meta=await currentSnapshotMeta(),sameSnapshot=!!job?.dataSnapshotId&&job.dataSnapshotId===meta?.snapshotId;if(stage==='Veriler'||['FETCHING_DATA','WAITING_FOR_NETWORK','RETRY_PENDING'].includes(job.status)){const ok=await prepareData(job,job?.requestedDataMode||'GENERAL');if(ok)saveManualSequence({dataSnapshotId:job.dataSnapshotId,dataJobId:job.id,kn:false,history:false,s:false});return ok}if(!sameSnapshot){await transition(job,JOB_STATUS.FAILED,{error:'MANUAL_SNAPSHOT_MISMATCH',message:'Manuel recovery veri snapshotı değişmiş'});return false}const seq=manualSequence();if(stage==='Kn'||job.status==='KN_RUNNING'){const ok=await calculateKn(job);if(ok)saveManualSequence({...seq,dataSnapshotId:job.dataSnapshotId,kn:true,history:false,s:false});return ok}if(stage==='K_Tarihsel'||job.status==='K_TARIHSEL_RUNNING'){const ok=await archiveHistorical(job);if(ok)saveManualSequence({...seq,dataSnapshotId:job.dataSnapshotId,kn:true,history:true,s:false});return ok}if(stage==='S'||job.status==='S_RUNNING'){const ok=await calculateS(job);if(ok)saveManualSequence({...seq,dataSnapshotId:job.dataSnapshotId,kn:true,history:true,s:true});return ok}return false}
 let MANUAL_DATA_LOCK=false;
+function acquireNativeOperationLock(kind='data',source='MANUAL'){
+  const id=String(source||'MANUAL')+'|'+Date.now().toString(36)+'|'+Math.random().toString(36).slice(2,9);
+  try{
+    const q=new URLSearchParams({cmd:'job_lock_acquire',jobId:id,kind,source});
+    const out=globalThis.AurumNativeCall?.('aurum://native?'+q.toString(),'')||window.prompt('aurum://native?'+q.toString(),'')||'';
+    return out==='ACQUIRED'?id:null;
+  }catch{return null}
+}
+function releaseNativeOperationLock(id){if(!id)return;try{const q=new URLSearchParams({cmd:'job_lock_release',jobId:id});globalThis.AurumNativeCall?.('aurum://native?'+q.toString(),'')||window.prompt('aurum://native?'+q.toString(),'')}catch{}}
 async function runManualData(mode='GENERAL'){
   if(MANUAL_DATA_LOCK||state.syncing||state.calculating){showAurumNotice('Başka bir işlem sürüyor','info',2400);return false}
+  const operationLockId=acquireNativeOperationLock('data','MANUAL_DATA');
+  if(!operationLockId){showAurumNotice('Başka bir veri/piyasa işi sürüyor; ikinci paralel iş başlatılmadı.','warning',3200);return false}
   MANUAL_DATA_LOCK=true;
   let keepalive=false;
   try{
@@ -978,6 +989,7 @@ async function runManualData(mode='GENERAL'){
   }finally{
     if(keepalive)try{window.prompt('aurum://native?cmd=transfer_keepalive&enabled=0','AURUM')}catch{}
     MANUAL_DATA_LOCK=false;
+    releaseNativeOperationLock(operationLockId);
   }
 }
 async function runManualKn(){if(state.syncing||state.calculating){showAurumNotice('Başka bir işlem sürüyor','info',2400);return false}const active=await activeCalculableSnapshot();if(!active)return warnOrder('KN');if(!active.integrity?.gate?.ok)return warnOrder('KN',active.integrity.reason);const seq=saveManualSequence({dataSnapshotId:active.meta.snapshotId,dataJobId:active.meta.jobId||null,kn:false,history:false,s:false});const job=await createJob('MANUAL','USER',null,'KN');job.dataSnapshotId=active.meta.snapshotId;const ok=await calculateKn(job);if(ok){seq.kn=true;seq.history=false;seq.s=false;saveManualSequence(seq);showAurumNotice('Kn tamamlandı. K_Tarihsel kullanıcı komutunu bekliyor.','success',2800);return true}return operationFailureNotice('Kn',job,'Kn hesaplaması tamamlanamadı')}
