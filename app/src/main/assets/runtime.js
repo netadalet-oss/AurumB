@@ -2539,15 +2539,12 @@ try{AurumUpdateAPI.state.cleanREV20={version:'REV20.0-CLEAN',activatedAt:new Dat
   async function dispatch(ins,outs,at,job){
     const buys=arr(ins),sells=arr(outs);if(!buys.length&&!sells.length)return false;
     const signature=sig(buys,sells),previous=readLocal(SIG_KEY,'');if(previous===signature)return false;
-    const body=`${buys.length?`AL: ${buys.join(', ')}`:''}${buys.length&&sells.length?' · ':''}${sells.length?`SAT: ${sells.join(', ')}`:''}`;
-    const title='Aurum B · S AL/SAT';
-    let nativeShown=nativePromptNotify(title,body,`aurum-s-${signature}`),webShown=false;
-    if(!nativeShown)webShown=webNotify(title,body,`aurum-s-${signature}`);
-    try{showAurumNotice(`${title}: ${body}`,'info',5200)}catch{}
+    /* S membership deltas are audit history only. User-facing AL/SAT is emitted exclusively
+       by AurumQualifiedBuySell after qualification, so raw S changes cannot duplicate or
+       contradict the canonical trade lifecycle. */
     writeLocal(SIG_KEY,signature);
-    if(job)job.sNotificationDetail=body;
-    await saveHistory(buys,sells,at,{native:nativeShown,web:webShown,background:!!BACKGROUND_SYNC});
-    return true;
+    await saveHistory(buys,sells,at,{suppressed:true,canonical:'AurumQualifiedBuySell',background:!!BACKGROUND_SYNC});
+    return false;
   }
   globalThis.r21DispatchSChange=dispatch;
 
