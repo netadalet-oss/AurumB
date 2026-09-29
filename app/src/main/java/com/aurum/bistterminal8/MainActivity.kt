@@ -232,8 +232,16 @@ class MainActivity : AppCompatActivity() {
             "schedule_status" -> AurumScheduler.statusJson(this)
             "schedule_exact_settings" -> {
                 if (android.os.Build.VERSION.SDK_INT >= 31 && !AurumScheduler.exactAllowed(this)) {
-                    runCatching { startActivity(android.content.Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:$packageName"))) }
-                    "OPENED"
+                    val opened = runCatching {
+                        startActivity(
+                            android.content.Intent(
+                                android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+                                Uri.parse("package:$packageName")
+                            )
+                        )
+                        true
+                    }.getOrDefault(false)
+                    if (opened) "OPENED" else "ERR:EXACT_SETTINGS_UNAVAILABLE"
                 } else "OK"
             }
             "schedule" -> {
