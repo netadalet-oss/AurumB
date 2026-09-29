@@ -29,6 +29,10 @@ class MainActivity : AppCompatActivity() {
     private var exportFolder: Uri? = null
     private var transferWakeLock: PowerManager.WakeLock? = null
 
+    private val notificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (::webView.isInitialized) webView.evaluateJavascript("window.AurumNotificationPermissionChanged?.("+granted+")", null)
+    }
+
     private val folderPicker = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) {
             runCatching {
@@ -100,6 +104,10 @@ class MainActivity : AppCompatActivity() {
                 }
                 return true
             }
+        }
+        if (android.os.Build.VERSION.SDK_INT >= 33 &&
+            androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            notificationPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
         }
         if (savedInstanceState == null) {
             webView.loadUrl("https://appassets.androidplatform.net/assets/index.html")
