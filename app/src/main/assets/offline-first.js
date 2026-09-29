@@ -23,7 +23,7 @@
       if (globalThis.state?.syncing) return true;
       const r = globalThis.AurumRuntime?.status?.();
       const s = String(r?.status||'').toUpperCase();
-      return ['SCHEDULED','FETCHING_DATA','WAITING_FOR_NETWORK','RETRY_PENDING','RUNNING'].includes(s);
+      return ['SCHEDULED','FETCHING_DATA','STAGING','VALIDATING','READY_TO_PUBLISH','WAITING_FOR_NETWORK','RETRY_PENDING','RUNNING'].includes(s);
     }catch{return false;}
   }
 
@@ -130,13 +130,13 @@
   // Persist architecture marker inside this app's own sandbox only.
   try{
     localStorage.setItem('aurum.offline.architecture','REV20');
-    localStorage.setItem('aurum.offline.package','com.aurum.rev20.standalone');
+    localStorage.setItem('aurum.offline.package','com.aurum.nextrevised09');
   }catch{}
 
   // Visible diagnostic for settings/debugging without changing the UI layout.
   globalThis.AurumOfflinePolicy=Object.freeze({
     version:'REV20.13',
-    packageId:'com.aurum.rev20.standalone',
+    packageId:'com.aurum.nextrevised09',
     mode:'INDEPENDENT_OFFLINE_FIRST',
     networkAllowed:allowed,
     tradeRelayFetch,
