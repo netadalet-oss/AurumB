@@ -125,6 +125,8 @@ test('Source time distinct from receive time',()=>{
   must(market,'sourceTimestamp');
   must(market,'receivedAt');
   must(runtime,'CANONICAL_MARKET_TIME_UNAVAILABLE');
+  must(runtime,'lastVisibleMarketVerified===true','unverified held market time could be displayed');
+  must(runtime,'marketWindowEligible===true','live price must require current market-window eligibility');
 });
 test('No autonomous interval loop in effective runtime',()=>{
   mustNot(runtime,'setInterval(');
