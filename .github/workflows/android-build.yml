@@ -14,6 +14,9 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
       - name: Validate JavaScript syntax
         run: |
           node --check app/src/main/assets/core.js
@@ -59,10 +62,13 @@ jobs:
         run: |
           set -euo pipefail
           BUILD_TOOLS="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
-          UNSIGNED="$(find app/build/outputs/apk/release -name '*.apk' | head -1)"
-          test -n "$UNSIGNED" || { echo "Release APK not found"; exit 1; }
+          UNSIGNED="app/build/outputs/apk/release/app-release-unsigned.apk"
+          test -f "$UNSIGNED" || { echo "Release APK not found: $UNSIGNED"; exit 1; }
           "$BUILD_TOOLS/zipalign" -f -p 4 "$UNSIGNED" app/build/outputs/apk/AurumB-final-aligned.apk
           test -n "$AURUMB_KEYSTORE_B64" || { echo "Persistent signing keystore required"; exit 1; }
+          test -n "$AURUMB_KEYSTORE_PASSWORD" || { echo "Signing keystore password required"; exit 1; }
+          test -n "$AURUMB_KEY_ALIAS" || { echo "Signing key alias required"; exit 1; }
+          test -n "$AURUMB_KEY_PASSWORD" || { echo "Signing key password required"; exit 1; }
           printf '%s' "$AURUMB_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/aurumb-final.jks"
           "$BUILD_TOOLS/apksigner" sign --ks "$RUNNER_TEMP/aurumb-final.jks" --ks-key-alias "$AURUMB_KEY_ALIAS" --ks-pass "pass:$AURUMB_KEYSTORE_PASSWORD" --key-pass "pass:$AURUMB_KEY_PASSWORD" --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled true --out app/build/outputs/apk/AurumB-final-install.apk app/build/outputs/apk/AurumB-final-aligned.apk
           "$BUILD_TOOLS/apksigner" verify --verbose --print-certs app/build/outputs/apk/AurumB-final-install.apk
