@@ -995,15 +995,8 @@ function schedulerNativeInstall(enabled,times,reason='USER'){
   }catch(e){const response=e?.message||String(e)||'PROMPT_FAILED';schedulerWriteNativeHealth({ok:false,response,reason,at:nowISO()});return {ok:false,response}}
 }
 function openExactAlarmSettings(){
-  try{
-    const r=window.prompt('aurum://native?cmd=schedule_exact_settings','AURUM')||'';
-    if(r==='OPENED'||r==='OK')return true;
-    showAurumNotice('Kesin alarm ayarı açılamadı. Android Ayarlar → Özel uygulama erişimi → Alarmlar ve hatırlatıcılar → Aurum BIST Rev 20 yolundan erişimi etkinleştirin.','info',8200);
-    return false;
-  }catch{
-    showAurumNotice('Android Ayarlar → Özel uygulama erişimi → Alarmlar ve hatırlatıcılar → Aurum BIST Rev 20 yolundan kesin alarm erişimini etkinleştirin.','info',8200);
-    return false;
-  }
+  showAurumNotice('Android Ayarlar → Özel uygulama erişimi → Alarmlar ve hatırlatıcılar → Aurum BIST Rev 20 yolundan kesin alarm erişimini kontrol edin. WebView içinden intent:// açılması devre dışı bırakıldı; bu sayede ERR_UNKNOWN_URL_SCHEME oluşmaz.','info',8200);
+  return true;
 }
 async function startScheduler(){
   if(state.settings?.nativeSchedulerEnabled===false)return schedulerNativeInstall(false,[],'STARTUP_DISABLED').ok;
