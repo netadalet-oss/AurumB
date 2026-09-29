@@ -42,6 +42,16 @@ The prior linkage document incorrectly named `rev20-customization.js` as a direc
 - `native-market-http.js`: `925d86c01177118aeb5e0f5e236ccf778446e8e12ee2d457e1b453ab08fc8a29`
 - `styles.css`: `8cebaad436b1a0001222f7f102bedfc7ab6c3fc50bedf640ee93ef91626d89ce`
 
+The complete measured byte counts and hashes for the provenance set are recorded in `recovery/apk-source-map.json` and were re-measured from the supplied APK.
+
+## Proven dead packaged assets
+The reference APK contains the following JavaScript files, but they are not direct `index.html` entries and no filename reference was found anywhere else in the extracted APK tree or in `classes.dex`, `classes2.dex`, or `classes3.dex`. They are therefore packaged-but-unreferenced legacy assets, not runtime entry points:
+- `fast-background-transfer.js` — 1,578 bytes — SHA-256 `b14d93d9fc7cf4d25adc58bc80e7eb112b5a0fb6f3f5c3ab1885a5c692cf4ba6`
+- `market-display-fix2.js` — 3,701 bytes — SHA-256 `4db4a5da9fa5f0072abcc503451cf8f176e46201ef826fe65854a897510d5cf6`
+- `market-percent-portal-patch.js` — 2,876 bytes — SHA-256 `2ea90c0feda9c95c9ceb20d2e280e740819db56530cf7328d8fe1c0150871edd`
+
+The revised source tree removes these three files. This removal is evidence-based and does not alter the measured reference APK provenance record.
+
 ## Native linkage
 The asset layer calls Android through the `aurum://native?` protocol / `AurumNativeBridge.call(...)`.
 - `native-market-http.js` ↔ `NativeMarketHttp.kt`
