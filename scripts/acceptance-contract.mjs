@@ -53,6 +53,8 @@ test('S6 below 70 cannot publish',()=>{
   if(finalPub<0)throw new Error('final publisher override missing');
   const finalSlice=runtime.slice(finalPub, runtime.indexOf('/* Repair publication',finalPub));
   must(finalSlice,'DATA_FILL_BELOW_70_KEEP_LAST_VALID_SNAPSHOT','final publisher override bypasses 70% gate');
+  must(finalSlice,'HARD_CANCELLED_JOBS','final publisher override is not cancellation-safe');
+  must(finalSlice,"code:'OPERATION_CANCELLED'",'final publisher override lacks cancellation terminal');
   must(runtime,'RETAIN_ONLY_NO_PARTIAL_ACTIVE_PUBLISH');
   const orphanStart=runtime.indexOf('async function recoverOrphanStagingRecords(){');
   const orphanEnd=runtime.indexOf('async function atomicPublish(job,universe){',orphanStart);
