@@ -47,6 +47,10 @@ jobs:
           grep -F "job.errorCount=Number(job.errorCount||0)+1" "$R"
           grep -F 'Regex("^/macros/s/[^/]+/exec$")' app/src/main/java/com/aurum/bistterminal8/NativeMarketHttp.kt
           grep -F 'host == "script.googleusercontent.com"' app/src/main/java/com/aurum/bistterminal8/NativeMarketHttp.kt
+          grep -F 'object OperationLock' app/src/main/java/com/aurum/bistterminal8/OperationLock.kt
+          grep -F 'OperationLock.acquire("data", owner)' app/src/main/java/com/aurum/bistterminal8/MainActivity.kt
+          grep -F 'OperationLock.acquire("data", jobToken)' app/src/main/java/com/aurum/bistterminal8/PipelineService.kt
+          grep -F 'operation_lock_acquire&owner=' "$R"
           grep -F "R221_SMART_MAX_ROUNDS=5" "$R"
           grep -F "R225_FILL_TARGETS=Object.freeze([100,95,90,80,70])" "$R"
           grep -F "const requiredByFill=nextRound===1?fill<100:fill<target" "$R"
