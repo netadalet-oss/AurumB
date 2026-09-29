@@ -46,6 +46,8 @@ jobs:
           grep -F 'fun exactAllowed' app/src/main/java/com/aurum/bistterminal8/AurumScheduler.kt
           grep -F 'recordTransfer=(state.records||[])' "$R"
           # Final signing is secret-backed below; no throwaway key generation is permitted.
+      - name: Run JVM unit tests
+        run: gradle --no-daemon :app:testDebugUnitTest --stacktrace
       - name: Assemble release APK
         run: gradle --no-daemon :app:assembleRelease --stacktrace
       - name: Align and sign installable APK
