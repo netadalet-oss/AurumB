@@ -49,11 +49,20 @@ test('S5 repair targets missing subset',()=>{
 test('S6 below 70 cannot publish',()=>{
   must(runtime,'DATA_FILL_BELOW_70_KEEP_LAST_VALID_SNAPSHOT');
   must(runtime,'if(!candidateGate.ok)throw');
+  const finalPub=runtime.indexOf('globalThis.atomicPublish=atomicPublish=async function r55AtomicPublish');
+  if(finalPub<0)throw new Error('final publisher override missing');
+  const finalSlice=runtime.slice(finalPub, runtime.indexOf('/* Repair publication',finalPub));
+  must(finalSlice,'DATA_FILL_BELOW_70_KEEP_LAST_VALID_SNAPSHOT','final publisher override bypasses 70% gate');
   must(runtime,'RETAIN_ONLY_NO_PARTIAL_ACTIVE_PUBLISH');
   const orphanStart=runtime.indexOf('async function recoverOrphanStagingRecords(){');
   const orphanEnd=runtime.indexOf('async function atomicPublish(job,universe){',orphanStart);
   const orphan=runtime.slice(orphanStart,orphanEnd);
   mustNot(orphan,"objectStore('records')",'orphan staging may not write active records');
+  const localStart=runtime.indexOf('async function repairLegacyCorruptRecordsLocal(){');
+  const localEnd=runtime.indexOf('const REPAIR_QUEUE_KEY',localStart);
+  const local=runtime.slice(localStart,localEnd);
+  must(local,"transaction(['records','meta'],'readwrite')",'local repair must publish full snapshot atomically');
+  must(local,'sourceSnapshotId','local repair must create traceable successor snapshot');
 });
 test('S7 wake lock bounded and released',()=>{
   must(manifest,'android.permission.WAKE_LOCK');
