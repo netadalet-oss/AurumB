@@ -210,7 +210,7 @@ class PipelineService : Service() {
         while (pendingJobs.isNotEmpty()) {
             val queued = pendingJobs.removeFirst()
             queued.intent.getStringExtra("jobToken")?.let {
-                SchedulerLedger.complete(this, it, "FAILED", "SYSTEM_FGS_BUDGET_EXHAUSTED", "FOREGROUND_SERVICE")
+                SchedulerLedger.complete(this, it, "MISSED", "SYSTEM_FGS_BUDGET_EXHAUSTED", "FOREGROUND_SERVICE")
             }
         }
         watchdogTask?.let { watchdog?.removeCallbacks(it) }
