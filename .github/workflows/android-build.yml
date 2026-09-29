@@ -49,9 +49,8 @@ jobs:
           grep -F "activeSnapshotId:activeMeta?.snapshotId||null" "$R"
           grep -F "targetSymbolCount:currentSymbols().length" "$R"
           grep -F "job.errorCount=Number(job.errorCount||0)+1" "$R"
-          grep -F '"script.google.com", "script.googleusercontent.com"' app/src/main/java/com/aurum/bistterminal8/NativeMarketHttp.kt
-          grep -F 'Regex("^/macros/s/[^/]+/exec$")' app/src/main/java/com/aurum/bistterminal8/NativeMarketHttp.kt
-          grep -F 'initialAppsScript = isAppsScriptExec(url)' app/src/main/java/com/aurum/bistterminal8/NativeMarketHttp.kt
+          ! grep -F '"script.google.com"' app/src/main/java/com/aurum/bistterminal8/NativeMarketHttp.kt
+          ! grep -F '"script.googleusercontent.com"' app/src/main/java/com/aurum/bistterminal8/NativeMarketHttp.kt
           grep -F 'object OperationLock' app/src/main/java/com/aurum/bistterminal8/OperationLock.kt
           grep -F 'OperationLock.acquire(kind, owner)' app/src/main/java/com/aurum/bistterminal8/MainActivity.kt
           grep -F 'OperationLock.acquire(kind, jobToken)' app/src/main/java/com/aurum/bistterminal8/PipelineService.kt

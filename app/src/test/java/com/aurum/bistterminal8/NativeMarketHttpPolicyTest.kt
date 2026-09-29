@@ -14,9 +14,8 @@ class NativeMarketHttpPolicyTest {
     }
 
     @Test
-    fun appsScriptOnlyAcceptsValidatedExecEntryPoint() {
-        assertTrue(NativeMarketHttp.allowed(URL("https://script.google.com/macros/s/ABC123/exec?token=x")))
-        assertFalse(NativeMarketHttp.allowed(URL("https://script.google.com/home")))
+    fun unusedAppsScriptHostsAreRejected() {
+        assertFalse(NativeMarketHttp.allowed(URL("https://script.google.com/macros/s/ABC123/exec")))
         assertFalse(NativeMarketHttp.allowed(URL("https://script.googleusercontent.com/macros/echo?x=1")))
     }
 }
