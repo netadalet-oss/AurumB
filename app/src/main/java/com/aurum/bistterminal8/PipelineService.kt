@@ -29,7 +29,7 @@ class PipelineService : Service() {
     private var transferWakeLock: PowerManager.WakeLock? = null
     private var watchdog: android.os.Handler? = null
     private var watchdogTask: Runnable? = null
-    private val pendingJobs = ArrayDeque<Intent>()
+    private data class PendingJob(val intent: Intent, val startId: Int)\n    private val pendingJobs = ArrayDeque<PendingJob>()
     private var activeToken: String? = null
     private var activeStartId: Int? = null
 
@@ -56,7 +56,7 @@ class PipelineService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val incoming = intent ?: return START_NOT_STICKY
         if (activeToken != null) {
-            pendingJobs.addLast(Intent(incoming))
+            pendingJobs.addLast(PendingJob(Intent(incoming), startId))
             return START_NOT_STICKY
         }
         startJob(incoming, startId)
@@ -196,7 +196,7 @@ class PipelineService : Service() {
         activeToken = null
         activeStartId = null
         if (pendingJobs.isNotEmpty()) {
-            startJob(pendingJobs.removeFirst(), 0)
+            pendingJobs.removeFirst().let { startJob(it.intent, it.startId) }
         } else {
             stopSelf()
         }
