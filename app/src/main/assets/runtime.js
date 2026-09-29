@@ -5586,6 +5586,10 @@ try{AurumUpdateAPI.state.r239={version:'REV20.39-STRICT-CADENCE-SAME-SOURCE-MARK
     if(endpoint.protocol!=='https:'||endpoint.hostname.toLowerCase()!=='script.google.com'||!/^\/macros\/s\/[^/]+\/exec$/.test(endpoint.pathname))return {ok:false,status:'INVALID_APPS_SCRIPT_URL'};
     const token=String(endpoint.searchParams.get('token')||'').trim();
     if(!token)return {ok:false,status:'TOKEN_EKSIK'};
+    const relayCmd='aurum://native?cmd=relay_endpoint_set';
+    let relayPolicy='';
+    try{relayPolicy=String(globalThis.AurumNativeBridge?.call?.(relayCmd,url)??prompt(relayCmd,url)??'')}catch{}
+    if(relayPolicy!=='OK')return {ok:false,status:'RELAY_ENDPOINT_NOT_REGISTERED'};
 
     const pf=portfolioBrief()||{};
     const compactPortfolio={

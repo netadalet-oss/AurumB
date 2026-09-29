@@ -148,6 +148,14 @@ class MainActivity : AppCompatActivity() {
                     "OK"
                 } else "ERR:NOT_OWNER"
             }
+            "relay_endpoint_set" -> {
+                val raw = body.trim()
+                if (raw.isBlank()) {
+                    SavedRelayPolicy.clear(this)
+                    "OK"
+                } else if (SavedRelayPolicy.save(this, raw)) "OK"
+                else "ERR:INVALID_RELAY_ENDPOINT"
+            }
             "http_cancel" -> {
                 val id = uri.getQueryParameter("requestId").orEmpty()
                 if (id.isBlank()) "ERR:MISSING_REQUEST_ID"
