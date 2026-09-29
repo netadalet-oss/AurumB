@@ -57,6 +57,8 @@ jobs:
           # Final signing is secret-backed below; no throwaway key generation is permitted.
       - name: Run JVM unit tests
         run: ./gradlew --no-daemon :app:testDebugUnitTest --stacktrace
+      - name: Run Android lint
+        run: ./gradlew --no-daemon :app:lintRelease --stacktrace
       - name: Assemble release APK
         run: ./gradlew --no-daemon :app:assembleRelease --stacktrace
       - name: Align and sign installable APK
