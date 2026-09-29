@@ -29,6 +29,9 @@ class PipelineService : Service() {
     private var transferWakeLock: PowerManager.WakeLock? = null
     private var watchdog: android.os.Handler? = null
     private var watchdogTask: Runnable? = null
+    private val pendingJobs = ArrayDeque<Intent>()
+    private var activeToken: String? = null
+    private var activeStartId: Int? = null
 
     private inner class BackgroundNativeBridge {
         @JavascriptInterface
@@ -51,24 +54,35 @@ class PipelineService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val epoch = intent?.getLongExtra("epoch", 0L)?.takeIf { it > 0L }
-            ?: run { stopSelf(startId); return START_NOT_STICKY }
-        val jobToken = intent.getStringExtra("jobToken")
-            ?: run { stopSelf(startId); return START_NOT_STICKY }
-        val kind = intent.getStringExtra("pipelineKind").let { if (it == "market") "market" else "data" }
+        val incoming = intent ?: return START_NOT_STICKY
+        if (activeToken != null) {
+            pendingJobs.addLast(Intent(incoming))
+            return START_NOT_STICKY
+        }
+        startJob(incoming, startId)
+        return START_NOT_STICKY
+    }
 
-        watchdogTask?.let { watchdog?.removeCallbacks(it) }
+    private fun startJob(intent: Intent, startId: Int) {
+        val epoch = intent.getLongExtra("epoch", 0L).takeIf { it > 0L }
+            ?: run { stopSelf(startId); return }
+        val jobToken = intent.getStringExtra("jobToken")
+            ?: run { stopSelf(startId); return }
+        val kind = intent.getStringExtra("pipelineKind").let { if (it == "market") "market" else "data" }
+        activeToken = jobToken
+        activeStartId = startId
+        SchedulerLedger.heartbeat(this, jobToken)
+
         watchdog = android.os.Handler(mainLooper)
         watchdogTask = Runnable {
-            SchedulerLedger.complete(this, jobToken, "FAILED", "PIPELINE_TIMEOUT")
-            stopSelf(startId)
+            SchedulerLedger.complete(this, jobToken, "TIMED_OUT", "PIPELINE_TIMEOUT", "WATCHDOG")
+            finishActiveJob()
         }.also { watchdog?.postDelayed(it, 2 * 60 * 60 * 1000L) }
 
         val loader = WebViewAssetLoader.Builder()
             .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
             .build()
 
-        destroyWebView()
         webView = WebView(this).apply {
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
@@ -76,17 +90,9 @@ class PipelineService : Service() {
             settings.allowFileAccess = false
             settings.allowContentAccess = false
             settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
-
-            // native-bridge.js prefers this interface and only falls back to window.prompt.
             addJavascriptInterface(BackgroundNativeBridge(), "AurumNativeBridge")
             webChromeClient = object : WebChromeClient() {
-                override fun onJsPrompt(
-                    view: WebView?,
-                    url: String?,
-                    message: String?,
-                    defaultValue: String?,
-                    result: JsPromptResult?
-                ): Boolean {
+                override fun onJsPrompt(view: WebView?, url: String?, message: String?, defaultValue: String?, result: JsPromptResult?): Boolean {
                     if (message?.startsWith("aurum://native?") == true) {
                         result?.confirm(handleNative(message, defaultValue.orEmpty()))
                         return true
@@ -94,24 +100,18 @@ class PipelineService : Service() {
                     return super.onJsPrompt(view, url, message, defaultValue, result)
                 }
             }
-
             webViewClient = object : WebViewClient() {
                 override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest) =
                     loader.shouldInterceptRequest(request.url)
-
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                     val uri = request.url
                     if (uri.scheme == "aurum" && uri.host == "complete") {
                         val ok = uri.getQueryParameter("ok") != "0"
-                        val detail = uri.getQueryParameter("detail").orEmpty()
-                        watchdogTask?.let { watchdog?.removeCallbacks(it) }
-                        SchedulerLedger.complete(
-                            this@PipelineService,
-                            jobToken,
+                        SchedulerLedger.complete(this@PipelineService, jobToken,
                             if (ok) "COMPLETED" else "FAILED",
-                            detail
-                        )
-                        stopSelf(startId)
+                            uri.getQueryParameter("detail").orEmpty(),
+                            if (ok) "" else "JAVASCRIPT_PIPELINE")
+                        finishActiveJob()
                         return true
                     }
                     return uri.scheme != "https" || uri.host != "appassets.androidplatform.net"
@@ -119,7 +119,6 @@ class PipelineService : Service() {
             }
             loadUrl("https://appassets.androidplatform.net/assets/index.html?background=1&epoch=$epoch&pipeline=$kind")
         }
-        return START_NOT_STICKY
     }
 
     /**
@@ -189,7 +188,28 @@ class PipelineService : Service() {
         transferWakeLock = null
     }
 
-    private fun finishActiveJob() {\n        watchdogTask?.let { watchdog?.removeCallbacks(it) }\n        watchdogTask = null\n        releaseTransferWakeLock()\n        destroyWebView()\n        activeToken = null\n        val finishedId = activeStartId\n        activeStartId = null\n        if (pendingJobs.isNotEmpty()) {\n            val next = pendingJobs.removeFirst()\n            onStartCommand(next, 0, (finishedId ?: 0) + 1)\n        } else if (finishedId != null) stopSelf(finishedId)\n    }\n\n    override fun onTimeout(startId: Int, fgsType: Int) {\n        activeToken?.let { SchedulerLedger.complete(this, it, "TIMED_OUT", "SYSTEM_FGS_TIMEOUT", "FOREGROUND_SERVICE") }\n        finishActiveJob()\n    }\n\n    private fun destroyWebView() {
+    private fun finishActiveJob() {
+        watchdogTask?.let { watchdog?.removeCallbacks(it) }
+        watchdogTask = null
+        releaseTransferWakeLock()
+        destroyWebView()
+        activeToken = null
+        activeStartId = null
+        if (pendingJobs.isNotEmpty()) {
+            startJob(pendingJobs.removeFirst(), 0)
+        } else {
+            stopSelf()
+        }
+    }
+
+    override fun onTimeout(startId: Int, fgsType: Int) {
+        activeToken?.let {
+            SchedulerLedger.complete(this, it, "TIMED_OUT", "SYSTEM_FGS_TIMEOUT", "FOREGROUND_SERVICE")
+        }
+        finishActiveJob()
+    }
+
+    private fun destroyWebView() {
         webView?.apply {
             stopLoading()
             loadUrl("about:blank")
