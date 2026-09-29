@@ -234,6 +234,17 @@ class PipelineService : Service() {
     }
 
     override fun onDestroy() {
+        activeToken?.let {
+            SchedulerLedger.complete(this, it, "TIMED_OUT", "SERVICE_DESTROYED", "SERVICE_LIFECYCLE")
+        }
+        while (pendingJobs.isNotEmpty()) {
+            val queued = pendingJobs.removeFirst()
+            queued.intent.getStringExtra("jobToken")?.let {
+                SchedulerLedger.complete(this, it, "MISSED", "SERVICE_DESTROYED_BEFORE_START", "SERVICE_LIFECYCLE")
+            }
+        }
+        activeToken = null
+        activeStartId = null
         watchdogTask?.let { watchdog?.removeCallbacks(it) }
         watchdogTask = null
         watchdog = null
