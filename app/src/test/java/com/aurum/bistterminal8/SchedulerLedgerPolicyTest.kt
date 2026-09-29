@@ -19,4 +19,11 @@ class SchedulerLedgerPolicyTest {
     @Test fun freshRunningIsNotRecovered() = assertFalse(SchedulerLedgerPolicy.isStaleRunning("RUNNING",1_000L,7_200_999L,7_200_000L))
     @Test fun exactStaleBoundaryIsNotRecoveredEarly() = assertFalse(SchedulerLedgerPolicy.isStaleRunning("RUNNING",1_000L,7_201_000L,7_200_000L))
     @Test fun stalePendingIsRecoverableAsMissedOnly() { assertTrue(SchedulerLedgerPolicy.isStalePending("PENDING",1_000L,8_201_001L,7_200_000L)); assertFalse(SchedulerLedgerPolicy.isStalePending("RUNNING",1_000L,8_201_001L,7_200_000L)) }
+    @Test fun negativeAttemptIsNormalized() = assertEquals(1, SchedulerLedgerPolicy.nextAttempt(-5))
+
+    @Test fun missingActivityTimestampIsNotStale() =
+        assertFalse(SchedulerLedgerPolicy.isStaleRunning("RUNNING", 0L, 20_000_000L, 7_200_000L))
+
+    @Test fun completedJobIsNeverRecoveredAsStale() =
+        assertFalse(SchedulerLedgerPolicy.isStaleRunning("COMPLETED", 1_000L, 20_000_000L, 7_200_000L))
 }
