@@ -72,7 +72,7 @@ class PipelineService : Service() {
         val kind = intent.getStringExtra("pipelineKind").let { if (it == "market") "market" else "data" }
         activeToken = jobToken
         activeStartId = startId
-        SchedulerLedger.heartbeat(this, jobToken)
+        SchedulerLedger.markRunning(this, jobToken)
 
         watchdog = android.os.Handler(mainLooper)
         watchdogTask = Runnable {
