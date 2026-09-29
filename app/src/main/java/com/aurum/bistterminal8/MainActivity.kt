@@ -118,14 +118,6 @@ class MainActivity : AppCompatActivity() {
         if (!message.startsWith("aurum://native?")) return "ERR:INVALID_NATIVE_URI"
         val uri = runCatching { Uri.parse(message) }.getOrNull() ?: return "ERR:INVALID_NATIVE_URI"
         return when (uri.getQueryParameter("cmd").orEmpty()) {
-            "update_signing_identity" -> runCatching { UpdateSignatureVerifier.fingerprintSha256(this) }
-                .getOrElse { "ERR:SIGNING_IDENTITY" }
-            "verify_update_signature" -> {
-                val signature = uri.getQueryParameter("signature").orEmpty()
-                if (signature.isBlank() || body.isBlank()) "ERR:INVALID_UPDATE_SIGNATURE"
-                else if (runCatching { UpdateSignatureVerifier.verify(this, body, signature) }.getOrDefault(false)) "OK"
-                else "ERR:INVALID_UPDATE_SIGNATURE"
-            }
             "secret_status" -> if (SecureSecretStore.configured(this)) "1" else "0"
             "secret_set" -> {
                 val secret = body.trim()
