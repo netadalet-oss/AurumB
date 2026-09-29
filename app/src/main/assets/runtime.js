@@ -46,6 +46,7 @@ const TRANSIENT_HTTP=[408,425,429,500,502,503,504];
 const CANCEL_KEY='aurum.runtime.cancel.v1';
 const OP_ROLLBACK_KEY='aurum.runtime.rollback.v1';
 const SYMBOL_REPAIR_ROUNDS=2;
+const AURUM_BACKGROUND_PIPELINE=new URLSearchParams(location.search).get('pipeline')||'data';
 
 function openDB(){return new Promise((resolve,reject)=>{const req=indexedDB.open(DB_NAME,DB_VERSION);req.onupgradeneeded=e=>{const db=e.target.result;const keyed={settings:'key',records:'key',meta:'key',backtests:'key',behaviorProfiles:'key',jobs:'id',stagingRecords:'id',dataIssues:'id',sourceHealth:'key'};['settings','records','runs','logs','meta','bars','actions','criteria','backtests','snapshots','behaviorProfiles','genomeHistory','aiAudits','aiCandidates','aiEvents','universeHistory','jobs','stagingRecords','dataIssues','sourceHealth'].forEach(name=>{if(!db.objectStoreNames.contains(name))db.createObjectStore(name,{keyPath:keyed[name]||'id'});});};req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)});}
 
@@ -1008,7 +1009,7 @@ async function freezeLegacyHistorical30Values(){
 function nativePending(){const qs=new URLSearchParams(location.search),epoch=Number(qs.get('epoch')||0);if(!Number.isFinite(epoch)||epoch<=0)return null;const d=new Date(epoch),parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Istanbul',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(d),o={};for(const x of parts)o[x.type]=x.value;return {slot:`${o.year}-${o.month}-${o.day}|${o.hour}:${o.minute}`,epoch};}
 function normalizePendingSlot(p){if(!p)return null;const epoch=Number(p.epoch||0),slot=String(p.slot||'').trim();if(!slot)return null;return {key:slot,slot,epoch:Number.isFinite(epoch)&&epoch>0?epoch:null,ageMs:Number.isFinite(epoch)&&epoch>0?Math.max(0,Date.now()-epoch):0};}
 function nativeComplete(slot,ok,detail){if(!BACKGROUND_SYNC)return;const q=new URLSearchParams({ok:ok?'1':'0',slot:String(slot||''),detail:String(detail||'')});setTimeout(()=>{location.href=`aurum://complete?${q.toString()}`},50);}
-async function scheduledEntry(){if(!BACKGROUND_SYNC)return false;const p=nativePending(),pending=normalizePendingSlot(p),slot=pending?.key||String(p?.slot||'').trim();if(!slot){nativeComplete('',true,'NO_PENDING_SLOT');return false}const sm=slot.match(/^(\d{4}-\d{2}-\d{2})\|(\d{2}:\d{2})$/);if(sm&&!schedulerExpectedTimesForDate(sm[1]).includes(sm[2])){nativeComplete(slot,true,'PROFILE_SKIP');return false}const id=`AUTO|${slot}`,existing=await getJob(id);if(existing?.status==='COMPLETED'){nativeComplete(slot,true,'ALREADY_COMPLETED');return true}const job=existing||await createJob('AUTO','SCHEDULED_ALARM',slot,'DATA',id);if((existing&&Date.now()-Date.parse(existing.startedAt||0)>Number(state.settings.jobMaxAgeHours||48)*60*60*1000)||(pending&&pending.ageMs>Number(state.settings.jobMaxAgeHours||48)*60*60*1000)){await transition(job,JOB_STATUS.FAILED,{error:'STALE_SCHEDULED_JOB',message:'Geçersiz eski job'});nativeComplete(slot,false,'STALE_JOB');return false}const ok=await resumeAutoJob(job,'GENERAL');if(ok)nativeComplete(slot,true,job.sNotificationDetail||'COMPLETED');else if(job.status!==JOB_STATUS.WAITING_FOR_NETWORK)nativeComplete(slot,false,job.error||'FAILED');return ok}
+async function scheduledEntry(){if(!BACKGROUND_SYNC||AURUM_BACKGROUND_PIPELINE==='market')return false;const p=nativePending(),pending=normalizePendingSlot(p),slot=pending?.key||String(p?.slot||'').trim();if(!slot){nativeComplete('',true,'NO_PENDING_SLOT');return false}const sm=slot.match(/^(\d{4}-\d{2}-\d{2})\|(\d{2}:\d{2})$/);if(sm&&!schedulerExpectedTimesForDate(sm[1]).includes(sm[2])){nativeComplete(slot,true,'PROFILE_SKIP');return false}const id=`AUTO|${slot}`,existing=await getJob(id);if(existing?.status==='COMPLETED'){nativeComplete(slot,true,'ALREADY_COMPLETED');return true}const job=existing||await createJob('AUTO','SCHEDULED_ALARM',slot,'DATA',id);if((existing&&Date.now()-Date.parse(existing.startedAt||0)>Number(state.settings.jobMaxAgeHours||48)*60*60*1000)||(pending&&pending.ageMs>Number(state.settings.jobMaxAgeHours||48)*60*60*1000)){await transition(job,JOB_STATUS.FAILED,{error:'STALE_SCHEDULED_JOB',message:'Geçersiz eski job'});nativeComplete(slot,false,'STALE_JOB');return false}const ok=await resumeAutoJob(job,'GENERAL');if(ok)nativeComplete(slot,true,job.sNotificationDetail||'COMPLETED');else if(job.status!==JOB_STATUS.WAITING_FOR_NETWORK)nativeComplete(slot,false,job.error||'FAILED');return ok}
 async function recoverNativePendingOnStartup(){return false}
 async function resumePendingJobs(){if(!isOnline()||state.syncing||state.calculating)return false;const recoverable=new Set(['SCHEDULED','FETCHING_DATA','STAGING','VALIDATING','READY_TO_PUBLISH','WAITING_FOR_NETWORK','RETRY_PENDING','PAUSED','KN_RUNNING','K_TARIHSEL_RUNNING','S_RUNNING']),jobs=(await dbAll('jobs')).filter(j=>recoverable.has(String(j.status))&&Date.now()-Date.parse(j.startedAt||0)<=Number(state.settings.jobMaxAgeHours||48)*60*60*1000).sort((a,b)=>String(a.startedAt).localeCompare(String(b.startedAt)));for(const job of jobs){job.retryCount=(job.retryCount||0)+1;if(job.retryCount>Number(state.settings.maxJobRetries??MAX_JOB_RETRIES)){await transition(job,JOB_STATUS.FAILED,{error:'MAX_RETRY_EXCEEDED'});continue}const ok=job.mode==='AUTO'?await resumeAutoJob(job,'GENERAL'):await resumeManualStage(job);if(ok&&job.mode==='AUTO'&&job.scheduledAt)nativeComplete(job.scheduledAt,true,job.sNotificationDetail||'RECOVERED');return ok;}return recoverNativePendingOnStartup()}
 const AURUM_SCHEDULER_NATIVE_HEALTH_KEY='aurum.scheduler.native.health.v14';
@@ -1374,9 +1375,14 @@ async function bootstrapClean(){
     await nextPaint();
 
     await loadState();
+    /* Market alarms are a separate pipeline. Do not run data repair/scheduledEntry here;
+       trigger-contract.js owns Market + Finance + Nederland completion. */
+    if(BACKGROUND_SYNC&&AURUM_BACKGROUND_PIPELINE==='market'){
+      setRuntime({status:JOB_STATUS.IDLE,message:'Piyasa zamanlayıcısı hazır',done:0,total:0});
+      return;
+    }
     /* Foreground launch is read-only: no migrations, repairs, calculations or network work. */
-    /* Background alarm/service launches keep the original strict sequencing; the
-       progressive first-paint path is only for the foreground UI. */
+    /* Background DATA alarm/service launches keep the original strict sequencing. */
     if(BACKGROUND_SYNC){
       /* AUTOFIX2: background alarm WebView must activate the same verified update slot as foreground before scheduled execution. */
       await applyStoredAurumUpdates();
