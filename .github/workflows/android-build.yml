@@ -59,6 +59,8 @@ jobs:
           grep -F 'wakeLock?.let { if (it.isHeld) it.release() }' app/src/main/java/com/aurum/bistterminal8/TransferKeepaliveService.kt
           grep -F 'android:name="com.aurum.bistterminal8.TransferKeepaliveService"' app/src/main/AndroidManifest.xml
           grep -F 'ContextCompat.startForegroundService' app/src/main/java/com/aurum/bistterminal8/MainActivity.kt
+          grep -F 'ERR:EXACT_SETTINGS_UNAVAILABLE' app/src/main/java/com/aurum/bistterminal8/MainActivity.kt
+          grep -F 'Kesin alarm izin ekranı açılamadı' app/src/main/assets/scheduler-settings.js
           grep -F 'operation_lock_acquire&owner=' "$R"
           grep -F "operation_lock_acquire',{kind:'market',owner}" app/src/main/assets/trigger-contract.js
           grep -F "globalThis.AurumMarketModuleRefresh=()=>market(true)" app/src/main/assets/trigger-contract.js
