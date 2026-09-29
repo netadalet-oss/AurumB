@@ -126,6 +126,16 @@ class MainActivity : AppCompatActivity() {
             }
             "secret_delete" -> { SecureSecretStore.delete(this); "OK" }
             "secret_input" -> { runOnUiThread { openSecretEditor() }; "OPENED" }
+            "operation_lock_acquire" -> {
+                val owner = uri.getQueryParameter("owner").orEmpty()
+                if (owner.isBlank()) "ERR:MISSING_OWNER"
+                else if (OperationLock.acquire("data", owner)) "OK" else "BUSY"
+            }
+            "operation_lock_release" -> {
+                val owner = uri.getQueryParameter("owner").orEmpty()
+                if (owner.isBlank()) "ERR:MISSING_OWNER"
+                else if (OperationLock.release("data", owner)) "OK" else "ERR:NOT_OWNER"
+            }
             "http_cancel" -> {
                 val id = uri.getQueryParameter("requestId").orEmpty()
                 if (id.isBlank()) "ERR:MISSING_REQUEST_ID"
