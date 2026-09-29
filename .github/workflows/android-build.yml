@@ -61,6 +61,8 @@ jobs:
           grep -F 'ContextCompat.startForegroundService' app/src/main/java/com/aurum/bistterminal8/MainActivity.kt
           grep -F 'operation_lock_acquire&owner=' "$R"
           grep -F "operation_lock_acquire',{kind:'market',owner}" app/src/main/assets/trigger-contract.js
+          grep -F "globalThis.AurumMarketModuleRefresh=()=>market(true)" app/src/main/assets/trigger-contract.js
+          grep -F "await market(true)" app/src/main/assets/trigger-contract.js
           grep -F "Orphan staging aktif tabloya yayınlanmadı" "$R"
           grep -F "AURUM_BACKGROUND_PIPELINE=new URLSearchParams(location.search).get('pipeline')||'data'" "$R"
           grep -F "if(!BACKGROUND_SYNC||AURUM_BACKGROUND_PIPELINE==='market')return false" "$R"
