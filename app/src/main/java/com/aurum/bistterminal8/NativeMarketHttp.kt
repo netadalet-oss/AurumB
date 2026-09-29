@@ -31,9 +31,19 @@ object NativeMarketHttp {
         "bilancoveri.com", "www.bilancoveri.com", "api.asenax.com", "api.bist-api.com"
     )
 
-    fun allowed(url: URL): Boolean =
-        url.protocol.equals("https", ignoreCase = true) &&
-            url.host.lowercase() in allowedHosts
+    private fun isAppsScriptExec(url: URL): Boolean =
+        url.host.equals("script.google.com", ignoreCase = true) &&
+            Regex("^/macros/s/[^/]+/exec$").matches(url.path)
+
+    fun allowed(url: URL): Boolean {
+        if (!url.protocol.equals("https", ignoreCase = true)) return false
+        val host = url.host.lowercase()
+        if (host !in allowedHosts) return false
+        if (host == "script.google.com") return isAppsScriptExec(url)
+        // googleusercontent is accepted only as a redirect target from a validated Apps Script /exec URL.
+        if (host == "script.googleusercontent.com") return false
+        return true
+    }
 
     fun cancel(id: String) {
         active.remove(id)?.disconnect()
@@ -56,6 +66,7 @@ object NativeMarketHttp {
                 val envelope = runCatching { JSONObject(body) }.getOrElse { JSONObject() }
                 val headers = envelope.optJSONObject("headers") ?: JSONObject()
                 var url = URL(rawUrl)
+                val initialAppsScript = isAppsScriptExec(url)
                 require(allowed(url)) { "İzin verilmeyen veri sağlayıcısı" }
 
                 var redirects = 0
@@ -82,7 +93,11 @@ object NativeMarketHttp {
                             ?: throw IllegalStateException("HTTP $status yönlendirmesi konumsuz")
                         if (++redirects > 5) throw IllegalStateException("Çok fazla HTTP yönlendirmesi")
                         val next = URL(url, location)
-                        if (!allowed(next)) throw IllegalStateException("Yönlendirme izin verilmeyen hosta gidiyor")
+                        val redirectAllowed = allowed(next) ||
+                            (initialAppsScript &&
+                                next.protocol.equals("https", ignoreCase = true) &&
+                                next.host.equals("script.googleusercontent.com", ignoreCase = true))
+                        if (!redirectAllowed) throw IllegalStateException("Yönlendirme izin verilmeyen hosta gidiyor")
                         connection.disconnect()
                         url = next
                         continue
