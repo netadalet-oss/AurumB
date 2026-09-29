@@ -48,14 +48,15 @@ jobs:
           grep -F 'Regex("^/macros/s/[^/]+/exec$")' app/src/main/java/com/aurum/bistterminal8/NativeMarketHttp.kt
           grep -F 'host == "script.googleusercontent.com"' app/src/main/java/com/aurum/bistterminal8/NativeMarketHttp.kt
           grep -F 'object OperationLock' app/src/main/java/com/aurum/bistterminal8/OperationLock.kt
-          grep -F 'OperationLock.acquire("data", owner)' app/src/main/java/com/aurum/bistterminal8/MainActivity.kt
-          grep -F 'OperationLock.acquire("data", jobToken)' app/src/main/java/com/aurum/bistterminal8/PipelineService.kt
+          grep -F 'OperationLock.acquire(kind, owner)' app/src/main/java/com/aurum/bistterminal8/MainActivity.kt
+          grep -F 'OperationLock.acquire(kind, jobToken)' app/src/main/java/com/aurum/bistterminal8/PipelineService.kt
           grep -F 'class TransferKeepaliveService : Service()' app/src/main/java/com/aurum/bistterminal8/TransferKeepaliveService.kt
           grep -F 'PowerManager.PARTIAL_WAKE_LOCK' app/src/main/java/com/aurum/bistterminal8/TransferKeepaliveService.kt
           grep -F 'wakeLock?.let { if (it.isHeld) it.release() }' app/src/main/java/com/aurum/bistterminal8/TransferKeepaliveService.kt
           grep -F 'android:name="com.aurum.bistterminal8.TransferKeepaliveService"' app/src/main/AndroidManifest.xml
           grep -F 'ContextCompat.startForegroundService' app/src/main/java/com/aurum/bistterminal8/MainActivity.kt
           grep -F 'operation_lock_acquire&owner=' "$R"
+          grep -F "operation_lock_acquire',{kind:'market',owner}" app/src/main/assets/trigger-contract.js
           grep -F "Orphan staging aktif tabloya yayınlanmadı" "$R"
           grep -F "AURUM_BACKGROUND_PIPELINE=new URLSearchParams(location.search).get('pipeline')||'data'" "$R"
           grep -F "if(!BACKGROUND_SYNC||AURUM_BACKGROUND_PIPELINE==='market')return false" "$R"
