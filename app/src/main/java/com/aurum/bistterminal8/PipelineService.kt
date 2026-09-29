@@ -207,7 +207,19 @@ class PipelineService : Service() {
         activeToken?.let {
             SchedulerLedger.complete(this, it, "TIMED_OUT", "SYSTEM_FGS_TIMEOUT", "FOREGROUND_SERVICE")
         }
-        finishActiveJob()
+        while (pendingJobs.isNotEmpty()) {
+            val queued = pendingJobs.removeFirst()
+            queued.intent.getStringExtra("jobToken")?.let {
+                SchedulerLedger.complete(this, it, "FAILED", "SYSTEM_FGS_BUDGET_EXHAUSTED", "FOREGROUND_SERVICE")
+            }
+        }
+        watchdogTask?.let { watchdog?.removeCallbacks(it) }
+        watchdogTask = null
+        releaseTransferWakeLock()
+        destroyWebView()
+        activeToken = null
+        activeStartId = null
+        stopSelf()
     }
 
     private fun destroyWebView() {
