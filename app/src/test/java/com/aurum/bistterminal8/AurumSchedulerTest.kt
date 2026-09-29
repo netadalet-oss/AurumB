@@ -41,4 +41,21 @@ class AurumSchedulerTest {
 
     @Test fun exactBoundaryMovesToNextEligibleDay() =
         assertEquals(Instant.parse("2026-10-06T20:30:00Z"), AurumScheduler.nextSlot("23:30", Instant.parse("2026-10-05T20:30:00Z")))
+    @Test fun marketWeekdayTimeUsesPlusThirty() {
+        assertEquals(listOf("01:00","05:00","08:50","09:50","10:50","11:50","12:50","13:50","14:50","15:50","16:50","17:50","18:50","19:50","21:00","22:00","23:00","00:00"), AurumScheduler.defaultTimesForDate(LocalDate.of(2026, 10, 2), "market"))
+    }
+
+    @Test fun sundayWeekdayOnlyTimeMovesToMonday() {
+        val after = Instant.parse("2026-10-04T08:00:00Z")
+        assertEquals(Instant.parse("2026-10-05T06:20:00Z"), AurumScheduler.nextSlot("09:20", after))
+    }
+
+    @Test fun customTimeCanScheduleSameDay() {
+        val after = Instant.parse("2026-10-03T05:00:00Z")
+        assertEquals(Instant.parse("2026-10-03T06:00:00Z"), AurumScheduler.nextSlot("09:00", after, custom=listOf("09:00")))
+    }
+
+    @Test fun timeOutsideCustomListHasNoSlot() {
+        assertNull(AurumScheduler.nextSlot("09:00", Instant.parse("2026-10-03T05:00:00Z"), custom=listOf("10:00")))
+    }
 }
