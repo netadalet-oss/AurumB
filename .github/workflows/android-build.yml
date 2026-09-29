@@ -109,6 +109,7 @@ jobs:
             :app:testDebugUnitTest \
             :app:lintDebug \
             --stacktrace
+          test -f app/build/outputs/apk/release/app-release-unsigned.apk
       - name: Upload Gradle-signed installable APK
         uses: actions/upload-artifact@v4
         with:
