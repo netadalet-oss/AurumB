@@ -28,6 +28,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
     private var exportFolder: Uri? = null
     private var transferWakeLock: PowerManager.WakeLock? = null
+    private val notificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
     private val folderPicker = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) {
@@ -58,6 +59,10 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // Foreground launch must remain idle. Boot/time-change receivers and explicit schedule commands own alarm rearming.
+        SchedulerLedger.reconcileStale(this)
+        if (android.os.Build.VERSION.SDK_INT >= 33 && androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            notificationPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+        }
         WebView.setWebContentsDebuggingEnabled((applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0)
         exportFolder = getSharedPreferences("aurum_export_folder", MODE_PRIVATE)
             .getString("uri", null)?.let(Uri::parse)
