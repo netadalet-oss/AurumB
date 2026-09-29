@@ -38,6 +38,14 @@
  globalThis.AurumStrictMarketRuntime=Object.freeze({manual:()=>market(true),scheduled:()=>market(false)});
  globalThis.AurumMarketRuntime=Object.freeze({manualRefresh:()=>market(true),scheduledRefresh:()=>market(false)});
  globalThis.AurumFundRefreshMarketModule=({manual=false}={})=>market(!!manual);
+ // Final UI binding: late-loaded contract must use the rebuilt indicator engine plus finance/Nederland.
+ globalThis.AurumMarketModuleRefresh=()=>market(true);
+ globalThis.refreshAurumDataMarketStrip=async function(ev){
+   const btn=ev?.currentTarget||document.querySelector('.aurum-r209-market-refresh');
+   try{if(btn){btn.disabled=true;btn.dataset.busy='1'}await market(true);return true}
+   catch(e){globalThis.showAurumNotice?.('Piyasa modülü yenilenemedi: '+String(e?.message||e),'error',2800);return false}
+   finally{const b=document.querySelector('.aurum-r209-market-refresh');if(b){b.disabled=false;delete b.dataset.busy}}
+ };
  globalThis.AurumScheduleSettings={
    saveData:()=>call('schedule',{kind:'data',enabled:document.getElementById('aurumDataScheduleEnabled')?.checked?'1':'0',times:parseTimes('aurumDataScheduleTimes').join(',')}),
    saveMarket:()=>call('schedule',{kind:'market',enabled:document.getElementById('aurumMarketScheduleEnabled')?.checked?'1':'0',times:parseTimes('aurumMarketScheduleTimes').join(',')})
