@@ -962,8 +962,12 @@ let MANUAL_DATA_LOCK=false;
 async function runManualData(mode='GENERAL'){
   if(MANUAL_DATA_LOCK||state.syncing||state.calculating){showAurumNotice('Başka bir işlem sürüyor','info',2400);return false}
   MANUAL_DATA_LOCK=true;
-  let keepalive=false;
+  let keepalive=false,nativeLock=false;
+  const lockOwner='MANUAL|'+Date.now().toString(36)+'|'+Math.random().toString(36).slice(2,8);
   try{
+    let lockResult='';try{lockResult=String(window.prompt('aurum://native?cmd=operation_lock_acquire&owner='+encodeURIComponent(lockOwner),'AURUM')||'')}catch{}
+    if(lockResult!=='OK'){showAurumNotice('Zamanlanmış veya başka bir veri işi zaten çalışıyor.','info',2800);return false}
+    nativeLock=true;
     try{window.prompt('aurum://native?cmd=transfer_keepalive&enabled=1','AURUM');keepalive=true}catch{}
     const requested=normalizeMode(mode),normalized=requested==='GENERAL'?'FULL':requested;
     if(normalized==='LIVE'){const gate=liveCollectionGate();if(gate.mayCollectLiveData===false){showAurumNotice(`Canlı veri kapısı kapalı: ${gate.reason||'resmî seans doğrulanmadı'}`,'info',3200);return false;}}
@@ -977,6 +981,7 @@ async function runManualData(mode='GENERAL'){
     showAurumNotice('Veri aktarımı tamamlanamadı; son geçerli snapshot korundu.','error',3600);return false
   }finally{
     if(keepalive)try{window.prompt('aurum://native?cmd=transfer_keepalive&enabled=0','AURUM')}catch{}
+    if(nativeLock)try{window.prompt('aurum://native?cmd=operation_lock_release&owner='+encodeURIComponent(lockOwner),'AURUM')}catch{}
     MANUAL_DATA_LOCK=false;
   }
 }
