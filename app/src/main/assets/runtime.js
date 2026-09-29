@@ -992,9 +992,42 @@ async function runManualData(mode='GENERAL'){
     releaseNativeOperationLock(operationLockId);
   }
 }
-async function runManualKn(){if(state.syncing||state.calculating){showAurumNotice('Başka bir işlem sürüyor','info',2400);return false}const active=await activeCalculableSnapshot();if(!active)return warnOrder('KN');if(!active.integrity?.gate?.ok)return warnOrder('KN',active.integrity.reason);const seq=saveManualSequence({dataSnapshotId:active.meta.snapshotId,dataJobId:active.meta.jobId||null,kn:false,history:false,s:false});const job=await createJob('MANUAL','USER',null,'KN');job.dataSnapshotId=active.meta.snapshotId;const ok=await calculateKn(job);if(ok){seq.kn=true;seq.history=false;seq.s=false;saveManualSequence(seq);showAurumNotice('Kn tamamlandı. K_Tarihsel kullanıcı komutunu bekliyor.','success',2800);return true}return operationFailureNotice('Kn',job,'Kn hesaplaması tamamlanamadı')}
-async function runManualHistorical(){if(state.syncing||state.calculating){showAurumNotice('Başka bir işlem sürüyor','info',2400);return false}const active=await activeCalculableSnapshot();if(!active)return warnOrder('HISTORY');if(!active.integrity?.gate?.ok)return warnOrder('HISTORY',active.integrity.reason);const kn=(await dbGet('meta','knSnapshot'))?.value||null;if(!kn||kn.dataSnapshotId!==active.meta.snapshotId)return warnOrder('HISTORY');const seq=saveManualSequence({dataSnapshotId:active.meta.snapshotId,dataJobId:active.meta.jobId||null,kn:true,history:false,s:false});const job=await createJob('MANUAL','USER',null,'HISTORY');job.dataSnapshotId=active.meta.snapshotId;const ok=await archiveHistorical(job);if(ok){seq.history=true;seq.s=false;saveManualSequence(seq);showAurumNotice('K_Tarihsel tamamlandı. S kullanıcı komutunu bekliyor.','success',2800);return true}return operationFailureNotice('K_Tarihsel',job,'K_Tarihsel hesaplaması tamamlanamadı')}
-async function runManualS(){if(state.syncing||state.calculating){showAurumNotice('Başka bir işlem sürüyor','info',2400);return false}const active=await activeCalculableSnapshot();if(!active)return warnOrder('S');if(!active.integrity?.gate?.ok)return warnOrder('S',active.integrity.reason);const kn=(await dbGet('meta','knSnapshot'))?.value||null,hist=(await dbGet('meta','historicalSnapshot'))?.value||null;if(!kn||kn.dataSnapshotId!==active.meta.snapshotId)return warnOrder('HISTORY');if(!hist||hist.dataSnapshotId!==active.meta.snapshotId)return warnOrder('S');const seq=saveManualSequence({dataSnapshotId:active.meta.snapshotId,dataJobId:active.meta.jobId||null,kn:true,history:true,s:false});const job=await createJob('MANUAL','USER',null,'S');job.dataSnapshotId=active.meta.snapshotId;const ok=await calculateS(job);if(ok){seq.s=true;saveManualSequence(seq);showAurumNotice('S tamamlandı.','success',2400);return true}return operationFailureNotice('S',job,'S hesaplaması tamamlanamadı')}
+async function runManualKn(){
+  if(state.syncing||state.calculating){showAurumNotice('Başka bir işlem sürüyor','info',2400);return false}
+  const operationLockId=acquireNativeOperationLock('data','MANUAL_KN');if(!operationLockId){showAurumNotice('Başka bir veri/piyasa işi sürüyor; Kn başlatılmadı.','warning',3000);return false}
+  try{
+    const active=await activeCalculableSnapshot();if(!active)return warnOrder('KN');if(!active.integrity?.gate?.ok)return warnOrder('KN',active.integrity.reason);
+    const seq=saveManualSequence({dataSnapshotId:active.meta.snapshotId,dataJobId:active.meta.jobId||null,kn:false,history:false,s:false});
+    const job=await createJob('MANUAL','USER',null,'KN');job.dataSnapshotId=active.meta.snapshotId;const ok=await calculateKn(job);
+    if(ok){seq.kn=true;seq.history=false;seq.s=false;saveManualSequence(seq);showAurumNotice('Kn tamamlandı. K_Tarihsel kullanıcı komutunu bekliyor.','success',2800);return true}
+    return operationFailureNotice('Kn',job,'Kn hesaplaması tamamlanamadı')
+  }finally{releaseNativeOperationLock(operationLockId)}
+}
+async function runManualHistorical(){
+  if(state.syncing||state.calculating){showAurumNotice('Başka bir işlem sürüyor','info',2400);return false}
+  const operationLockId=acquireNativeOperationLock('data','MANUAL_K_TARIHSEL');if(!operationLockId){showAurumNotice('Başka bir veri/piyasa işi sürüyor; K_Tarihsel başlatılmadı.','warning',3000);return false}
+  try{
+    const active=await activeCalculableSnapshot();if(!active)return warnOrder('HISTORY');if(!active.integrity?.gate?.ok)return warnOrder('HISTORY',active.integrity.reason);
+    const kn=(await dbGet('meta','knSnapshot'))?.value||null;if(!kn||kn.dataSnapshotId!==active.meta.snapshotId)return warnOrder('HISTORY');
+    const seq=saveManualSequence({dataSnapshotId:active.meta.snapshotId,dataJobId:active.meta.jobId||null,kn:true,history:false,s:false});
+    const job=await createJob('MANUAL','USER',null,'HISTORY');job.dataSnapshotId=active.meta.snapshotId;const ok=await archiveHistorical(job);
+    if(ok){seq.history=true;seq.s=false;saveManualSequence(seq);showAurumNotice('K_Tarihsel tamamlandı. S kullanıcı komutunu bekliyor.','success',2800);return true}
+    return operationFailureNotice('K_Tarihsel',job,'K_Tarihsel hesaplaması tamamlanamadı')
+  }finally{releaseNativeOperationLock(operationLockId)}
+}
+async function runManualS(){
+  if(state.syncing||state.calculating){showAurumNotice('Başka bir işlem sürüyor','info',2400);return false}
+  const operationLockId=acquireNativeOperationLock('data','MANUAL_S');if(!operationLockId){showAurumNotice('Başka bir veri/piyasa işi sürüyor; S başlatılmadı.','warning',3000);return false}
+  try{
+    const active=await activeCalculableSnapshot();if(!active)return warnOrder('S');if(!active.integrity?.gate?.ok)return warnOrder('S',active.integrity.reason);
+    const kn=(await dbGet('meta','knSnapshot'))?.value||null,hist=(await dbGet('meta','historicalSnapshot'))?.value||null;
+    if(!kn||kn.dataSnapshotId!==active.meta.snapshotId)return warnOrder('HISTORY');if(!hist||hist.dataSnapshotId!==active.meta.snapshotId)return warnOrder('S');
+    const seq=saveManualSequence({dataSnapshotId:active.meta.snapshotId,dataJobId:active.meta.jobId||null,kn:true,history:true,s:false});
+    const job=await createJob('MANUAL','USER',null,'S');job.dataSnapshotId=active.meta.snapshotId;const ok=await calculateS(job);
+    if(ok){seq.s=true;saveManualSequence(seq);showAurumNotice('S tamamlandı.','success',2400);return true}
+    return operationFailureNotice('S',job,'S hesaplaması tamamlanamadı')
+  }finally{releaseNativeOperationLock(operationLockId)}
+}
 
 async function freezeLegacyHistorical30Values(){
   const rows=(await dbAll('runs')).filter(r=>r?.kind===HISTORY_30_LEGACY_KIND&&r?.backfillWindow==='30D');
