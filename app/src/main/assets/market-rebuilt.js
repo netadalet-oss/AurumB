@@ -46,7 +46,7 @@
     const j=await r.json(),m=j?.chart?.result?.[0]?.meta||{},value=Number(m.regularMarketPrice),prev=Number(m.chartPreviousClose??m.previousClose),ts=Number(m.regularMarketTime);
     if(!Number.isFinite(value))throw new Error('Yahoo '+key+' fiyat yok');
     const pct=Number.isFinite(prev)&&prev>0?100*(value/prev-1):null;
-    return stamp(value,Number.isFinite(pct)?pct:null,'YAHOO',Number.isFinite(ts)?new Date(ts*1000).toISOString():null);
+    return stamp(value,Number.isFinite(pct)?pct:null,'YAHOO',Number.isFinite(ts)?new Date(ts*1000).toISOString():null,now(),{previousClose:Number.isFinite(prev)&&prev>0?prev:null});
   }
   async function request(){
     const primary={};const status=[];
@@ -60,9 +60,10 @@
       const usd=primary.USDTRY||fallback.USDTRY,gold=primary.GOLDUSD||fallback.GOLDUSD;
       if(Number.isFinite(usd?.value)&&Number.isFinite(gold?.value)){
         const value=gold.value*usd.value/31.1034768;
-        const pct=Number.isFinite(usd.changePct)&&Number.isFinite(gold.changePct)?(((1+usd.changePct/100)*(1+gold.changePct/100)-1)*100):null;
+        const prevValue=Number.isFinite(gold.previousClose)&&gold.previousClose>0&&Number.isFinite(usd.previousClose)&&usd.previousClose>0?gold.previousClose*usd.previousClose/31.1034768:null;
+        const pct=Number.isFinite(prevValue)&&prevValue>0?100*(value/prevValue-1):null;
         const times=[usd.sourceTimestamp,gold.sourceTimestamp].filter(x=>Number.isFinite(Date.parse(x))).map(Date.parse);
-        fallback.GRAMTRY=stamp(value,Number.isFinite(pct)?pct:null,'DERIVED_YAHOO_GOLD_USDTRY',times.length?new Date(Math.min(...times)).toISOString():null,now(),{derived:true});
+        fallback.GRAMTRY=stamp(value,Number.isFinite(pct)?pct:null,'DERIVED_YAHOO_GOLD_USDTRY',times.length?new Date(Math.min(...times)).toISOString():null,now(),{derived:true,previousClose:prevValue});
       }
     }
     return {fields:{...fallback,...primary},status};
