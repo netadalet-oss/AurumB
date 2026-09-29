@@ -189,7 +189,7 @@ class PipelineService : Service() {
         transferWakeLock = null
     }
 
-    private fun destroyWebView() {
+    private fun finishActiveJob() {\n        watchdogTask?.let { watchdog?.removeCallbacks(it) }\n        watchdogTask = null\n        releaseTransferWakeLock()\n        destroyWebView()\n        activeToken = null\n        val finishedId = activeStartId\n        activeStartId = null\n        if (pendingJobs.isNotEmpty()) {\n            val next = pendingJobs.removeFirst()\n            onStartCommand(next, 0, (finishedId ?: 0) + 1)\n        } else if (finishedId != null) stopSelf(finishedId)\n    }\n\n    override fun onTimeout(startId: Int, fgsType: Int) {\n        activeToken?.let { SchedulerLedger.complete(this, it, "TIMED_OUT", "SYSTEM_FGS_TIMEOUT", "FOREGROUND_SERVICE") }\n        finishActiveJob()\n    }\n\n    private fun destroyWebView() {
         webView?.apply {
             stopLoading()
             loadUrl("about:blank")
