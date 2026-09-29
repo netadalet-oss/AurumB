@@ -77,6 +77,9 @@ jobs:
           ! grep -F "await refreshMarket('DATA_COMMAND')" "$R"
           grep -F "Sağlık / Süreklilik" app/src/main/assets/scheduler-settings.js
           grep -F "Salt okunur" app/src/main/assets/scheduler-settings.js
+          grep -F "__aurumHistory20Bridged" app/src/main/assets/scheduler-settings.js
+          grep -F "globalThis.showAurumNotice=function" app/src/main/assets/scheduler-settings.js
+          grep -F "globalThis.log=async function" app/src/main/assets/scheduler-settings.js
           ! grep -F "c=Number(x.changePct)" "$R"
           ! grep -F "p=x.stale?null:Number(x.changePct)" "$R"
           ! grep -F "Number.isFinite(Number(x.changePct))" "$R"
