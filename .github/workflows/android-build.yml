@@ -86,6 +86,7 @@ jobs:
           grep -F "__aurumHistory20Bridged" app/src/main/assets/scheduler-settings.js
           grep -F "globalThis.showAurumNotice=function" app/src/main/assets/scheduler-settings.js
           grep -F "globalThis.log=async function" app/src/main/assets/scheduler-settings.js
+          grep -F "if (u.protocol !== 'https:') return false;" app/src/main/assets/offline-first.js
           grep -F "/^([01]\\d|2[0-3]):[0-5]\\d$/" app/src/main/assets/scheduler-settings.js
           ! grep -F "/^([01]\\\\d|2[0-3]):[0-5]\\\\d$/" app/src/main/assets/scheduler-settings.js
           ! grep -F "c=Number(x.changePct)" "$R"
