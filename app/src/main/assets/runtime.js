@@ -5800,7 +5800,15 @@ try{AurumUpdateAPI.state.r225={version:'REV20.25-RELIABILITY-FILL-NEWS',activate
  globalThis.openAurumSourceUrl=function(raw,ev){try{ev?.preventDefault?.();ev?.stopPropagation?.();const u=new URL(String(raw||''));if(u.protocol!=='https:')return false;const qp=new URLSearchParams({cmd:'open_url',url:u.href}),ans=window.prompt('aurum://native?'+qp.toString(),'')||'';if(ans==='OPENED')return false;location.href=u.href;return false}catch{return false}};
  document.addEventListener('click',ev=>{const a=ev.target?.closest?.('.r207-news-link a,.r207-news-card h3 a');if(a?.href)openAurumSourceUrl(a.href,ev)},true);
  async function persistSafety(){try{const st=fillStatus(),kn=(await dbGet('meta','knSnapshot'))?.value||null,hist=(await dbGet('meta','historicalSnapshot'))?.value||null,sel=(await dbGet('meta','selectionSnapshot'))?.value||null,at=nowISO();await dbPut('meta',{key:'r226DerivedSafety',value:{at,fillPct:st.fill,minFillPct:70,derivedUpdateAllowed:st.derived,preservedWhenBelow70:!st.derived,knAt:kn?.at||kn?.transferredAt||null,historicalAt:hist?.at||hist?.transferredAt||null,selectionAt:sel?.at||sel?.transferredAt||null,targets},updatedAt:at})}catch{}}
- const baseManualData=runManualData;runManualData=async function r226ManualData(){const ok=await baseManualData.apply(this,arguments);await persistSafety();return ok};globalThis.runDataRefresh=mode=>runManualData(mode);
+ const baseManualData=runManualData;runManualData=async function r226ManualData(){
+   const lockId='MANUAL_DATA|'+Date.now().toString(36)+'|'+Math.random().toString(36).slice(2,9);
+   const qp=new URLSearchParams({cmd:'job_lock_acquire',jobId:lockId,kind:'data',source:'MANUAL'});
+   let lock='';
+   try{lock=globalThis.AurumNativeCall?.('aurum://native?'+qp.toString(),'')||''}catch{}
+   if(lock!=='ACQUIRED'){showAurumNotice('Başka bir veri/piyasa işi sürüyor; ikinci paralel iş başlatılmadı.','warning',3200);return false}
+   try{const ok=await baseManualData.apply(this,arguments);await persistSafety();return ok}
+   finally{try{globalThis.AurumNativeCall?.('aurum://native?'+new URLSearchParams({cmd:'job_lock_release',jobId:lockId}).toString(),'')}catch{}}
+ };globalThis.runDataRefresh=mode=>runManualData(mode);
  try{globalThis.AurumRuntime=Object.freeze({...globalThis.AurumRuntime,manualData:runManualData})}catch{}
  try{AurumUpdateAPI.state.r226={version:'REV20.29-STRICT-IDLE-STARTUP',activatedAt:nowISO(),features:['FILL_LADDER_95_90_80_70','DERIVED_FREEZE_BELOW_70','PRESERVE_DERIVED_TIMESTAMPS','MARKET_SEPARATE_ANDROID_SCHEDULER','STRICT_IDLE_FOREGROUND_START','NO_STARTUP_DB_WRITES','NO_STARTUP_REPAIR_OR_MIGRATION','MULTI_SOURCE_DIRECT_PERCENT_ARROWS','NEWS_VISIBLE_URL_NATIVE_OPEN_BACK']}}catch{};
 })();
