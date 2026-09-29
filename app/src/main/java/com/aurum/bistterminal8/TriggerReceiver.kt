@@ -1,25 +1,20 @@
 package com.aurum.bistterminal8
-
-// RECONSTRUCTED_FROM_DEX
-// Receiver flow, extra names and ledger handoff are DEX-proven.
-
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import androidx.core.content.ContextCompat
-
-class TriggerReceiver : BroadcastReceiver() {
-    override fun onReceive(context: Context, intent: Intent) {
-        val slotTime = intent.getStringExtra("slotTime") ?: return
-        val kind = intent.getStringExtra("pipelineKind").let { if (it == "market") "market" else "data" }
-        val epoch = intent.getLongExtra("epoch", 0L).takeIf { it > 0L }
-            ?: System.currentTimeMillis()
-        val jobToken = SchedulerLedger.begin(context, epoch, slotTime)
-        val service = Intent(context, PipelineService::class.java)
-            .putExtra("epoch", epoch)
-            .putExtra("jobToken", jobToken).putExtra("pipelineKind",kind)
-        ContextCompat.startForegroundService(context, service)
-        // Every alarm is one-shot; immediately arm the next valid occurrence for this slot.
-        AurumScheduler.scheduleNextForTime(context, slotTime, java.time.Instant.ofEpochMilli(epoch).plusSeconds(1), kind)
-    }
+import java.time.Instant
+class TriggerReceiver:BroadcastReceiver(){
+ override fun onReceive(c:Context,i:Intent){
+  val time=i.getStringExtra("slotTime")?:return
+  val kind=i.getStringExtra("pipelineKind").let{if(it=="market")"market" else "data"}
+  val epoch=i.getLongExtra("epoch",0L).takeIf{it>0}?:System.currentTimeMillis()
+  val token=SchedulerLedger.token(epoch,time,kind)
+  val gate=SchedulerLedger.begin(c,token,epoch,time,kind)
+  if(gate==SchedulerLedger.BeginResult.STARTED){
+   runCatching{ContextCompat.startForegroundService(c,Intent(c,PipelineService::class.java).putExtra("epoch",epoch).putExtra("jobToken",token).putExtra("pipelineKind",kind))}
+    .onFailure{SchedulerLedger.complete(c,token,"FAILED",it.javaClass.simpleName,"SERVICE_START")}
+  }
+  AurumScheduler.scheduleNextForTime(c,time,Instant.ofEpochMilli(maxOf(epoch,System.currentTimeMillis())).plusSeconds(1),kind)
+ }
 }
