@@ -28,6 +28,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
     private var exportFolder: Uri? = null
     private var transferWakeLock: PowerManager.WakeLock? = null
+    private var dataOperationOwner: String? = null
 
     private val folderPicker = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) {
@@ -129,12 +130,18 @@ class MainActivity : AppCompatActivity() {
             "operation_lock_acquire" -> {
                 val owner = uri.getQueryParameter("owner").orEmpty()
                 if (owner.isBlank()) "ERR:MISSING_OWNER"
-                else if (OperationLock.acquire("data", owner)) "OK" else "BUSY"
+                else if (OperationLock.acquire("data", owner)) {
+                    dataOperationOwner = owner
+                    "OK"
+                } else "BUSY"
             }
             "operation_lock_release" -> {
                 val owner = uri.getQueryParameter("owner").orEmpty()
                 if (owner.isBlank()) "ERR:MISSING_OWNER"
-                else if (OperationLock.release("data", owner)) "OK" else "ERR:NOT_OWNER"
+                else if (OperationLock.release("data", owner)) {
+                    if (dataOperationOwner == owner) dataOperationOwner = null
+                    "OK"
+                } else "ERR:NOT_OWNER"
             }
             "http_cancel" -> {
                 val id = uri.getQueryParameter("requestId").orEmpty()
@@ -341,6 +348,8 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         transferWakeLock?.let { if (it.isHeld) it.release() }
         transferWakeLock = null
+        dataOperationOwner?.let { OperationLock.release("data", it) }
+        dataOperationOwner = null
         webView.removeJavascriptInterface("AurumNativeBridge")
         webView.destroy()
         super.onDestroy()
