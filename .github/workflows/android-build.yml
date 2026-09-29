@@ -60,6 +60,7 @@ jobs:
           grep -F 'android:name="com.aurum.bistterminal8.TransferKeepaliveService"' app/src/main/AndroidManifest.xml
           grep -F 'ContextCompat.startForegroundService' app/src/main/java/com/aurum/bistterminal8/MainActivity.kt
           grep -F 'ERR:EXACT_SETTINGS_UNAVAILABLE' app/src/main/java/com/aurum/bistterminal8/MainActivity.kt
+          grep -F 'editor.remove("next_" + kind + "_" + time.replace(":", ""))' app/src/main/java/com/aurum/bistterminal8/AurumScheduler.kt
           grep -F 'Kesin alarm izin ekranı açılamadı' app/src/main/assets/scheduler-settings.js
           grep -F 'operation_lock_acquire&owner=' "$R"
           grep -F "operation_lock_acquire',{kind:'market',owner}" app/src/main/assets/trigger-contract.js
