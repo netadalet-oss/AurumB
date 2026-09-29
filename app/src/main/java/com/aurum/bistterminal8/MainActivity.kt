@@ -209,6 +209,20 @@ class MainActivity : AppCompatActivity() {
                 uri.getQueryParameter("tag").orEmpty(),
                 uri.getQueryParameter("channel").orEmpty().ifBlank { "aurum_pipeline" }
             )
+            "job_lock_acquire" -> {
+                val token = uri.getQueryParameter("jobId").orEmpty()
+                val kind = uri.getQueryParameter("kind").orEmpty()
+                val source = uri.getQueryParameter("source").orEmpty()
+                if (token.isBlank()) "ERR:MISSING_JOB_ID"
+                else if (PipelineOperationLock.acquire(this, token, kind, source)) "ACQUIRED"
+                else "BUSY:" + PipelineOperationLock.statusJson(this)
+            }
+            "job_lock_release" -> {
+                val token = uri.getQueryParameter("jobId").orEmpty()
+                if (token.isBlank()) "ERR:MISSING_JOB_ID"
+                else if (PipelineOperationLock.release(this, token)) "RELEASED" else "ERR:NOT_OWNER"
+            }
+            "job_lock_status" -> PipelineOperationLock.statusJson(this)
             "schedule_status" -> AurumScheduler.statusJson(this)
             "schedule_exact_settings" -> {
                 if (android.os.Build.VERSION.SDK_INT >= 31 && !AurumScheduler.exactAllowed(this)) {
