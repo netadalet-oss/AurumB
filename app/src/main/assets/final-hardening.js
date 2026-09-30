@@ -2,7 +2,8 @@
 /* R226 final hardening: immutable sub-70 snapshot, source-time display, compact strip settings. */
 (()=>{
  if(globalThis.AURUM_R226_HARDENING==='R226.0')return; globalThis.AURUM_R226_HARDENING='R226.0';
- const S=globalThis.AurumUpdateAPI?.state||globalThis.state;
+ const S=globalThis.AurumUpdateAPI?.state||(typeof state!=='undefined'?state:null);
+  const isBackground=()=>typeof BACKGROUND_SYNC!=='undefined'&&BACKGROUND_SYNC===true;
  const iso=()=>new Date().toISOString(), num=v=>{const n=Number(v);return Number.isFinite(n)?n:null};
  function audit(code,message,extra={}){try{globalThis.log?.('info',message,{code,...extra})}catch{}}
  function activeFill(){try{return Number(globalThis.dataSummary?.(S.records)?.fillPct||0)}catch{return 0}}
@@ -195,12 +196,12 @@
   );
 
   async function localSignature(){
-    if(!S?.db)return '';
+    if(!S?.db||typeof dbGet!=='function')return '';
     const [a,s,k,h]=await Promise.all([
-      globalThis.dbGet?.('meta','activeDataSnapshot'),
-      globalThis.dbGet?.('meta','selectionSnapshot'),
-      globalThis.dbGet?.('meta','knSnapshot'),
-      globalThis.dbGet?.('meta','historicalSnapshot')
+      dbGet('meta','activeDataSnapshot'),
+      dbGet('meta','selectionSnapshot'),
+      dbGet('meta','knSnapshot'),
+      dbGet('meta','historicalSnapshot')
     ]);
     return [
       a?.value?.snapshotId||'',a?.value?.transferredAt||a?.value?.completedAt||'',
@@ -211,19 +212,19 @@
   }
 
   async function reloadLocalPublishedState(reason='LOCAL_SYNC',force=false){
-    if(syncingLocal||!S?.db||globalThis.BACKGROUND_SYNC)return false;
+    if(syncingLocal||!S?.db||isBackground())return false;
     syncingLocal=true;
     try{
       const sig=await localSignature();
       if(!force&&sig&&sig===lastSignature)return false;
 
       const [recordRows,activeRow,knStateRow,selectionStateRow,lastSyncRow,lastDerivedRow]=await Promise.all([
-        globalThis.dbAll?.('records'),
-        globalThis.dbGet?.('meta','activeDataSnapshot'),
-        globalThis.dbGet?.('meta','knTableState'),
-        globalThis.dbGet?.('meta','selectionTableState'),
-        globalThis.dbGet?.('meta','lastSuccessfulSync'),
-        globalThis.dbGet?.('meta','lastDerivedUpdate')
+        dbAll('records'),
+        dbGet('meta','activeDataSnapshot'),
+        dbGet('meta','knTableState'),
+        dbGet('meta','selectionTableState'),
+        dbGet('meta','lastSuccessfulSync'),
+        dbGet('meta','lastDerivedUpdate')
       ]);
       const activeId=activeRow?.value?.snapshotId||null;
       const records=(recordRows||[]).map(x=>x?.value).filter(Boolean);
@@ -265,7 +266,7 @@
   }
 
   async function startupReconcile(){
-    if(startupDone||globalThis.BACKGROUND_SYNC)return false;
+    if(startupDone||isBackground())return false;
     for(let i=0;i<80&&!S?.db;i++)await new Promise(r=>setTimeout(r,100));
     if(!S?.db)return false;
     startupDone=true;
