@@ -206,16 +206,19 @@ class PipelineService : Service() {
     }
 
     private fun postPipelineNotification(title: String, body: String, tag: String) {
-        val manager = getSystemService(NotificationManager::class.java)
-        val channel = "aurum_background_pipeline"
-        val notification = Notification.Builder(this, channel)
-            .setContentTitle(title.ifBlank { "Aurum BIST Rev 20" })
-            .setContentText(body.take(240))
-            .setStyle(Notification.BigTextStyle().bigText(body.take(1200)))
-            .setSmallIcon(android.R.drawable.stat_notify_more)
-            .setAutoCancel(true)
-            .build()
-        manager.notify(tag.ifBlank { "aurum-pipeline" }, tag.hashCode().let { if (it == 0) 2021 else it }, notification)
+        runCatching {
+            val manager = getSystemService(NotificationManager::class.java)
+            val channel = "aurum_background_pipeline"
+            val notification = Notification.Builder(this, channel)
+                .setContentTitle(title.ifBlank { "Aurum BIST Rev 20" })
+                .setContentText(body.take(240))
+                .setStyle(Notification.BigTextStyle().bigText(body.take(1200)))
+                .setSmallIcon(android.R.drawable.stat_notify_more)
+                .setAutoCancel(true)
+                .build()
+            val safeTag = tag.ifBlank { "aurum-pipeline" }
+            manager.notify(safeTag, safeTag.hashCode().let { if (it == 0) 2021 else it }, notification)
+        }
     }
 
     private fun resolveJs(function: String, id: String, payload: String) {
