@@ -171,159 +171,76 @@
   try{kh117TrendCell=cell;globalThis.kh117TrendCell=cell}catch{}
 })();
 
-/* R227 — scheduled publish/UI continuity + final S→AL/SAT binding.
-   Fixes four regressions without starting any network work from lifecycle events:
-   1) cold-start renders persisted timestamps/derived tables after IndexedDB is loaded,
-   2) a foreground WebView observes snapshots published by PipelineService,
-   3) final calculateS always advances the qualified AL/SAT lifecycle,
-   4) all lifecycle reconciliation is read-only against persisted local state. */
-(function installAurumR227ScheduledContinuity(){
+/* R245 — cache-only foreground publication observer.
+   REV20.44 already owns atomic-publish signalling and the single S→AL/SAT advance.
+   This layer closes the remaining gap when Android background WebViews do not deliver a
+   localStorage/storage event to the already-open foreground WebView, and also forces one
+   read-only reconciliation after cold-start state loading. It never starts network work. */
+(function installAurumR245ForegroundPublicationObserver(){
   'use strict';
-  if(globalThis.__AURUM_R227_SCHEDULED_CONTINUITY)return;
-  globalThis.__AURUM_R227_SCHEDULED_CONTINUITY=true;
+  if(globalThis.__AURUM_R245_FOREGROUND_PUBLICATION_OBSERVER)return;
+  globalThis.__AURUM_R245_FOREGROUND_PUBLICATION_OBSERVER=true;
 
-  const S=globalThis.AurumUpdateAPI?.state||globalThis.state;
-  let syncingLocal=false,lastSignature='',lastSyncAt=0,startupDone=false;
+  const S=globalThis.AurumUpdateAPI?.state||(typeof state!=='undefined'?state:null);
+  const isBackground=()=>typeof BACKGROUND_SYNC!=='undefined'&&BACKGROUND_SYNC===true;
+  let running=false,lastSignature='',lastCheckAt=0;
 
-  const finiteTime=v=>{const n=Date.parse(v||'');return Number.isFinite(n)?n:0};
-  const rowsFromScores=(scores,recordMap)=>Object.fromEntries(
-    Object.entries(scores||{}).map(([k,rows])=>[
-      k,
-      (Array.isArray(rows)?rows:[])
-        .map(x=>({...x,record:recordMap.get(x.sym)||null}))
-        .filter(x=>x.sym&&x.record)
-    ])
-  );
-
-  async function localSignature(){
+  async function signature(){
     if(!S?.db||typeof dbGet!=='function')return '';
-    const [a,s,k,h]=await Promise.all([
+    const [a,k,h,s]=await Promise.all([
       dbGet('meta','activeDataSnapshot'),
-      dbGet('meta','selectionSnapshot'),
       dbGet('meta','knSnapshot'),
-      dbGet('meta','historicalSnapshot')
+      dbGet('meta','historicalSnapshot'),
+      dbGet('meta','selectionSnapshot')
     ]);
     return [
       a?.value?.snapshotId||'',a?.value?.transferredAt||a?.value?.completedAt||'',
-      s?.value?.dataSnapshotId||'',s?.value?.transferredAt||s?.value?.at||'',
       k?.value?.dataSnapshotId||'',k?.value?.transferredAt||k?.value?.at||'',
-      h?.value?.dataSnapshotId||'',h?.value?.transferredAt||h?.value?.at||''
+      h?.value?.dataSnapshotId||'',h?.value?.transferredAt||h?.value?.at||'',
+      s?.value?.dataSnapshotId||'',s?.value?.transferredAt||s?.value?.at||''
     ].join('|');
   }
 
-  async function reloadLocalPublishedState(reason='LOCAL_SYNC',force=false){
-    if(syncingLocal||!S?.db||isBackground())return false;
-    syncingLocal=true;
+  async function reconcile(reason='POLL',force=false){
+    if(isBackground()||running||!S?.db)return false;
+    running=true;
     try{
-      const sig=await localSignature();
+      const sig=await signature();
       if(!force&&sig&&sig===lastSignature)return false;
-
-      const [recordRows,activeRow,knStateRow,selectionStateRow,lastSyncRow,lastDerivedRow]=await Promise.all([
-        dbAll('records'),
-        dbGet('meta','activeDataSnapshot'),
-        dbGet('meta','knTableState'),
-        dbGet('meta','selectionTableState'),
-        dbGet('meta','lastSuccessfulSync'),
-        dbGet('meta','lastDerivedUpdate')
-      ]);
-      const activeId=activeRow?.value?.snapshotId||null;
-      const records=(recordRows||[]).map(x=>x?.value).filter(Boolean);
-      if(records.length){
-        S.records=records;
-        S.recordMap=new Map(records.map(x=>[x.sym,x]));
-      }
-
-      const ks=knStateRow?.value;
-      if(activeId&&ks?.dataSnapshotId===activeId&&ks?.scores&&typeof ks.scores==='object'){
-        S.scores=rowsFromScores(ks.scores,S.recordMap);
-      }
-
-      const ss=selectionStateRow?.value;
-      if(activeId&&ss?.dataSnapshotId===activeId&&Array.isArray(ss.rows)){
-        S.selection=ss.rows.map(x=>{
-          const rec=S.recordMap.get(x.sym);
-          return rec?{...rec,...x,record:rec}:x;
-        }).filter(x=>x?.sym);
-      }
-
-      if(lastSyncRow?.value)S.lastSuccessfulSync=lastSyncRow.value;
-      if(lastDerivedRow?.value)S.lastDerivedUpdate=lastDerivedRow.value;
-
-      if(typeof globalThis.refreshTableMeta==='function')await globalThis.refreshTableMeta();
-      else if(typeof refreshTableMeta==='function')await refreshTableMeta();
-
-      lastSignature=await localSignature();
-      lastSyncAt=Date.now();
-      try{localStorage.setItem('aurum.r227.lastLocalSync',JSON.stringify({at:new Date().toISOString(),reason,signature:lastSignature}))}catch{}
-
-      if(typeof globalThis.renderCurrentPagePreservingView==='function')globalThis.renderCurrentPagePreservingView();
-      else if(typeof globalThis.render==='function')globalThis.render();
-      return true;
+      const reload=globalThis.AurumPublicationContinuity?.reload;
+      if(typeof reload!=='function')return false;
+      const ok=await reload();
+      lastSignature=await signature();
+      lastCheckAt=Date.now();
+      try{localStorage.setItem('aurum.r245.lastForegroundReconcile',JSON.stringify({
+        at:new Date().toISOString(),reason,signature:lastSignature,ok:!!ok
+      }))}catch{}
+      return !!ok;
     }catch(e){
-      try{console.warn('R227 local publish reconciliation failed',reason,e)}catch{}
+      try{console.warn('R245 foreground publication observer',reason,e)}catch{}
       return false;
-    }finally{syncingLocal=false}
+    }finally{running=false}
   }
 
-  async function startupReconcile(){
-    if(startupDone||isBackground())return false;
+  async function startup(){
+    if(isBackground())return false;
     for(let i=0;i<80&&!S?.db;i++)await new Promise(r=>setTimeout(r,100));
     if(!S?.db)return false;
-    startupDone=true;
-    return reloadLocalPublishedState('STARTUP_AFTER_LOADSTATE',true);
+    return reconcile('STARTUP_AFTER_LOADSTATE',true);
   }
 
-  /* No network calls: these hooks only compare/read the app's IndexedDB snapshot. */
-  const onVisible=()=>{if(document.visibilityState==='visible')reloadLocalPublishedState('VISIBLE').catch(()=>{})};
-  document.addEventListener('visibilitychange',onVisible,{passive:true});
-  addEventListener('pageshow',()=>reloadLocalPublishedState('PAGESHOW').catch(()=>{}),{passive:true});
-  addEventListener('focus',()=>reloadLocalPublishedState('FOCUS').catch(()=>{}),{passive:true});
-  setTimeout(()=>startupReconcile().catch(()=>{}),0);
+  const visible=()=>{if(document.visibilityState==='visible')reconcile('VISIBLE').catch(()=>{})};
+  document.addEventListener('visibilitychange',visible,{passive:true});
+  addEventListener('pageshow',()=>reconcile('PAGESHOW').catch(()=>{}),{passive:true});
+  addEventListener('focus',()=>reconcile('FOCUS').catch(()=>{}),{passive:true});
+  setTimeout(()=>startup().catch(()=>{}),0);
   setInterval(()=>{
-    if(document.visibilityState==='visible'&&!S?.syncing&&!S?.calculating&&Date.now()-lastSyncAt>=15000){
-      reloadLocalPublishedState('VISIBLE_POLL').catch(()=>{});
+    if(document.visibilityState==='visible'&&!S?.syncing&&!S?.calculating&&Date.now()-lastCheckAt>=15000){
+      reconcile('VISIBLE_POLL').catch(()=>{});
     }
   },15000);
 
-  /* The last calculateS implementation wins in runtime.js. Bind AL/SAT after that final
-     implementation so later S overrides cannot silently skip trade lifecycle advancement. */
-  try{
-    const baseS=globalThis.calculateS||calculateS;
-    if(typeof baseS==='function'&&!baseS.__r227TradeBound){
-      const wrapped=async function calculateSR227(job){
-        const ok=await baseS.apply(this,arguments);
-        if(!ok)return ok;
-        try{
-          const qev=await globalThis.AurumQualifiedBuySell?.advance?.(job);
-          if(qev){
-            if(qev.buys?.length||qev.sells?.length){
-              job.sNotificationDetail=
-                (qev.buys?.length?'AL '+qev.buys.join(', '):'')+
-                (qev.buys?.length&&qev.sells?.length?' · ':'')+
-                (qev.sells?.length?'SAT '+qev.sells.join(', '):'');
-              try{await globalThis.saveJob?.(job)}catch{try{await saveJob(job)}catch{}}
-            }
-            try{await globalThis.AurumPortfolio?.reconcile?.('S_COMPLETED_R227')}catch(e){console.warn('R227 portfolio reconcile',e)}
-          }
-          try{await globalThis.AurumTradeIntegrity?.run?.()}catch{}
-          try{if(typeof globalThis.refreshTableMeta==='function')await globalThis.refreshTableMeta();else if(typeof refreshTableMeta==='function')await refreshTableMeta()}catch{}
-          try{globalThis.renderCurrentPagePreservingView?.()}catch{}
-        }catch(e){
-          /* S itself remains successful if the optional trade presentation layer fails. */
-          try{console.warn('R227 AL/SAT advance failed',e)}catch{}
-        }
-        return ok;
-      };
-      wrapped.__r227TradeBound=true;
-      globalThis.calculateS=wrapped;
-      try{calculateS=wrapped}catch{}
-    }
-  }catch(e){try{console.warn('R227 calculateS binding failed',e)}catch{}}
-
-  globalThis.AurumScheduledContinuity=Object.freeze({
-    version:'R227.0',
-    reloadLocalPublishedState,
-    startupReconcile,
-    signature:localSignature
+  globalThis.AurumForegroundPublicationObserver=Object.freeze({
+    version:'R245.0',reconcile,signature,startup
   });
 })();
