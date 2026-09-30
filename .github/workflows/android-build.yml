@@ -1,7 +1,7 @@
 name: Android Build
 on:
   push:
-    branches: [ main ]
+    branches: [ main, audit/canonical-scheduler-20260929 ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
