@@ -89,6 +89,11 @@ jobs:
           grep -F "__AURUM_REV2044_PUBLICATION_CONTINUITY" "$R"
           grep -F "AurumQualifiedBuySell?.advance?.(job)" "$R"
           grep -F "AurumPortfolio?.reconcile?.('S_PUBLISHED')" "$R"
+          grep -F "__AURUM_R227_SCHEDULED_CONTINUITY" app/src/main/assets/final-hardening.js
+          grep -F "STARTUP_AFTER_LOADSTATE" app/src/main/assets/final-hardening.js
+          grep -F "VISIBLE_POLL" app/src/main/assets/final-hardening.js
+          grep -F "AurumQualifiedBuySell?.advance?.(job)" app/src/main/assets/final-hardening.js
+          grep -F "AurumPortfolio?.reconcile?.('S_COMPLETED_R227')" app/src/main/assets/final-hardening.js
           grep -F "ensureNativeParity('STARTUP')" app/src/main/assets/scheduler-settings.js
           grep -F "val rearmAfter = maxOf(Instant.now(), Instant.ofEpochMilli(epoch).plusSeconds(1))" app/src/main/java/com/aurum/bistterminal8/TriggerReceiver.kt
           grep -F "state.selectionDisplaySnapshot=" app/src/main/assets/core.js
