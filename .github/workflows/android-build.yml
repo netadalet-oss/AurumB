@@ -56,6 +56,8 @@ jobs:
           grep -F 'recordTransfer=(state.records||[])' "$R"
           grep -F "canonical:'AurumQualifiedBuySell'" "$R"
           grep -F "globalThis.AurumQualifiedBuySell=Object.freeze" "$R"
+          grep -F "const qev=await globalThis.AurumQualifiedBuySell?.advance?.(job);" "$R"
+          grep -F "await globalThis.AurumPortfolio?.reconcile?.()" "$R"
           grep -F "r.jobDataStatus='CARRY_FORWARD'" "$R"
           grep -F "if(source?.calculationEligible===false)continue" "$R"
           test "$(grep -Rho '@Test' app/src/test | wc -l)" -eq 23
