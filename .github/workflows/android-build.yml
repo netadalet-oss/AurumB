@@ -91,6 +91,9 @@ jobs:
           grep -F "AurumPortfolio?.reconcile?.('S_PUBLISHED')" "$R"
           grep -F "ensureNativeParity('STARTUP')" app/src/main/assets/scheduler-settings.js
           grep -F "val rearmAfter = maxOf(Instant.now(), Instant.ofEpochMilli(epoch).plusSeconds(1))" app/src/main/java/com/aurum/bistterminal8/TriggerReceiver.kt
+          grep -F "state.selectionDisplaySnapshot=" app/src/main/assets/core.js
+          grep -F "state.knDisplaySnapshot=" app/src/main/assets/core.js
+          grep -F '"notification" -> {' app/src/main/java/com/aurum/bistterminal8/PipelineService.kt
           grep -F "const requiredByFill=nextRound===1?fill<100:fill<target" "$R"
           grep -F "if(age>COHORT_MS)" "$R"
           grep -F '"schedule_status" -> AurumScheduler.statusJson(this)' app/src/main/java/com/aurum/bistterminal8/MainActivity.kt
