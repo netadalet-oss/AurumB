@@ -169,3 +169,160 @@
   }
   try{kh117TrendCell=cell;globalThis.kh117TrendCell=cell}catch{}
 })();
+
+/* R227 — scheduled publish/UI continuity + final S→AL/SAT binding.
+   Fixes four regressions without starting any network work from lifecycle events:
+   1) cold-start renders persisted timestamps/derived tables after IndexedDB is loaded,
+   2) a foreground WebView observes snapshots published by PipelineService,
+   3) final calculateS always advances the qualified AL/SAT lifecycle,
+   4) all lifecycle reconciliation is read-only against persisted local state. */
+(function installAurumR227ScheduledContinuity(){
+  'use strict';
+  if(globalThis.__AURUM_R227_SCHEDULED_CONTINUITY)return;
+  globalThis.__AURUM_R227_SCHEDULED_CONTINUITY=true;
+
+  const S=globalThis.AurumUpdateAPI?.state||globalThis.state;
+  let syncingLocal=false,lastSignature='',lastSyncAt=0,startupDone=false;
+
+  const finiteTime=v=>{const n=Date.parse(v||'');return Number.isFinite(n)?n:0};
+  const rowsFromScores=(scores,recordMap)=>Object.fromEntries(
+    Object.entries(scores||{}).map(([k,rows])=>[
+      k,
+      (Array.isArray(rows)?rows:[])
+        .map(x=>({...x,record:recordMap.get(x.sym)||null}))
+        .filter(x=>x.sym&&x.record)
+    ])
+  );
+
+  async function localSignature(){
+    if(!S?.db)return '';
+    const [a,s,k,h]=await Promise.all([
+      globalThis.dbGet?.('meta','activeDataSnapshot'),
+      globalThis.dbGet?.('meta','selectionSnapshot'),
+      globalThis.dbGet?.('meta','knSnapshot'),
+      globalThis.dbGet?.('meta','historicalSnapshot')
+    ]);
+    return [
+      a?.value?.snapshotId||'',a?.value?.transferredAt||a?.value?.completedAt||'',
+      s?.value?.dataSnapshotId||'',s?.value?.transferredAt||s?.value?.at||'',
+      k?.value?.dataSnapshotId||'',k?.value?.transferredAt||k?.value?.at||'',
+      h?.value?.dataSnapshotId||'',h?.value?.transferredAt||h?.value?.at||''
+    ].join('|');
+  }
+
+  async function reloadLocalPublishedState(reason='LOCAL_SYNC',force=false){
+    if(syncingLocal||!S?.db||globalThis.BACKGROUND_SYNC)return false;
+    syncingLocal=true;
+    try{
+      const sig=await localSignature();
+      if(!force&&sig&&sig===lastSignature)return false;
+
+      const [recordRows,activeRow,knStateRow,selectionStateRow,lastSyncRow,lastDerivedRow]=await Promise.all([
+        globalThis.dbAll?.('records'),
+        globalThis.dbGet?.('meta','activeDataSnapshot'),
+        globalThis.dbGet?.('meta','knTableState'),
+        globalThis.dbGet?.('meta','selectionTableState'),
+        globalThis.dbGet?.('meta','lastSuccessfulSync'),
+        globalThis.dbGet?.('meta','lastDerivedUpdate')
+      ]);
+      const activeId=activeRow?.value?.snapshotId||null;
+      const records=(recordRows||[]).map(x=>x?.value).filter(Boolean);
+      if(records.length){
+        S.records=records;
+        S.recordMap=new Map(records.map(x=>[x.sym,x]));
+      }
+
+      const ks=knStateRow?.value;
+      if(activeId&&ks?.dataSnapshotId===activeId&&ks?.scores&&typeof ks.scores==='object'){
+        S.scores=rowsFromScores(ks.scores,S.recordMap);
+      }
+
+      const ss=selectionStateRow?.value;
+      if(activeId&&ss?.dataSnapshotId===activeId&&Array.isArray(ss.rows)){
+        S.selection=ss.rows.map(x=>{
+          const rec=S.recordMap.get(x.sym);
+          return rec?{...rec,...x,record:rec}:x;
+        }).filter(x=>x?.sym);
+      }
+
+      if(lastSyncRow?.value)S.lastSuccessfulSync=lastSyncRow.value;
+      if(lastDerivedRow?.value)S.lastDerivedUpdate=lastDerivedRow.value;
+
+      if(typeof globalThis.refreshTableMeta==='function')await globalThis.refreshTableMeta();
+      else if(typeof refreshTableMeta==='function')await refreshTableMeta();
+
+      lastSignature=await localSignature();
+      lastSyncAt=Date.now();
+      try{localStorage.setItem('aurum.r227.lastLocalSync',JSON.stringify({at:new Date().toISOString(),reason,signature:lastSignature}))}catch{}
+
+      if(typeof globalThis.renderCurrentPagePreservingView==='function')globalThis.renderCurrentPagePreservingView();
+      else if(typeof globalThis.render==='function')globalThis.render();
+      return true;
+    }catch(e){
+      try{console.warn('R227 local publish reconciliation failed',reason,e)}catch{}
+      return false;
+    }finally{syncingLocal=false}
+  }
+
+  async function startupReconcile(){
+    if(startupDone||globalThis.BACKGROUND_SYNC)return false;
+    for(let i=0;i<80&&!S?.db;i++)await new Promise(r=>setTimeout(r,100));
+    if(!S?.db)return false;
+    startupDone=true;
+    return reloadLocalPublishedState('STARTUP_AFTER_LOADSTATE',true);
+  }
+
+  /* No network calls: these hooks only compare/read the app's IndexedDB snapshot. */
+  const onVisible=()=>{if(document.visibilityState==='visible')reloadLocalPublishedState('VISIBLE').catch(()=>{})};
+  document.addEventListener('visibilitychange',onVisible,{passive:true});
+  addEventListener('pageshow',()=>reloadLocalPublishedState('PAGESHOW').catch(()=>{}),{passive:true});
+  addEventListener('focus',()=>reloadLocalPublishedState('FOCUS').catch(()=>{}),{passive:true});
+  setTimeout(()=>startupReconcile().catch(()=>{}),0);
+  setInterval(()=>{
+    if(document.visibilityState==='visible'&&!S?.syncing&&!S?.calculating&&Date.now()-lastSyncAt>=15000){
+      reloadLocalPublishedState('VISIBLE_POLL').catch(()=>{});
+    }
+  },15000);
+
+  /* The last calculateS implementation wins in runtime.js. Bind AL/SAT after that final
+     implementation so later S overrides cannot silently skip trade lifecycle advancement. */
+  try{
+    const baseS=globalThis.calculateS||calculateS;
+    if(typeof baseS==='function'&&!baseS.__r227TradeBound){
+      const wrapped=async function calculateSR227(job){
+        const ok=await baseS.apply(this,arguments);
+        if(!ok)return ok;
+        try{
+          const qev=await globalThis.AurumQualifiedBuySell?.advance?.(job);
+          if(qev){
+            if(qev.buys?.length||qev.sells?.length){
+              job.sNotificationDetail=
+                (qev.buys?.length?'AL '+qev.buys.join(', '):'')+
+                (qev.buys?.length&&qev.sells?.length?' · ':'')+
+                (qev.sells?.length?'SAT '+qev.sells.join(', '):'');
+              try{await globalThis.saveJob?.(job)}catch{try{await saveJob(job)}catch{}}
+            }
+            try{await globalThis.AurumPortfolio?.reconcile?.('S_COMPLETED_R227')}catch(e){console.warn('R227 portfolio reconcile',e)}
+          }
+          try{await globalThis.AurumTradeIntegrity?.run?.()}catch{}
+          try{if(typeof globalThis.refreshTableMeta==='function')await globalThis.refreshTableMeta();else if(typeof refreshTableMeta==='function')await refreshTableMeta()}catch{}
+          try{globalThis.renderCurrentPagePreservingView?.()}catch{}
+        }catch(e){
+          /* S itself remains successful if the optional trade presentation layer fails. */
+          try{console.warn('R227 AL/SAT advance failed',e)}catch{}
+        }
+        return ok;
+      };
+      wrapped.__r227TradeBound=true;
+      globalThis.calculateS=wrapped;
+      try{calculateS=wrapped}catch{}
+    }
+  }catch(e){try{console.warn('R227 calculateS binding failed',e)}catch{}}
+
+  globalThis.AurumScheduledContinuity=Object.freeze({
+    version:'R227.0',
+    reloadLocalPublishedState,
+    startupReconcile,
+    signature:localSignature
+  });
+})();
