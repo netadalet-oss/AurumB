@@ -131,6 +131,9 @@ class PipelineService : Service() {
                             if (ok) "COMPLETED" else "FAILED",
                             detail
                         )
+                        if (ok && kind == "data") {
+                            PublicationBus.publish()
+                        }
                         releaseTransferWakeLock()
                         operationLockOwner?.let { owner -> operationLockKind?.let { kindKey -> OperationLock.release(kindKey, owner) } }
                         operationLockKind = null
