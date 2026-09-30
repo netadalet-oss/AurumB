@@ -89,6 +89,10 @@ jobs:
           grep -F "__AURUM_REV2044_PUBLICATION_CONTINUITY" "$R"
           grep -F "AurumQualifiedBuySell?.advance?.(job)" "$R"
           grep -F "AurumPortfolio?.reconcile?.('S_PUBLISHED')" "$R"
+          grep -F "__AURUM_R245_FOREGROUND_PUBLICATION_OBSERVER" app/src/main/assets/final-hardening.js
+          grep -F "STARTUP_AFTER_LOADSTATE" app/src/main/assets/final-hardening.js
+          grep -F "VISIBLE_POLL" app/src/main/assets/final-hardening.js
+          grep -F "AurumPublicationContinuity?.reload" app/src/main/assets/final-hardening.js
           grep -F "state.selectionDisplaySnapshot=" "$R"
           grep -F "state.knDisplaySnapshot=" "$R"
           grep -F "const retryDelays=[5000,15000,45000]" "$R"

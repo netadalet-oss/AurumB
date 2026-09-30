@@ -2,7 +2,8 @@
 /* R226 final hardening: immutable sub-70 snapshot, source-time display, compact strip settings. */
 (()=>{
  if(globalThis.AURUM_R226_HARDENING==='R226.0')return; globalThis.AURUM_R226_HARDENING='R226.0';
- const S=globalThis.AurumUpdateAPI?.state||globalThis.state;
+ const S=globalThis.AurumUpdateAPI?.state||(typeof state!=='undefined'?state:null);
+  const isBackground=()=>typeof BACKGROUND_SYNC!=='undefined'&&BACKGROUND_SYNC===true;
  const iso=()=>new Date().toISOString(), num=v=>{const n=Number(v);return Number.isFinite(n)?n:null};
  function audit(code,message,extra={}){try{globalThis.log?.('info',message,{code,...extra})}catch{}}
  function activeFill(){try{return Number(globalThis.dataSummary?.(S.records)?.fillPct||0)}catch{return 0}}
@@ -168,4 +169,78 @@
     return '<div class="kh-trend">'+a.map(x=>'<span><b>'+html(x.k)+':</b> '+x.hitCount+'/'+x.total+'</span>').join('')+'<footer><small>İsabet ort: '+(mean==null?'—':(mean*20).toFixed(2)+'/20')+'</small></footer></div>';
   }
   try{kh117TrendCell=cell;globalThis.kh117TrendCell=cell}catch{}
+})();
+
+/* R245 — cache-only foreground publication observer.
+   REV20.44 already owns atomic-publish signalling and the single S→AL/SAT advance.
+   This layer closes the remaining gap when Android background WebViews do not deliver a
+   localStorage/storage event to the already-open foreground WebView, and also forces one
+   read-only reconciliation after cold-start state loading. It never starts network work. */
+(function installAurumR245ForegroundPublicationObserver(){
+  'use strict';
+  if(globalThis.__AURUM_R245_FOREGROUND_PUBLICATION_OBSERVER)return;
+  globalThis.__AURUM_R245_FOREGROUND_PUBLICATION_OBSERVER=true;
+
+  const S=globalThis.AurumUpdateAPI?.state||(typeof state!=='undefined'?state:null);
+  const isBackground=()=>typeof BACKGROUND_SYNC!=='undefined'&&BACKGROUND_SYNC===true;
+  let running=false,lastSignature='',lastCheckAt=0;
+
+  async function signature(){
+    if(!S?.db||typeof dbGet!=='function')return '';
+    const [a,k,h,s]=await Promise.all([
+      dbGet('meta','activeDataSnapshot'),
+      dbGet('meta','knSnapshot'),
+      dbGet('meta','historicalSnapshot'),
+      dbGet('meta','selectionSnapshot')
+    ]);
+    return [
+      a?.value?.snapshotId||'',a?.value?.transferredAt||a?.value?.completedAt||'',
+      k?.value?.dataSnapshotId||'',k?.value?.transferredAt||k?.value?.at||'',
+      h?.value?.dataSnapshotId||'',h?.value?.transferredAt||h?.value?.at||'',
+      s?.value?.dataSnapshotId||'',s?.value?.transferredAt||s?.value?.at||''
+    ].join('|');
+  }
+
+  async function reconcile(reason='POLL',force=false){
+    if(isBackground()||running||!S?.db)return false;
+    running=true;
+    try{
+      const sig=await signature();
+      if(!force&&sig&&sig===lastSignature)return false;
+      const reload=globalThis.AurumPublicationContinuity?.reload;
+      if(typeof reload!=='function')return false;
+      const ok=await reload();
+      lastSignature=await signature();
+      lastCheckAt=Date.now();
+      try{localStorage.setItem('aurum.r245.lastForegroundReconcile',JSON.stringify({
+        at:new Date().toISOString(),reason,signature:lastSignature,ok:!!ok
+      }))}catch{}
+      return !!ok;
+    }catch(e){
+      try{console.warn('R245 foreground publication observer',reason,e)}catch{}
+      return false;
+    }finally{running=false}
+  }
+
+  async function startup(){
+    if(isBackground())return false;
+    for(let i=0;i<80&&!S?.db;i++)await new Promise(r=>setTimeout(r,100));
+    if(!S?.db)return false;
+    return reconcile('STARTUP_AFTER_LOADSTATE',true);
+  }
+
+  const visible=()=>{if(document.visibilityState==='visible')reconcile('VISIBLE').catch(()=>{})};
+  document.addEventListener('visibilitychange',visible,{passive:true});
+  addEventListener('pageshow',()=>reconcile('PAGESHOW').catch(()=>{}),{passive:true});
+  addEventListener('focus',()=>reconcile('FOCUS').catch(()=>{}),{passive:true});
+  setTimeout(()=>startup().catch(()=>{}),0);
+  setInterval(()=>{
+    if(document.visibilityState==='visible'&&!S?.syncing&&!S?.calculating&&Date.now()-lastCheckAt>=15000){
+      reconcile('VISIBLE_POLL').catch(()=>{});
+    }
+  },15000);
+
+  globalThis.AurumForegroundPublicationObserver=Object.freeze({
+    version:'R245.0',reconcile,signature,startup
+  });
 })();
