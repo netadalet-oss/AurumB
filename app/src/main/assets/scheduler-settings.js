@@ -56,10 +56,26 @@
  function remove(kind,t){sync(kind,times(kind).filter(x=>x!==t));rerender()}
  function saveOne(kind){const cap=kind==='data'?'Data':'Market',on=document.getElementById('aurum'+cap+'ScheduleEnabled')?.checked!==false,xs=times(kind);set(kind==='data'?DATA_ON:MARKET_ON,on?'1':'0');return call('schedule',{kind,enabled:on?'1':'0',times:xs.join(',')})}
  function saveAll(){const a=saveOne('data'),b=saveOne('market'),ok=a==='OK'&&b==='OK';log(ok?'success':'error',ok?'Zamanlayıcı ayarları kaydedildi':'Zamanlayıcı kurulumu başarısız · Veriler: '+String(a||'yanıt yok')+' · Piyasa: '+String(b||'yanıt yok'));report();return {ok,data:a,market:b}}
+ function sameTimes(a,b){const x=[...(a||[])].map(String).sort(),y=[...(b||[])].map(String).sort();return x.length===y.length&&x.every((v,i)=>v===y[i])}
+ function ensureNativeParity(reason='STARTUP'){
+   migrate();
+   let st=null;try{st=JSON.parse(call('schedule_status')||'null')}catch{}
+   if(!st)return {ok:false,reason:'NO_NATIVE_STATUS'};
+   const results={};
+   for(const kind of ['data','market']){
+     const wantEnabled=enabled(kind),wantTimes=times(kind),nativeEnabled=st?.[kind+'Enabled']===true,nativeTimes=Array.isArray(st?.[kind+'Times'])?st[kind+'Times']:[];
+     if(wantEnabled===nativeEnabled&&sameTimes(wantTimes,nativeTimes)){results[kind]='UNCHANGED';continue}
+     const r=call('schedule',{kind,enabled:wantEnabled?'1':'0',times:wantTimes.join(',')});
+     results[kind]=r||'NO_RESPONSE';
+   }
+   const ok=Object.values(results).every(x=>x==='UNCHANGED'||x==='OK');
+   if(Object.values(results).some(x=>x!=='UNCHANGED'))log(ok?'success':'warning',ok?'Zamanlayıcı Android katmanı kayıtlı ayarlarla eşitlendi':'Zamanlayıcı Android eşitlemesi tamamlanamadı · '+JSON.stringify(results));
+   return {ok,reason,results};
+ }
  function defaults(){sync('data',DATA_DEF.split(','));sync('market',DATA_DEF.split(',').map(plus30));set(DATA_ON,'1');set(MARKET_ON,'1');log('info','Zamanlayıcı varsayılanları geri yüklendi');rerender()}
  function report(){const h=document.getElementById('aurumSchedulerHealth'),r=document.getElementById('aurumSchedulerRows'),s=document.getElementById('aurumSchedulerSummary');if(!h||!r)return;const raw=call('schedule_status');let st=null;try{st=JSON.parse(raw)}catch{}const ok=!!st,exact=st?.exactAllowed===true,rows=[['Veriler',enabled('data'),times('data')],['Piyasa',enabled('market'),times('market')]],anyOn=rows.some(x=>x[1]);h.innerHTML=!ok?'Android alarm katmanı durum yanıtı alınamadı':!anyOn?'Zamanlayıcı devre dışı · Veriler ve Piyasa profilleri kapalı':exact?'Android alarm katmanı hazır · kesin alarm izni AÇIK':'Kesin alarm izni KAPALI · yaklaşık alarm kullanılacak <button class="ghost-btn" type="button" onclick="AurumDualScheduler.exactSettings()">İzni Aç</button>';r.innerHTML=rows.flatMap(([n,on,x])=>x.map(t=>'<div class="aurum-scheduler-row"><b>'+esc(t)+'</b><small>'+esc(n)+'</small><em class="'+(on&&ok&&exact?'ok':'warn')+'">'+(on?(ok?(exact?'Kesin':'Yaklaşık'):'Kontrol'):'Kapalı')+'</em></div>')).join('');if(s)s.textContent=!ok?'Durum kontrolü':!anyOn?'Devre dışı':exact?'Kesin alarm hazır':'Yaklaşık alarm'}
  function install(){style();const old=globalThis.settingsPage;if(typeof old!=='function'||old.__dualOldScheduler)return;const fn=function(...a){let out=String(old.apply(this,a));out=out.replace(/<details[^>]*id="aurumSchedulerModule"[\s\S]*?<\/details>/,'');queueMicrotask(()=>document.querySelectorAll('.aurum-settings-details').forEach(x=>{if(x.id!=='aurumDualSchedulerSettings'&&x.querySelector('summary strong')?.textContent?.trim()==='Otomatik Güncelleme Zamanlayıcısı')x.remove()}));return block()+healthBlock()+historyBlock()+out};fn.__dualOldScheduler=true;globalThis.settingsPage=fn}
- globalThis.AurumDualScheduler={add,remove,saveAll,reinstall:saveAll,defaults,report,log,notice,exactSettings:()=>{const r=call('schedule_exact_settings');if(r==='OPENED')notice('info','Kesin alarm izin ekranı açıldı');else if(r==='OK')notice('success','Kesin alarm izni zaten açık');else notice('error','Kesin alarm izin ekranı açılamadı');setTimeout(report,300);return r}};
+ globalThis.AurumDualScheduler={add,remove,saveAll,reinstall:saveAll,defaults,report,log,notice,ensureNativeParity,exactSettings:()=>{const r=call('schedule_exact_settings');if(r==='OPENED')notice('info','Kesin alarm izin ekranı açıldı');else if(r==='OK')notice('success','Kesin alarm izni zaten açık');else notice('error','Kesin alarm izin ekranı açılamadı');setTimeout(report,300);return r}};
  globalThis.AurumReadOnlyHealth=Object.freeze({refresh:renderHealth,read:healthRead});
  globalThis.AurumSettingsHistory20={log,notice,render:renderHistory};
  if(!globalThis.__aurumHistory20Bridged){
@@ -77,5 +93,5 @@
    };
  }
  if(!globalThis.__aurumSystemLogConsole){globalThis.__aurumSystemLogConsole=true;for(const k of ['warn','error']){const old=console[k].bind(console);console[k]=(...a)=>{try{log(k==='error'?'error':'warning',a.map(v=>v instanceof Error?(v.message||String(v)):typeof v==='string'?v:JSON.stringify(v)).join(' ').slice(0,240))}catch{}return old(...a)}}}
- install();setTimeout(install,0);document.addEventListener('toggle',e=>{if(e.target?.id==='aurumDualSchedulerSettings'&&e.target.open)setTimeout(report,0);if(e.target?.id==='aurumReadOnlyHealth'&&e.target.open)setTimeout(renderHealth,0);if(e.target?.id==='aurumHistory20'&&e.target.open)setTimeout(renderHistory,0)},true);
+ install();setTimeout(()=>{install();try{ensureNativeParity('STARTUP')}catch{}},0);document.addEventListener('toggle',e=>{if(e.target?.id==='aurumDualSchedulerSettings'&&e.target.open)setTimeout(report,0);if(e.target?.id==='aurumReadOnlyHealth'&&e.target.open)setTimeout(renderHealth,0);if(e.target?.id==='aurumHistory20'&&e.target.open)setTimeout(renderHistory,0)},true);
 })();
