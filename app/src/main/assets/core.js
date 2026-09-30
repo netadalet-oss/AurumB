@@ -444,12 +444,14 @@ async function loadState(){
       dbGet('meta','activeDataSnapshot'),dbGet('meta','knTableState'),dbGet('meta','selectionTableState')
     ]),activeId=activeSnap?.value?.snapshotId||null;
     const ks=knTableState?.value;
-    if(activeId&&ks?.dataSnapshotId===activeId&&ks?.scores&&typeof ks.scores==='object'){
+    if(ks?.scores&&typeof ks.scores==='object'){
       state.scores=Object.fromEntries(Object.entries(ks.scores).map(([k,rows])=>[k,(Array.isArray(rows)?rows:[]).map(x=>({...x,record:state.recordMap.get(x.sym)||null})).filter(x=>x.sym&&x.record)]));
+      state.knDisplaySnapshot={dataSnapshotId:ks.dataSnapshotId||null,activeSnapshotId:activeId,stale:!!activeId&&!!ks.dataSnapshotId&&ks.dataSnapshotId!==activeId};
     }
     const ss=selectionTableState?.value;
-    if(activeId&&ss?.dataSnapshotId===activeId&&Array.isArray(ss.rows)){
+    if(Array.isArray(ss?.rows)){
       state.selection=ss.rows.map(x=>{const rec=state.recordMap.get(x.sym);return rec?{...rec,...x,record:rec}:x}).filter(x=>x?.sym);
+      state.selectionDisplaySnapshot={dataSnapshotId:ss.dataSnapshotId||null,activeSnapshotId:activeId,stale:!!activeId&&!!ss.dataSnapshotId&&ss.dataSnapshotId!==activeId};
     }
   }catch(e){console.warn('Derived table restore failed',e);}
 }
