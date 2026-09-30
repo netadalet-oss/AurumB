@@ -193,7 +193,31 @@ class PipelineService : Service() {
                 if (enabled) acquireTransferWakeLock() else releaseTransferWakeLock()
                 "OK"
             }
+            "notification" -> {
+                postPipelineNotification(
+                    uri.getQueryParameter("title").orEmpty(),
+                    uri.getQueryParameter("body").orEmpty(),
+                    uri.getQueryParameter("tag").orEmpty()
+                )
+                "OK"
+            }
             else -> "ERR:UNSUPPORTED_NATIVE_COMMAND"
+        }
+    }
+
+    private fun postPipelineNotification(title: String, body: String, tag: String) {
+        runCatching {
+            val manager = getSystemService(NotificationManager::class.java)
+            val channel = "aurum_background_pipeline"
+            val notification = Notification.Builder(this, channel)
+                .setContentTitle(title.ifBlank { "Aurum BIST Rev 20" })
+                .setContentText(body.take(240))
+                .setStyle(Notification.BigTextStyle().bigText(body.take(1200)))
+                .setSmallIcon(android.R.drawable.stat_notify_more)
+                .setAutoCancel(true)
+                .build()
+            val safeTag = tag.ifBlank { "aurum-pipeline" }
+            manager.notify(safeTag, safeTag.hashCode().let { if (it == 0) 2021 else it }, notification)
         }
     }
 
