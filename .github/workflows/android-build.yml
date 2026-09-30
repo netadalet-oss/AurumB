@@ -82,6 +82,15 @@ jobs:
           NODE
           grep -F "R221_SMART_MAX_ROUNDS=5" "$R"
           grep -F "R225_FILL_TARGETS=Object.freeze([100,95,90,80,70])" "$R"
+          grep -F "for(let round=1;round<=5;round++)" "$R"
+          grep -F "ATOMIC_PUBLISH_ONLY_IF_FRESH_CANDIDATE_FILL_GTE_70" "$R"
+          grep -F "if(source?.calculationEligible===false)continue" "$R"
+          grep -F "await refreshTableMeta();" "$R"
+          grep -F "__AURUM_REV2044_PUBLICATION_CONTINUITY" "$R"
+          grep -F "AurumQualifiedBuySell?.advance?.(job)" "$R"
+          grep -F "AurumPortfolio?.reconcile?.('S_PUBLISHED')" "$R"
+          grep -F "ensureNativeParity('STARTUP')" app/src/main/assets/scheduler-settings.js
+          grep -F "val rearmAfter = maxOf(Instant.now(), Instant.ofEpochMilli(epoch).plusSeconds(1))" app/src/main/java/com/aurum/bistterminal8/TriggerReceiver.kt
           grep -F "const requiredByFill=nextRound===1?fill<100:fill<target" "$R"
           grep -F "if(age>COHORT_MS)" "$R"
           grep -F '"schedule_status" -> AurumScheduler.statusJson(this)' app/src/main/java/com/aurum/bistterminal8/MainActivity.kt
