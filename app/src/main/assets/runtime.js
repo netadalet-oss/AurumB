@@ -470,9 +470,9 @@ function r30ValuePresent(rec,field,canonicalAt,zeroBad=null){
 }
 function dataIntegrityGate(summary){const fill=Number(summary?.fillPct||0),threshold=fill>=95?95:fill>=90?90:fill>=80?80:fill>=70?70:null,ok=threshold!==null;return {ok,threshold,commitAllowed:ok,derivedUpdateAllowed:ok,ladder:[95,90,80,70],missingSymbols:Number(summary?.missingSymbolCount||0),missingColumns:(summary?.incompleteColumns||summary?.missingColumns||[]).length,rows:Number(summary?.loadedSymbols||0),cols:Number(summary?.fields?.length||0),fillPct:fill,reason:ok?null:'DATA_FILL_BELOW_70_KEEP_LAST_VALID_DERIVED_SNAPSHOT'};}
 function integrityRepairTargets(records,summary,universe){const by=new Map((records||[]).map(r=>[r.sym,r])),targets=new Set(summary?.missingSymbols||[]),zeroBad=new Set(summary?.zeroPlaceholderColumns||[]),fields=(summary?.fields||V141225_ALL_HEADERS).filter(f=>f!=='Hisse'&&f!=='Veri Tamlık');for(const sym of universe){const r=by.get(sym);if(!r){targets.add(sym);continue;}for(const f of fields){if(!v141225ValuePresent(r,f)||(zeroBad.has(f)&&v141225NumericZero(r,f))){targets.add(sym);break;}}}return [...targets];}
-async function repairStagedIntegrity(job,universe,start,end,indexBundle){let staged=(await stageRows(job.id)).map(x=>x.record),summary=dataSummary(publishableStagedRecords(staged,job)),gate=dataIntegrityGate(summary),roundLog=[];if(gate.ok)return {summary,gate,roundLog};for(let round=2;round<=3;round++){
+async function repairStagedIntegrity(job,universe,start,end,indexBundle){let staged=(await stageRows(job.id)).map(x=>x.record),summary=dataSummary(publishableStagedRecords(staged,job)),gate=dataIntegrityGate(summary),roundLog=[];if(gate.ok)return {summary,gate,roundLog};for(let round=1;round<=5;round++){
   const targets=integrityRepairTargets(staged,summary,universe);let repaired=0,failed=0;job.currentIntegrityRepairRound=round;await saveJob(job);
-  for(const sym of targets){await pauseCheckpoint(job,JOB_STATUS.FETCHING_DATA);const stagedRec=staged.find(x=>x.sym===sym)||null,prior=stagedRec?.series?.date?.length?stagedRec:(state.recordMap.get(sym)||null),base=prior?.series?.date?.length?bundleFromRecord(prior):null;const onSource=({provider})=>setRuntime({status:JOB_STATUS.FETCHING_DATA,jobId:job.id,mode:job.mode,stage:'Veriler',done:job.processedSymbols||0,total:universe.length,message:`${sym} · bütün kaynaklar · tur ${round}/3 · ${sourceName(provider)}`,symbol:sym,provider});try{const extra=await fetchSymbolBundle(sym,start,end,{mode:'FORCE_ALL',baseBundle:base,onSource}),merged=mergeBundles(sym,[extra]),candidate=enrichBundle(merged,indexBundle),windowCheck=marketWindowCheck(candidate,job.canonicalMarketAt);candidate.providerAttempts=[...(extra.attempts||[]),{provider:'ALL_ALTERNATIVES',status:'INTEGRITY_REPAIR',round}];candidate.dataSnapshotId=job.dataSnapshotId;candidate.jobId=job.id;candidate.jobMode=job.mode;candidate.jobDataStatus='FRESH';candidate.marketWindowEligible=windowCheck.ok;candidate.marketWindowDeltaMinutes=windowCheck.deltaMinutes;candidate.provenance={sources:candidate.providers||[],marketAt:candidate.marketDataAt||null,marketTimeVerified:candidate.marketTimeVerified===true,marketTimeProvider:candidate.marketTimeProvider||null,receivedAt:merged.receivedAt||null,validatedAt:nowISO(),jobId:job.id,canonicalMarketAt:job.canonicalMarketAt,marketWindowDeltaMinutes:windowCheck.deltaMinutes,integrityRepairRound:round,repairAttemptCount:round};const vr=validateRecord(candidate,sym);if(!windowCheck.ok||!vr.ok)throw new Error(!windowCheck.ok?(windowCheck.reason||'MARKET_TIME_WINDOW_FAILED'):vr.issues.join(','));await stagePut(job.id,sym,candidate);repaired++;}catch(e){failed++;await issue(job,sym,'*','ALL',`INTEGRITY_REPAIR_ROUND_${round}_FAILED`,e?.message||String(e));}}
+  for(const sym of targets){await pauseCheckpoint(job,JOB_STATUS.FETCHING_DATA);const stagedRec=staged.find(x=>x.sym===sym)||null,prior=stagedRec?.series?.date?.length?stagedRec:(state.recordMap.get(sym)||null),base=prior?.series?.date?.length?bundleFromRecord(prior):null;const onSource=({provider})=>setRuntime({status:JOB_STATUS.FETCHING_DATA,jobId:job.id,mode:job.mode,stage:'Veriler',done:job.processedSymbols||0,total:universe.length,message:`${sym} · bütün kaynaklar · tur ${round}/5 · ${sourceName(provider)}`,symbol:sym,provider});try{const extra=await fetchSymbolBundle(sym,start,end,{mode:'FORCE_ALL',baseBundle:base,onSource}),merged=mergeBundles(sym,[extra]),candidate=enrichBundle(merged,indexBundle),windowCheck=marketWindowCheck(candidate,job.canonicalMarketAt);candidate.providerAttempts=[...(extra.attempts||[]),{provider:'ALL_ALTERNATIVES',status:'INTEGRITY_REPAIR',round}];candidate.dataSnapshotId=job.dataSnapshotId;candidate.jobId=job.id;candidate.jobMode=job.mode;candidate.jobDataStatus='FRESH';candidate.marketWindowEligible=windowCheck.ok;candidate.marketWindowDeltaMinutes=windowCheck.deltaMinutes;candidate.provenance={sources:candidate.providers||[],marketAt:candidate.marketDataAt||null,marketTimeVerified:candidate.marketTimeVerified===true,marketTimeProvider:candidate.marketTimeProvider||null,receivedAt:merged.receivedAt||null,validatedAt:nowISO(),jobId:job.id,canonicalMarketAt:job.canonicalMarketAt,marketWindowDeltaMinutes:windowCheck.deltaMinutes,integrityRepairRound:round,repairAttemptCount:round};const vr=validateRecord(candidate,sym);if(!windowCheck.ok||!vr.ok)throw new Error(!windowCheck.ok?(windowCheck.reason||'MARKET_TIME_WINDOW_FAILED'):vr.issues.join(','));await stagePut(job.id,sym,candidate);repaired++;}catch(e){failed++;await issue(job,sym,'*','ALL',`INTEGRITY_REPAIR_ROUND_${round}_FAILED`,e?.message||String(e));}}
   staged=(await stageRows(job.id)).map(x=>x.record);summary=dataSummary(publishableStagedRecords(staged,job));gate=dataIntegrityGate(summary);roundLog.push({round,targetCount:targets.length,repaired,failed,missingSymbols:gate.missingSymbols,missingColumns:gate.missingColumns,at:nowISO()});job.integrityRepairRounds=roundLog;await saveJob(job);if(gate.ok)break;
  }
  return {summary,gate,roundLog};}
@@ -527,7 +527,7 @@ function normalizeCalculationRecord(rec){
   return rec;
 }
 function calculationGateStatus(){const summary=dataSummary(state.records),fillPct=Number(summary.fillPct||0),ok=fillPct>=70,gate={ok,missingSymbols:Number(summary.missingSymbolCount||0),missingColumns:(summary.incompleteColumns||summary.missingColumns||[]).length,rows:Number(summary.loadedSymbols||0),eligibleRows:Number(summary.calculationEligibleRows||0),fillPct,minFillPct:70,reason:ok?null:`Türev hesaplama kapısı: Veriler doluluğu %${fillPct.toFixed(2)} < %70; önceki Kn/K_Tarihsel/S/AL-SAT korunuyor`};return {summary,gate,reason:gate.reason};}
-function calculationRecords(){const status=calculationGateStatus();if(!status.gate.ok)return [];const out=[];for(const source of state.records||[]){const rec=cloneForCalculation(source);normalizeCalculationRecord(rec);rec.calculationEligible=true;out.push(rec);}return out;}
+function calculationRecords(){const status=calculationGateStatus();if(!status.gate.ok)return [];const out=[];for(const source of state.records||[]){if(source?.calculationEligible===false)continue;const rec=cloneForCalculation(source);normalizeCalculationRecord(rec);rec.calculationEligible=true;out.push(rec);}return out;}
 globalThis.calculationRecords=calculationRecords;
 
 const LOCAL_REPAIR_V117_KEY='aurum.runtime.localRepair.v117';
@@ -620,7 +620,7 @@ async function prepareGeneralData(job,mode='GENERAL'){
        symbols remain in durable staging and are retried from alternative providers. */
     const __repair=await repairStagedIntegrity(job,universe,start,end,indexBundle);await flushStageBatch(job.id);
     const staged=(await stageRows(job.id)).map(x=>x.record),freshStaged=staged.filter(x=>x?.jobDataStatus==='FRESH'),__notFresh=universe.filter(sym=>!staged.some(r=>r?.sym===sym&&r?.jobDataStatus==='FRESH')),marketFreshStaged=freshStaged.filter(x=>x?.marketWindowEligible===true),temporal=liveTemporalAudit(marketFreshStaged);
-    if(__notFresh.length){job.retryCount=(job.retryCount||0)+1;job.pendingFreshSymbols=__notFresh.slice();job.integrityRepairRounds=__repair?.roundLog||job.integrityRepairRounds||[];await transition(job,JOB_STATUS.RETRY_PENDING,{error:'INCOMPLETE_FRESH_SNAPSHOT',message:`Tutarlı snapshot bekleniyor · ${freshStaged.length}/${universe.length} taze · ${__notFresh.length} hisse staging'de tamamlanacak`,done:freshStaged.length,total:universe.length});return false;}
+    if(__notFresh.length){job.pendingFreshSymbols=__notFresh.slice();job.integrityRepairRounds=__repair?.roundLog||job.integrityRepairRounds||[];job.partialFreshPublication={freshSymbols:freshStaged.length,totalSymbols:universe.length,pendingSymbols:__notFresh.slice(),at:nowISO(),rule:'ATOMIC_PUBLISH_ONLY_IF_FRESH_CANDIDATE_FILL_GTE_70'};await saveJob(job);}
     if(!__repair?.gate?.ok){job.retryCount=(job.retryCount||0)+1;await transition(job,JOB_STATUS.RETRY_PENDING,{error:'DATA_FILL_BELOW_70',message:`Veri doluluğu %${Number(__repair?.gate?.fillPct||0).toFixed(1)} · %70 eşiği aşılmadı; mevcut tablolar ve zaman damgaları korunuyor`,done:freshStaged.length,total:universe.length});return false;}
     if(!freshStaged.length)throw Object.assign(new Error('NO_FRESH_DATA_TRANSFERRED'),{code:'NO_FRESH_DATA_TRANSFERRED'});
     if(marketFreshStaged.length&&!temporal.ok)throw new Error('MARKET_TIME_WINDOW_VIOLATION_BEFORE_PUBLISH');
@@ -949,7 +949,7 @@ function schedulerAuditDiffB(before,after){return Object.fromEntries(['data','kn
 async function runAutoJob(job,mode='GENERAL'){
   r221StartBudget(job);const preMainMeta=await currentSnapshotMeta();job.schedulerAudit={startedAt:nowISO(),beforeTimes:await schedulerAuditTimesB()};job.repairFreshnessAnchorAt=preMainMeta?.transferredAt||preMainMeta?.completedAt||null;job.requestedDataMode='FULL';await saveJob(job);
   if(!(await prepareData(job,'FULL')))return false;
-  const m=await r221SmartCompletion(job,{origin:'AUTO_SCHEDULE'});
+  const m=await r221SmartCompletion(job,{alreadyRan:Math.min(R221_SMART_MAX_ROUNDS,Number(job.integrityRepairRounds?.length||0)),origin:'AUTO_SCHEDULE'});
   const gate=calculationGateStatus();if(!gate.gate.ok){if(Number(gate.summary?.fillPct||0)<70){job.derivationSuppressed=true;job.derivationSuppressedReason=gate.reason;await saveJob(job);const afterTimes=await schedulerAuditTimesB();job.schedulerAudit={...(job.schedulerAudit||{}),completedAt:nowISO(),mainFillPct:job.smartCompletion?.auditRounds?.[0]?.beforeFillPct??job.smartCompletion?.finalFillPct,rounds:job.smartCompletion?.auditRounds||[],finalFillPct:Number(gate.summary?.fillPct||0),verilerPublished:true,derivedAllowed:false,tables:schedulerAuditDiffB(job.schedulerAudit?.beforeTimes,afterTimes)};await saveJob(job);await transition(job,JOB_STATUS.COMPLETED,{error:null,message:`Veriler %${Number(gate.summary?.fillPct||0).toFixed(2)} dolulukla yayınlandı · %70 altı olduğu için Kn/K_Tarihsel/S/AL-SAT önceki geçerli durumunu korudu`});return true}await transition(job,JOB_STATUS.FAILED,{error:'POST_REPAIR_CALCULATION_GATE',message:`Veriler yayınlandı fakat türev tablolar için kalite kapısı geçilmedi · ${gate.reason||''}`});return false}
   if(!(await calculateKn(job)))return false;if(!(await archiveHistorical(job)))return false;const ok=await calculateS(job);job.pipelineElapsedMs=Date.now()-Date.parse(job.pipelineStartedAt||nowISO());job.pipelineOverTarget=job.pipelineElapsedMs>R221_PIPELINE_TARGET_MS;const afterTimes=await schedulerAuditTimesB();job.schedulerAudit={...(job.schedulerAudit||{}),completedAt:nowISO(),mainFillPct:job.smartCompletion?.auditRounds?.[0]?.beforeFillPct??job.smartCompletion?.finalFillPct,rounds:job.smartCompletion?.auditRounds||[],finalFillPct:job.smartCompletion?.finalFillPct,verilerPublished:true,derivedAllowed:true,tables:schedulerAuditDiffB(job.schedulerAudit?.beforeTimes,afterTimes)};await saveJob(job);return ok
 }
@@ -976,7 +976,7 @@ async function runManualData(mode='GENERAL'){
     if(normalized==='LIVE'){const gate=liveCollectionGate();if(gate.mayCollectLiveData===false){showAurumNotice(`Canlı veri kapısı kapalı: ${gate.reason||'resmî seans doğrulanmadı'}`,'info',3200);return false;}}
     const job=await createJob('MANUAL','USER',null,'DATA');job.operationType=normalized==='REPAIR'?'REPAIR':'MANUAL';r221StartBudget(job);const preMainMeta=await currentSnapshotMeta();job.repairFreshnessAnchorAt=preMainMeta?.transferredAt||preMainMeta?.completedAt||null;job.requestedDataMode=normalized;await saveJob(job);
     const ok=await prepareData(job,normalized);if(!ok){if(job.status!==JOB_STATUS.WAITING_FOR_NETWORK)operationFailureNotice(normalized==='REPAIR'?'Eksikleri Tamamla':'Verileri Güncelle',job,'Veri aktarımı tamamlanamadı');return false}
-    const alreadyRan=normalized==='REPAIR'&&job.requestedDataMode!=='FULL'?1:0,completionOrigin=normalized==='REPAIR'?(job.requestedDataMode==='FULL'?'MANUAL_REPAIR_FULL':'MANUAL_REPAIR'):'MANUAL_MAIN',m=await r221SmartCompletion(job,{alreadyRan,origin:completionOrigin});
+    const alreadyRan=Math.max(normalized==='REPAIR'&&job.requestedDataMode!=='FULL'?1:0,Math.min(R221_SMART_MAX_ROUNDS,Number(job.integrityRepairRounds?.length||0))),completionOrigin=normalized==='REPAIR'?(job.requestedDataMode==='FULL'?'MANUAL_REPAIR_FULL':'MANUAL_REPAIR'):'MANUAL_MAIN',m=await r221SmartCompletion(job,{alreadyRan,origin:completionOrigin});
     saveManualSequence({dataSnapshotId:job.dataSnapshotId,dataJobId:job.id,kn:false,history:false,s:false});job.pipelineElapsedMs=Date.now()-Date.parse(job.pipelineStartedAt||nowISO());await saveJob(job);
     showAurumNotice(`Veriler yayınlandı · doluluk %${Number(m.summary.fillPct||0).toFixed(2)} · akıllı tamamlama ${Number(job.smartCompletion?.rounds||0)}/${R221_SMART_MAX_ROUNDS}`,'success',5600);return true
   }catch(e){
@@ -1375,6 +1375,9 @@ async function bootstrapClean(){
     await nextPaint();
 
     await loadState();
+    /* Restore durable snapshot/table timestamps before the first data-backed paint. This is
+       cache-only: no network work is started by foreground launch. */
+    await refreshTableMeta();
     /* Market alarms are a separate pipeline. Do not run data repair/scheduledEntry here;
        trigger-contract.js owns Market + Finance + Nederland completion. */
     if(BACKGROUND_SYNC&&AURUM_BACKGROUND_PIPELINE==='market'){
@@ -6345,4 +6348,95 @@ globalThis.AurumNotifications=Object.freeze({version:'R225.0',open:openJournal,r
  const oldRepair=repairCenterModule;repairCenterModule=function(){const q=r73RepairQueue();return aurumSettingsCard('Bakım ve Onarım','Tek merkez · doğruluk · süreklilik · sorun denetimi · onarım · staging · zamanlayıcı · veri aktarımı',`<div class="aurum-compact-settings"><div class="list-row"><div><strong>Açık bulgular</strong><small>${q.length?q.slice(0,6).map(x=>html(x.id)).join(' · '):'Açık bulgu yok'}</small></div><span class="badge ${q.length?'bad':'ok'}">${q.length?q.length:'TEMİZ'}</span></div><div class="actions"><button class="gold-btn" onclick="runTableCalculationAudit()">Tam Denetim</button><button class="ghost-btn" onclick="aurumRunAccuracyAudit(false).then(r=>writeLocal('aurumAccuracyUiLast',r))">Doğruluk Denetimi</button><button class="ghost-btn" onclick="aurumRunAccuracyAudit(true).then(r=>writeLocal('aurumAccuracyUiLast',r))">Doğruluk + Güvenli Düzelt</button><button class="gold-btn" onclick="runRepairCenter('AUTO_FIX')">Tümünü Onar</button><button class="ghost-btn" onclick="runRepairCenter('DIAGNOSE')">Tanıla</button><button class="ghost-btn" onclick="runRepairCenter('TRANSFER')">Veri Aktarımı</button><button class="ghost-btn" onclick="runRepairCenter('STAGING')">Geçici Depo</button><button class="ghost-btn" onclick="runRepairCenter('BACKGROUND')">Arka Plan</button><button class="ghost-btn" onclick="runRepairCenter('SCHEDULER')">Zamanlayıcı</button><button class="ghost-btn" onclick="runRepairCenter('ONLINE')">Online Onarım</button><button class="ghost-btn" onclick="runRepairCenter('NATIVE')">Native Köprü</button><button class="ghost-btn" onclick="runRepairCenter('UI')">Görünüm</button><button class="ghost-btn" onclick="runRepairCenter('SETTINGS')">Ayarlar</button></div></div>`,'r44RepairCenter')};globalThis.repairCenterModule=repairCenterModule;
  globalThis.rev20UserRepairModule=()=>'';globalThis.tableAuditSettingsModule=()=>'';
  const prior=globalThis.settingsPage||settingsPage;globalThis.settingsPage=settingsPage=function compactSettingsB(){queueMicrotask(()=>trimJournal().then(()=>{document.querySelectorAll('.aurum-settings-details').forEach(el=>{const t=el.querySelector('summary strong')?.textContent?.trim()||'';if(['Bildirimler','Bildirimler ve Sistem Logları','Veri ve Hesaplama Doğruluk Denetimi','Tablo ve Hesaplama Denetimi','Sorunları Gider / Onarım','Süreklilik ve Sorun Denetimi','Bakım ve Sorun Giderme'].includes(t))el.remove()})}).catch(()=>{}));return compactLogModule()+prior()};globalThis.settingsSub=globalThis.settingsPage;
+})();
+
+
+/* ===== REV20.44 — scheduler publication / timestamp / AL-SAT continuity repair =====
+   Cache-only foreground resync is allowed on visibility/storage events; it never starts network work.
+   The background WebView signals only after a durable atomic data/S publication. */
+(function installR244PublicationContinuity(){
+  'use strict';
+  if(globalThis.__AURUM_REV2044_PUBLICATION_CONTINUITY)return;
+  globalThis.__AURUM_REV2044_PUBLICATION_CONTINUITY=true;
+  const SIGNAL_KEY='aurum.runtime.publish.signal.r244';
+  let reloading=false,lastSeenSignal='';
+
+  function signal(stage,job){
+    const payload={stage:String(stage||''),jobId:String(job?.id||''),snapshotId:String(job?.dataSnapshotId||''),at:nowISO()};
+    writeLocal(SIGNAL_KEY,payload);
+    lastSeenSignal=JSON.stringify(payload);
+    return payload;
+  }
+
+  async function reloadPublishedState(){
+    if(BACKGROUND_SYNC||reloading||!state.db)return false;
+    reloading=true;
+    try{
+      const [recordRows,activeRow,knRow,sRow]=await Promise.all([
+        dbAll('records'),dbGet('meta','activeDataSnapshot'),dbGet('meta','knTableState'),dbGet('meta','selectionTableState')
+      ]);
+      const activeId=activeRow?.value?.snapshotId||null;
+      const rows=recordRows.map(x=>x.value).filter(Boolean);
+      state.records=rows;
+      state.recordMap=new Map(rows.map(x=>[x.sym,x]));
+      const ks=knRow?.value;
+      if(activeId&&ks?.dataSnapshotId===activeId&&ks?.scores&&typeof ks.scores==='object'){
+        state.scores=Object.fromEntries(Object.entries(ks.scores).map(([k,list])=>[
+          k,(Array.isArray(list)?list:[]).map(x=>({...x,record:state.recordMap.get(x.sym)||null})).filter(x=>x.sym&&x.record)
+        ]));
+      }
+      const ss=sRow?.value;
+      if(activeId&&ss?.dataSnapshotId===activeId&&Array.isArray(ss.rows)){
+        state.selection=ss.rows.map(x=>{const rec=state.recordMap.get(x.sym);return rec?{...rec,...x,record:rec}:x}).filter(x=>x?.sym);
+      }
+      await refreshTableMeta();
+      try{await globalThis.AurumPortfolio?.markAndSave?.('BACKGROUND_PUBLISH_VISIBLE')}catch{}
+      try{renderCurrentPagePreservingView()}catch{try{render()}catch{}}
+      return true;
+    }catch(e){
+      try{console.warn('R244 cache-only publication reload failed',e)}catch{}
+      return false;
+    }finally{reloading=false}
+  }
+
+  const baseAtomic=atomicPublish;
+  atomicPublish=async function atomicPublishR244(job,universe){
+    const out=await baseAtomic(job,universe);
+    signal('DATA',job);
+    return out;
+  };
+  globalThis.atomicPublish=atomicPublish;
+
+  const baseCalculateS=calculateS;
+  calculateS=async function calculateSR244(job){
+    const ok=await baseCalculateS(job);
+    if(!ok)return ok;
+    try{
+      const qev=await globalThis.AurumQualifiedBuySell?.advance?.(job);
+      if(qev){
+        try{await globalThis.AurumPortfolio?.reconcile?.('S_PUBLISHED')}catch(e){console.warn('R244 AL/SAT portfolio reconcile',e)}
+        if(qev.buys?.length||qev.sells?.length){
+          job.sNotificationDetail=`${qev.buys?.length?`AL ${qev.buys.join(', ')}`:''}${qev.buys?.length&&qev.sells?.length?' · ':''}${qev.sells?.length?`SAT ${qev.sells.join(', ')}`:''}`;
+          try{await saveJob(job)}catch{}
+        }
+      }
+    }catch(e){
+      try{await log('warn','S tamamlandı fakat AL/SAT yaşam döngüsü güncellenemedi',{error:e?.message||String(e),jobId:job?.id||null})}catch{}
+    }
+    try{await refreshTableMeta()}catch{}
+    signal('S',job);
+    return true;
+  };
+  globalThis.calculateS=calculateS;
+
+  addEventListener('storage',e=>{
+    if(e.key!==SIGNAL_KEY||!e.newValue||e.newValue===lastSeenSignal)return;
+    lastSeenSignal=e.newValue;
+    reloadPublishedState();
+  });
+  addEventListener('pageshow',()=>{const current=localStorage.getItem(SIGNAL_KEY)||'';if(current&&current!==lastSeenSignal){lastSeenSignal=current;reloadPublishedState();}});
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden){const current=localStorage.getItem(SIGNAL_KEY)||'';if(current&&current!==lastSeenSignal){lastSeenSignal=current;reloadPublishedState();}}});
+
+  globalThis.AurumPublicationContinuity=Object.freeze({version:'R244.0',reload:reloadPublishedState,signalKey:SIGNAL_KEY});
+  try{AurumUpdateAPI.state.r244={version:'REV20.44',activatedAt:nowISO(),features:['CACHE_ONLY_FOREGROUND_RESYNC','DURABLE_TIMESTAMP_RELOAD','AL_SAT_AFTER_FINAL_S','BACKGROUND_PUBLISH_SIGNAL']}}catch{}
 })();
