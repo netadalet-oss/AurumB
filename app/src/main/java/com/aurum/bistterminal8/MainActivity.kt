@@ -359,6 +359,32 @@ class MainActivity : AppCompatActivity() {
         return "OK"
     }
 
+    private fun refreshPublishedLocalState() {
+        if (!::webView.isInitialized) return
+        runOnUiThread {
+            webView.evaluateJavascript(
+                "window.AurumPublicationContinuity&&window.AurumPublicationContinuity.reload&&window.AurumPublicationContinuity.reload()",
+                null
+            )
+        }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        PublicationBus.attach { refreshPublishedLocalState() }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Cache-only resync. This never starts a provider request or a scheduler job.
+        refreshPublishedLocalState()
+    }
+
+    override fun onStop() {
+        PublicationBus.detach()
+        super.onStop()
+    }
+
     override fun onSaveInstanceState(outState: Bundle) {
         webView.saveState(outState)
         super.onSaveInstanceState(outState)

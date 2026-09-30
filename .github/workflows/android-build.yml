@@ -89,6 +89,13 @@ jobs:
           grep -F "__AURUM_REV2044_PUBLICATION_CONTINUITY" "$R"
           grep -F "AurumQualifiedBuySell?.advance?.(job)" "$R"
           grep -F "AurumPortfolio?.reconcile?.('S_PUBLISHED')" "$R"
+          grep -F "state.selectionDisplaySnapshot=" "$R"
+          grep -F "state.knDisplaySnapshot=" "$R"
+          grep -F "const retryDelays=[5000,15000,45000]" "$R"
+          grep -F "WAITING_FOR_NETWORK_RETRY_EXHAUSTED" "$R"
+          grep -F "PublicationBus.publish()" app/src/main/java/com/aurum/bistterminal8/PipelineService.kt
+          grep -F "AurumPublicationContinuity.reload" app/src/main/java/com/aurum/bistterminal8/MainActivity.kt
+          grep -F "object PublicationBus" app/src/main/java/com/aurum/bistterminal8/PublicationBus.kt
           grep -F "ensureNativeParity('STARTUP')" app/src/main/assets/scheduler-settings.js
           grep -F "val rearmAfter = maxOf(Instant.now(), Instant.ofEpochMilli(epoch).plusSeconds(1))" app/src/main/java/com/aurum/bistterminal8/TriggerReceiver.kt
           grep -F "state.selectionDisplaySnapshot=" app/src/main/assets/core.js
