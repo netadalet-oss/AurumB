@@ -3803,6 +3803,15 @@ try{AurumUpdateAPI.state.cleanREV20={version:'REV20.0-CLEAN',activatedAt:new Dat
         try{await globalThis.r21DispatchSChange?.(d.in,d.out,at,job)}catch{}
       }
 
+      /* R34 is the canonical S owner. Earlier S wrappers are intentionally superseded, so
+         canonical qualified AL/SAT advancement and portfolio reconciliation must live here
+         rather than depend on wrapper installation order. Both APIs are internally idempotent. */
+      const qev=await globalThis.AurumQualifiedBuySell?.advance?.(job);
+      if(qev){
+        try{await globalThis.AurumPortfolio?.reconcile?.()}catch(e){console.warn('AL/SAT portfolio reconcile',e)}
+        if(qev.buys?.length||qev.sells?.length)job.sNotificationDetail=`${qev.buys?.length?`AL ${qev.buys.join(', ')}`:''}${qev.buys?.length&&qev.sells?.length?' · ':''}${qev.sells?.length?`SAT ${qev.sells.join(', ')}`:''}`;
+      }
+
       await markDerivedUpdate('S');
       await refreshTableMeta();
       await transition(job,JOB_STATUS.COMPLETED,{completedAt:nowISO(),message:`S tamamlandı · ${state.selection.length} hisse · deterministik`,done:1,total:1});
