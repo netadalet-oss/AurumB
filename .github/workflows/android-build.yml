@@ -134,8 +134,8 @@ jobs:
           test -n "$UNSIGNED" && test -f "$UNSIGNED" || { echo "Unsigned release APK not found"; exit 1; }
           "$BUILD_TOOLS/zipalign" -f -p 4 "$UNSIGNED" app/build/outputs/apk/AurumB-final-aligned.apk
           if [[ -z "$AURUMB_KEYSTORE_B64" || -z "$AURUMB_KEYSTORE_PASSWORD" || -z "$AURUMB_KEY_ALIAS" || -z "$AURUMB_KEY_PASSWORD" ]]; then
-            echo "::warning::Persistent signing keystore secrets are not configured. Build verification remains valid; update-compatible final APK is not produced."
-            exit 0
+            echo "::error::Persistent signing keystore secrets are not configured. Update-compatible final APK cannot be produced."
+            exit 1
           fi
           printf '%s' "$AURUMB_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/aurumb-final.jks"
           "$BUILD_TOOLS/apksigner" sign --ks "$RUNNER_TEMP/aurumb-final.jks" --ks-key-alias "$AURUMB_KEY_ALIAS" --ks-pass "pass:$AURUMB_KEYSTORE_PASSWORD" --key-pass "pass:$AURUMB_KEY_PASSWORD" --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled true --out app/build/outputs/apk/AurumB-final-install.apk app/build/outputs/apk/AurumB-final-aligned.apk
@@ -151,11 +151,11 @@ jobs:
         with:
           name: AurumB-aligned-for-signing
           path: app/build/outputs/apk/AurumB-final-aligned.apk
-          if-no-files-found: ignore
+          if-no-files-found: error
       - name: Upload APK
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && success()
         uses: actions/upload-artifact@v4
         with:
           name: AurumB-final-installable-apk
           path: app/build/outputs/apk/AurumB-final-install.apk
-          if-no-files-found: ignore
+          if-no-files-found: error
