@@ -14,10 +14,13 @@ class TriggerReceiver : BroadcastReceiver() {
         val epoch = intent.getLongExtra("epoch", 0L).takeIf { it > 0L } ?: System.currentTimeMillis()
 
         // One-shot alarms are always re-armed, including duplicate deliveries.
+        // Re-arm from the later of the scheduled instant and the actual delivery time.
+        // A delayed alarm must never schedule a follow-up in the past and create a catch-up storm.
+        val rearmAfter = maxOf(Instant.now(), Instant.ofEpochMilli(epoch).plusSeconds(1))
         AurumScheduler.scheduleNextForTime(
             context,
             slotTime,
-            Instant.ofEpochMilli(epoch).plusSeconds(1),
+            rearmAfter,
             kind
         )
 
