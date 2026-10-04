@@ -33,8 +33,8 @@ jobs:
         run: |
           set -euo pipefail
           R=app/src/main/assets/runtime.js
-          grep -F "threshold=fill>=95?95:fill>=90?90:fill>=80?80:fill>=70?70:null" "$R"
-          grep -F "ladder:[95,90,80,70]" "$R"
+          grep -F "threshold=fill>=100?100:fill>=95?95:fill>=90?90:fill>=80?80:fill>=70?70:null" "$R"
+          grep -F "ladder:[100,95,90,80,70]" "$R"
           grep -F "derivedUpdateAllowed:ok" "$R"
           grep -F "DATA_FILL_BELOW_70_KEEP_LAST_VALID_SNAPSHOT" "$R"
           grep -F "READY_TO_PUBLISH:'READY_TO_PUBLISH'" "$R"
