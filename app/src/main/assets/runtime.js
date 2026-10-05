@@ -6372,14 +6372,13 @@ globalThis.AurumNotifications=Object.freeze({version:'R225.0',open:openJournal,r
  async function trimJournal(){
    try{
      const all=(await dbAll('logs')).sort((a,b)=>Date.parse(b.ts||b.at||0)-Date.parse(a.ts||a.at||0)),
-       cutoff=Date.now()-7*86400000,n=[],l=[],seenN=new Set(),seenL=new Set(),persistent=[];
+       cutoff=Date.now()-7*86400000,n=[],l=[],seenN=new Set(),seenL=new Set();
      for(const x of all){
        const at=Date.parse(x.ts||x.at||0),important=r44ImportantJournalEvent(x);
        if(!Number.isFinite(at)||at<cutoff||!important){
          if(x.id!=null)await dbDelete('logs',x.id);
          continue;
        }
-       persistent.push(x);
        const notice=String(x.message||'').startsWith('UI bildirimi:'),seen=notice?seenN:seenL,target=notice?n:l,key=r44JournalFingerprint(x);
        if(seen.has(key)||target.length>=20)continue;
        seen.add(key);target.push(x);
