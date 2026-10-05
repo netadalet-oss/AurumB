@@ -6347,9 +6347,57 @@ globalThis.AurumNotifications=Object.freeze({version:'R225.0',open:openJournal,r
  if(globalThis.__AURUM_COMPACT_SETTINGS_B)return;globalThis.__AURUM_COMPACT_SETTINGS_B=true;
  const css=document.createElement('style');css.textContent='.aurum-compact-report{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 8px;font-size:9px;line-height:1.25}.aurum-compact-report small,.aurum-compact-settings small{font-size:9px!important;line-height:1.3!important}.aurum-compact-settings .actions{gap:5px}.aurum-compact-settings button{font-size:9px!important;padding:5px 8px!important;min-height:26px}.aurum-scheduler-report-row{display:grid!important;grid-template-columns:44px 62px minmax(0,1fr);gap:4px 8px;align-items:start;padding:5px 0!important}.aurum-scheduler-report-row small{font-size:8.5px!important;line-height:1.25!important}.aurum-compact-log{max-height:310px;overflow:auto}.aurum-compact-log .aurum-r225-log-row{padding:4px 1px}.aurum-compact-log b{font-size:9px;font-weight:600}.aurum-compact-log small{font-size:8px!important}';document.head.appendChild(css);
  const compactJournal={rows:[]};
- function compactLogModule(){const rows=compactJournal.rows.slice().sort((a,b)=>Date.parse(b.ts||b.at||0)-Date.parse(a.ts||a.at||0)),notices=rows.filter(x=>String(x.message||'').startsWith('UI bildirimi:')).slice(0,20),logs=rows.filter(x=>!String(x.message||'').startsWith('UI bildirimi:')).slice(0,20),render=a=>a.length?a.map(x=>'<div class="aurum-r225-log-row"><b>'+html(String(x.level||'info').toUpperCase())+' · '+html(x.message||'')+'</b><small>'+html(formatTableTime(x.ts||x.at))+'</small></div>').join(''):'<small class="muted">Kayıt yok.</small>';return '<details class="card gold-edge aurum-settings-details aurum-compact-settings" id="aurumCompactNotificationsLogs"><summary class="aurum-settings-summary"><div><strong>Bildirimler ve Loglar</strong><small>Son 20 bildirim · son 20 log · daha eskiler otomatik temizlenir</small></div><span class="aurum-details-chevron">⌄</span></summary><div class="aurum-settings-details-body"><div class="actions"><button class="ghost-btn" onclick="AurumCompactNotifications.refresh()">Yenile</button></div><div class="aurum-compact-report"><div><b>Bildirimler · '+notices.length+'/20</b><div class="aurum-compact-log">'+render(notices)+'</div></div><div><b>Loglar · '+logs.length+'/20</b><div class="aurum-compact-log">'+render(logs)+'</div></div></div></div></details>'}
- async function trimJournal(){try{const rows=(await dbAll('logs')).sort((a,b)=>Date.parse(b.ts||b.at||0)-Date.parse(a.ts||a.at||0)),n=[],l=[];for(const x of rows){(String(x.message||'').startsWith('UI bildirimi:')?n:l).push(x)}const kept=[...n.slice(0,20),...l.slice(0,20)].sort((a,b)=>Date.parse(b.ts||b.at||0)-Date.parse(a.ts||a.at||0));compactJournal.rows=kept;const keep=new Set(kept.map(x=>x.id));for(const x of rows)if(x.id!=null&&!keep.has(x.id))await dbDelete('logs',x.id);return kept}catch{return compactJournal.rows}}
- globalThis.AurumCompactNotifications=Object.freeze({refresh:async()=>{await trimJournal();if(state.page==='settings')renderCurrentPagePreservingView();return compactJournal.rows}})
+ function r44ImportantJournalEvent(x){
+   const level=String(x?.level||'info').toUpperCase(),message=String(x?.message||''),meta=JSON.stringify(x?.meta||{}),u=(message+' '+meta).toLocaleUpperCase('tr-TR');
+   if(level==='ERROR'||level==='WARN'||level==='WARNING')return true;
+   const critical=/(FAIL|ERROR|HATA|BAŞARISIZ|SECURITY|GÜVEN|BLOCK|ENGEL|TRADE|AL\/SAT|MODEL|BACKUP|YEDEK|RESTORE|GERİ YÜK|IMPORT|İÇE AKTAR|EXPORT|DIŞA AKTAR|INTEGRITY|BÜTÜNLÜK|REPAIR|ONAR|CANCEL|İPTAL|INTERRUPT|KESİNTİ|GATE|EŞİK|NOTIFICATION|BİLDİRİM TESLİM|DATABASE|VERİTABANI|ROLLBACK|GÜNCELLEME PAKET|İMZA)/.test(u);
+   const routine=/(FETCHING_DATA|STAGING|VALIDATING|READY_TO_PUBLISH|DATA_COMPLETED|KN_COMPLETED|K_TARIHSEL_COMPLETED|\bCOMPLETED\b|\bSUCCESS\b|\bSUCCEEDED\b|BAŞARILI|DOĞRULANDI)/.test(u)&&!critical;
+   if(routine)return false;
+   return critical || /(UYGULAMA|SİSTEM GENEL|ZAMANLAYICI|SCHEDULER|ALARM|AYARLAR KAYDEDİLDİ|VARSAYILANA DÖN|İZİN|PORTAL|BAKIM)/.test(u);
+ }
+ function r44JournalFingerprint(x){
+   return String(x?.level||'info').toUpperCase()+'|'+String(x?.message||'')
+     .toLocaleUpperCase('tr-TR')
+     .replace(/\b[A-ZÇĞİÖŞÜ]{2,8}\b/g,'<ITEM>')
+     .replace(/\d{1,4}([.,:]\d{1,4})*/g,'#')
+     .replace(/\s+/g,' ').trim();
+ }
+ function compactLogModule(){
+   const rows=compactJournal.rows.slice().sort((a,b)=>Date.parse(b.ts||b.at||0)-Date.parse(a.ts||a.at||0)),
+     notices=rows.filter(x=>String(x.message||'').startsWith('UI bildirimi:')).slice(0,20),
+     logs=rows.filter(x=>!String(x.message||'').startsWith('UI bildirimi:')).slice(0,20),
+     render=a=>a.length?a.map(x=>'<div class="aurum-r225-log-row"><b>'+html(String(x.level||'info').toUpperCase())+' · '+html(x.message||'')+'</b><small>'+html(formatTableTime(x.ts||x.at))+'</small></div>').join(''):'<small class="muted">Kayıt yok.</small>';
+   return '<details class="card gold-edge aurum-settings-details aurum-compact-settings" id="aurumCompactNotificationsLogs"><summary class="aurum-settings-summary"><div><strong>Bildirimler ve Loglar</strong><small>Önemli olaylar · en fazla 20 bildirim + 20 log · Pazar 00:00 bakım</small></div><span class="aurum-details-chevron">⌄</span></summary><div class="aurum-settings-details-body"><div class="actions"><button class="ghost-btn" onclick="AurumCompactNotifications.refresh()">Yenile</button><button class="ghost-btn" onclick="AurumCompactNotifications.clear()">Geçmişi Temizle</button></div><div class="aurum-compact-report"><div><b>Bildirimler · '+notices.length+'/20</b><div class="aurum-compact-log">'+render(notices)+'</div></div><div><b>Loglar · '+logs.length+'/20</b><div class="aurum-compact-log">'+render(logs)+'</div></div></div></div></details>'
+ }
+ async function trimJournal(){
+   try{
+     const all=(await dbAll('logs')).sort((a,b)=>Date.parse(b.ts||b.at||0)-Date.parse(a.ts||a.at||0)),
+       cutoff=Date.now()-7*86400000,n=[],l=[],seenN=new Set(),seenL=new Set();
+     for(const x of all){
+       const at=Date.parse(x.ts||x.at||0);
+       if(!Number.isFinite(at)||at<cutoff||!r44ImportantJournalEvent(x))continue;
+       const notice=String(x.message||'').startsWith('UI bildirimi:'),seen=notice?seenN:seenL,target=notice?n:l,key=r44JournalFingerprint(x);
+       if(seen.has(key)||target.length>=20)continue;
+       seen.add(key);target.push(x);
+     }
+     const kept=[...n,...l].sort((a,b)=>Date.parse(b.ts||b.at||0)-Date.parse(a.ts||a.at||0));
+     compactJournal.rows=kept;
+     const keep=new Set(kept.map(x=>x.id));
+     for(const x of all)if(x.id!=null&&!keep.has(x.id))await dbDelete('logs',x.id);
+     return kept;
+   }catch{return compactJournal.rows}
+ }
+ async function clearCompactJournal(){
+   try{for(const x of await dbAll('logs'))if(x.id!=null)await dbDelete('logs',x.id)}catch{}
+   compactJournal.rows=[];
+   if(state.page==='settings')renderCurrentPagePreservingView();
+   return true
+ }
+ globalThis.AurumCompactNotifications=Object.freeze({
+   refresh:async()=>{await trimJournal();if(state.page==='settings')renderCurrentPagePreservingView();return compactJournal.rows},
+   cleanup:trimJournal,
+   clear:clearCompactJournal
+ })
  globalThis.compactNotificationLogModuleB=compactLogModule;
  const oldRepair=repairCenterModule;repairCenterModule=function(){const q=r73RepairQueue();return aurumSettingsCard('Bakım ve Onarım','Tek merkez · doğruluk · süreklilik · sorun denetimi · onarım · staging · zamanlayıcı · veri aktarımı',`<div class="aurum-compact-settings"><div class="list-row"><div><strong>Açık bulgular</strong><small>${q.length?q.slice(0,6).map(x=>html(x.id)).join(' · '):'Açık bulgu yok'}</small></div><span class="badge ${q.length?'bad':'ok'}">${q.length?q.length:'TEMİZ'}</span></div><div class="actions"><button class="gold-btn" onclick="runTableCalculationAudit()">Tam Denetim</button><button class="ghost-btn" onclick="aurumRunAccuracyAudit(false).then(r=>writeLocal('aurumAccuracyUiLast',r))">Doğruluk Denetimi</button><button class="ghost-btn" onclick="aurumRunAccuracyAudit(true).then(r=>writeLocal('aurumAccuracyUiLast',r))">Doğruluk + Güvenli Düzelt</button><button class="gold-btn" onclick="runRepairCenter('AUTO_FIX')">Tümünü Onar</button><button class="ghost-btn" onclick="runRepairCenter('DIAGNOSE')">Tanıla</button><button class="ghost-btn" onclick="runRepairCenter('TRANSFER')">Veri Aktarımı</button><button class="ghost-btn" onclick="runRepairCenter('STAGING')">Geçici Depo</button><button class="ghost-btn" onclick="runRepairCenter('BACKGROUND')">Arka Plan</button><button class="ghost-btn" onclick="runRepairCenter('SCHEDULER')">Zamanlayıcı</button><button class="ghost-btn" onclick="runRepairCenter('ONLINE')">Online Onarım</button><button class="ghost-btn" onclick="runRepairCenter('NATIVE')">Native Köprü</button><button class="ghost-btn" onclick="runRepairCenter('UI')">Görünüm</button><button class="ghost-btn" onclick="runRepairCenter('SETTINGS')">Ayarlar</button></div></div>`,'r44RepairCenter')};globalThis.repairCenterModule=repairCenterModule;
  globalThis.rev20UserRepairModule=()=>'';globalThis.tableAuditSettingsModule=()=>'';
