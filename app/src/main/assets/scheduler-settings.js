@@ -63,7 +63,10 @@
  }
  function pruneHistoryArray(a,now=Date.now()){
    const cutoff=now-7*86400000;
-   return (Array.isArray(a)?a:[]).filter(x=>Number.isFinite(Date.parse(x?.at))&&Date.parse(x.at)>=cutoff).slice(-20)
+   // Persistence keeps every important event inside the weekly retention window.
+   // The visible list is capped by read20(); the 20-row UI limit must not delete
+   // other important events from persistent history.
+   return (Array.isArray(a)?a:[]).filter(x=>Number.isFinite(Date.parse(x?.at))&&Date.parse(x.at)>=cutoff)
  }
  function cleanupHistory(manual=false){
    try{
@@ -87,7 +90,7 @@
        const prev=a.splice(idx,1)[0];
        a.push({...prev,...x,type,message,at:now,fingerprint:fp,count:Number(prev?.count||1)+1});
      }else a.push({at:now,...x,type,message,fingerprint:fp,count:1});
-     localStorage.setItem(k,JSON.stringify(a.slice(-20)));
+     localStorage.setItem(k,JSON.stringify(a));
      return true
    }catch{return false}
  }
