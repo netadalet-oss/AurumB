@@ -1,0 +1,202 @@
+name: Rebuild Native Exact Heads
+on:
+  push:
+    branches: [ source-rebuild-20261005 ]
+  workflow_dispatch:
+permissions:
+  contents: read
+env:
+  ANDROID_HOME: /usr/local/lib/android/sdk
+  ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - product: aurumb
+            base: ba8fda7511b67664bc6a2614650fc9acc7095a2d
+            head: 7110c1103e84b747a20289fe140c7ff11173108f
+            url: 'https://sdmntprdenmarkeast.oaiusercontent.com/files/00000000-9a44-8210-bac8-381817726a69/raw?se=2026-10-05T13%3A20%3A27Z&sp=r&sv=2026-02-06&sr=b&scid=f125069c-a21a-597e-8797-1e7bad99434c&skoid=56822d8b-6cfd-42ed-a00d-1452dca42036&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-10-05T07%3A09%3A08Z&ske=2026-10-06T07%3A09%3A08Z&sks=b&skv=2026-02-06&sig=RPjnWhiI3aOkzcAJl89%2BnPw8DyiWx4arUjPHeDxrfr0%3D'
+            patch: rescue/native-b-ba8fda-to-7110c1.patch
+            inner: AurumB-source.zip
+          - product: aurumf
+            base: a81eaaa7defca929617aeb5da2580dd6d4b19cce
+            head: 4836c9dffa3791efe79a768faf2383cb0798b686
+            url: 'https://sdmntprdenmarkeast.oaiusercontent.com/files/00000000-aac4-8210-bbd5-c0312a167d2c/raw?se=2026-10-05T13%3A20%3A29Z&sp=r&sv=2026-02-06&sr=b&scid=71ceb96a-c648-5f0d-906f-0cf42fe738e0&skoid=56822d8b-6cfd-42ed-a00d-1452dca42036&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-10-05T07%3A47%3A02Z&ske=2026-10-06T07%3A47%3A02Z&sks=b&skv=2026-02-06&sig=51Eg/Udc5JbGYOD8lfGVrjaOebH5Z/D4Nq/YtgdhCXI%3D'
+            patch: rescue/native-f-a81eaa-to-4836c9.patch
+            inner: AurumF-source.zip
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Reconstruct exact native source
+        run: |
+          set -euo pipefail
+          mkdir -p work/artifact work/src
+          curl --fail --location --retry 3 '${{ matrix.url }}' -o work/source-artifact.zip
+          unzip -q work/source-artifact.zip -d work/artifact
+          test -s "work/artifact/${{ matrix.inner }}"
+          unzip -q "work/artifact/${{ matrix.inner }}" -d work/src
+          cd work/src
+          git init -q
+          git add -A
+          git -c user.name=rescue -c user.email=rescue@example.invalid commit -qm base
+          git apply --check "../../${{ matrix.patch }}"
+          git apply "../../${{ matrix.patch }}"
+          test -z "$(git diff --check)"
+          printf 'source_repository=netadalet-oss/Aurum\nproduct=%s\nbase_sha=%s\nhead_sha=%s\n' "${{ matrix.product }}" "${{ matrix.base }}" "${{ matrix.head }}" > exact-head-provenance.txt
+      - name: Install Android 35
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+      - name: Core invariant checks
+        working-directory: work/src
+        run: gradle --no-daemon :core:domainChecks
+      - name: Unit tests
+        working-directory: work/src
+        run: gradle --no-daemon :core:test :app:testDebugUnitTest
+      - name: Android lint
+        working-directory: work/src
+        run: gradle --no-daemon :app:lintDebug
+      - name: Compile instrumentation tests
+        working-directory: work/src
+        run: gradle --no-daemon :app:assembleDebugAndroidTest
+      - name: Build APKs
+        working-directory: work/src
+        run: |
+          gradle --no-daemon :app:assembleDebug :app:assembleRelease
+          sha256sum app/build/outputs/apk/debug/*.apk app/build/outputs/apk/release/*.apk > exact-head-checksums.sha256
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reconstructed-${{ matrix.product }}-${{ matrix.head }}
+          path: |
+            work/src/exact-head-provenance.txt
+            work/src/exact-head-checksums.sha256
+            work/src/app/build/outputs/apk/debug/*.apk
+            work/src/app/build/outputs/apk/release/*.apk
+            work/src/app/build/outputs/apk/androidTest/debug/*.apk
+            work/src/app/build/reports/
+            work/src/app/build/test-results/
+            work/src/core/build/reports/
+            work/src/core/build/test-results/
+          if-no-files-found: warn
+          retention-days: 30
+
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - product: aurumb
+            base: ba8fda7511b67664bc6a2614650fc9acc7095a2d
+            head: 7110c1103e84b747a20289fe140c7ff11173108f
+            api: 26
+            url: 'https://sdmntprdenmarkeast.oaiusercontent.com/files/00000000-9a44-8210-bac8-381817726a69/raw?se=2026-10-05T13%3A20%3A27Z&sp=r&sv=2026-02-06&sr=b&scid=f125069c-a21a-597e-8797-1e7bad99434c&skoid=56822d8b-6cfd-42ed-a00d-1452dca42036&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-10-05T07%3A09%3A08Z&ske=2026-10-06T07%3A09%3A08Z&sks=b&skv=2026-02-06&sig=RPjnWhiI3aOkzcAJl89%2BnPw8DyiWx4arUjPHeDxrfr0%3D'
+            patch: rescue/native-b-ba8fda-to-7110c1.patch
+            inner: AurumB-source.zip
+          - product: aurumb
+            base: ba8fda7511b67664bc6a2614650fc9acc7095a2d
+            head: 7110c1103e84b747a20289fe140c7ff11173108f
+            api: 35
+            url: 'https://sdmntprdenmarkeast.oaiusercontent.com/files/00000000-9a44-8210-bac8-381817726a69/raw?se=2026-10-05T13%3A20%3A27Z&sp=r&sv=2026-02-06&sr=b&scid=f125069c-a21a-597e-8797-1e7bad99434c&skoid=56822d8b-6cfd-42ed-a00d-1452dca42036&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-10-05T07%3A09%3A08Z&ske=2026-10-06T07%3A09%3A08Z&sks=b&skv=2026-02-06&sig=RPjnWhiI3aOkzcAJl89%2BnPw8DyiWx4arUjPHeDxrfr0%3D'
+            patch: rescue/native-b-ba8fda-to-7110c1.patch
+            inner: AurumB-source.zip
+          - product: aurumf
+            base: a81eaaa7defca929617aeb5da2580dd6d4b19cce
+            head: 4836c9dffa3791efe79a768faf2383cb0798b686
+            api: 26
+            url: 'https://sdmntprdenmarkeast.oaiusercontent.com/files/00000000-aac4-8210-bbd5-c0312a167d2c/raw?se=2026-10-05T13%3A20%3A29Z&sp=r&sv=2026-02-06&sr=b&scid=71ceb96a-c648-5f0d-906f-0cf42fe738e0&skoid=56822d8b-6cfd-42ed-a00d-1452dca42036&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-10-05T07%3A47%3A02Z&ske=2026-10-06T07%3A47%3A02Z&sks=b&skv=2026-02-06&sig=51Eg/Udc5JbGYOD8lfGVrjaOebH5Z/D4Nq/YtgdhCXI%3D'
+            patch: rescue/native-f-a81eaa-to-4836c9.patch
+            inner: AurumF-source.zip
+          - product: aurumf
+            base: a81eaaa7defca929617aeb5da2580dd6d4b19cce
+            head: 4836c9dffa3791efe79a768faf2383cb0798b686
+            api: 35
+            url: 'https://sdmntprdenmarkeast.oaiusercontent.com/files/00000000-aac4-8210-bbd5-c0312a167d2c/raw?se=2026-10-05T13%3A20%3A29Z&sp=r&sv=2026-02-06&sr=b&scid=71ceb96a-c648-5f0d-906f-0cf42fe738e0&skoid=56822d8b-6cfd-42ed-a00d-1452dca42036&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-10-05T07%3A47%3A02Z&ske=2026-10-06T07%3A47%3A02Z&sks=b&skv=2026-02-06&sig=51Eg/Udc5JbGYOD8lfGVrjaOebH5Z/D4Nq/YtgdhCXI%3D'
+            patch: rescue/native-f-a81eaa-to-4836c9.patch
+            inner: AurumF-source.zip
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Reconstruct exact native source
+        run: |
+          set -euo pipefail
+          mkdir -p work/artifact work/src
+          curl --fail --location --retry 3 '${{ matrix.url }}' -o work/source-artifact.zip
+          unzip -q work/source-artifact.zip -d work/artifact
+          unzip -q "work/artifact/${{ matrix.inner }}" -d work/src
+          cd work/src
+          git init -q
+          git add -A
+          git -c user.name=rescue -c user.email=rescue@example.invalid commit -qm base
+          git apply --check "../../${{ matrix.patch }}"
+          git apply "../../${{ matrix.patch }}"
+      - name: Install emulator image
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "emulator" "platforms;android-35" "system-images;android-${{ matrix.api }};google_apis;x86_64"
+      - name: Create and boot emulator
+        run: |
+          set -euo pipefail
+          export ANDROID_AVD_HOME="$RUNNER_TEMP/rebuild-avd"
+          echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_ENV"
+          mkdir -p "$ANDROID_AVD_HOME"
+          echo "no" | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd --force --name rebuild-ci --package "system-images;android-${{ matrix.api }};google_apis;x86_64" --path "$ANDROID_AVD_HOME/rebuild-ci.avd"
+          if [ -e /dev/kvm ]; then sudo chmod 666 /dev/kvm; ACCEL=auto; else ACCEL=off; fi
+          "$ANDROID_HOME/emulator/emulator" -avd rebuild-ci -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -accel "$ACCEL" > "$RUNNER_TEMP/rebuild-emulator.log" 2>&1 &
+          timeout 90s "$ANDROID_HOME/platform-tools/adb" wait-for-device
+          for i in $(seq 1 120); do
+            if [ "$("$ANDROID_HOME/platform-tools/adb" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; then exit 0; fi
+            sleep 2
+          done
+          cat "$RUNNER_TEMP/rebuild-emulator.log"
+          exit 1
+      - name: Run device smoke
+        working-directory: work/src
+        run: gradle --no-daemon :app:connectedDebugAndroidTest
+      - name: Verify captured UI evidence
+        working-directory: work/src
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          root=Path("app/build/outputs/connected_android_test_additional_output")
+          screenshots=list(root.rglob("*.png"))
+          layouts=list(root.rglob("*.json"))
+          assert len(screenshots)>=18, f"Missing native screenshots: {len(screenshots)}"
+          assert len(layouts)>=9, f"Missing native layout records: {len(layouts)}"
+          print(f"Native UI evidence: {len(screenshots)} screenshots, {len(layouts)} layout records")
+          PY
+      - name: Diagnostics
+        if: failure()
+        run: |
+          timeout 20s "$ANDROID_HOME/platform-tools/adb" logcat -d -t 1500 || true
+          cat "$RUNNER_TEMP/rebuild-emulator.log" || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reconstructed-${{ matrix.product }}-smoke-api${{ matrix.api }}
+          path: |
+            work/src/app/build/outputs/apk/debug/*.apk
+            work/src/app/build/outputs/apk/androidTest/debug/*.apk
+            work/src/app/build/outputs/androidTest-results/
+            work/src/app/build/reports/androidTests/
+            work/src/app/build/outputs/connected_android_test_additional_output/
+          if-no-files-found: warn
+          retention-days: 30
