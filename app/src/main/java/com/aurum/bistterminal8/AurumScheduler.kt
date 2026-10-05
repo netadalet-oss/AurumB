@@ -16,6 +16,8 @@ object AurumScheduler {
     private const val LEGACY_PREFS = "aurum_pipeline"
     private const val MIGRATION_KEY = "legacy_schedule_migrated_v1"
     private const val ACTION_SLOT = "com.aurum.bistterminal8.SCHEDULED_SLOT"
+    const val ACTION_MAINTENANCE = "com.aurum.bistterminal8.WEEKLY_MAINTENANCE"
+    private const val MAINTENANCE_REQUEST_CODE = 23003
 
     private val zone = ZoneId.of("Europe/Istanbul")
     private val fmt = DateTimeFormatter.ofPattern("HH:mm")
@@ -127,6 +129,37 @@ object AurumScheduler {
                 }
             }
         }
+        scheduleWeeklyMaintenance(context)
+    }
+
+    internal fun nextSundayMidnight(after: Instant = Instant.now()): Instant {
+        val local = after.atZone(zone)
+        val delta = (java.time.DayOfWeek.SUNDAY.value - local.dayOfWeek.value + 7) % 7
+        var target = local.toLocalDate().plusDays(delta.toLong()).atStartOfDay(zone)
+        if (!target.toInstant().isAfter(after)) target = target.plusWeeks(1)
+        return target.toInstant()
+    }
+
+    fun scheduleWeeklyMaintenance(context: Context, after: Instant = Instant.now()): Instant {
+        val target = nextSundayMidnight(after)
+        val epoch = target.toEpochMilli()
+        val alarmManager = context.getSystemService(AlarmManager::class.java)
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            MAINTENANCE_REQUEST_CODE,
+            Intent(context, TriggerReceiver::class.java)
+                .setAction(ACTION_MAINTENANCE)
+                .putExtra("epoch", epoch),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        if (Build.VERSION.SDK_INT >= 31 && !alarmManager.canScheduleExactAlarms()) {
+            alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, epoch, pendingIntent)
+        } else {
+            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, epoch, pendingIntent)
+        }
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putLong("next_maintenance", epoch).apply()
+        return target
     }
 
     fun scheduleNextForTime(context: Context, time: String, after: Instant, kind: String = "data") {
