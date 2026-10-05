@@ -6372,19 +6372,23 @@ globalThis.AurumNotifications=Object.freeze({version:'R225.0',open:openJournal,r
  async function trimJournal(){
    try{
      const all=(await dbAll('logs')).sort((a,b)=>Date.parse(b.ts||b.at||0)-Date.parse(a.ts||a.at||0)),
-       cutoff=Date.now()-7*86400000,n=[],l=[],seenN=new Set(),seenL=new Set();
+       cutoff=Date.now()-7*86400000,n=[],l=[],seenN=new Set(),seenL=new Set(),persistent=[];
      for(const x of all){
-       const at=Date.parse(x.ts||x.at||0);
-       if(!Number.isFinite(at)||at<cutoff||!r44ImportantJournalEvent(x))continue;
+       const at=Date.parse(x.ts||x.at||0),important=r44ImportantJournalEvent(x);
+       if(!Number.isFinite(at)||at<cutoff||!important){
+         if(x.id!=null)await dbDelete('logs',x.id);
+         continue;
+       }
+       persistent.push(x);
        const notice=String(x.message||'').startsWith('UI bildirimi:'),seen=notice?seenN:seenL,target=notice?n:l,key=r44JournalFingerprint(x);
        if(seen.has(key)||target.length>=20)continue;
        seen.add(key);target.push(x);
      }
-     const kept=[...n,...l].sort((a,b)=>Date.parse(b.ts||b.at||0)-Date.parse(a.ts||a.at||0));
-     compactJournal.rows=kept;
-     const keep=new Set(kept.map(x=>x.id));
-     for(const x of all)if(x.id!=null&&!keep.has(x.id))await dbDelete('logs',x.id);
-     return kept;
+     // Only the rendered cache is capped at 20+20. Important persisted events
+     // inside the weekly retention window are not deleted because of that UI cap.
+     const visible=[...n,...l].sort((a,b)=>Date.parse(b.ts||b.at||0)-Date.parse(a.ts||a.at||0));
+     compactJournal.rows=visible;
+     return visible;
    }catch{return compactJournal.rows}
  }
  async function clearCompactJournal(){
