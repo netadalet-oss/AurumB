@@ -70,6 +70,10 @@
      for(const k of [NOTICE_KEY,LOG_KEY])localStorage.setItem(k,JSON.stringify(manual?[]:pruneHistoryArray(historyArray(k))));
      set('aurum.ui.historyCleanupSunday.v1',new Date().toISOString());
    }catch{}
+   try{
+     const task=manual?globalThis.AurumCompactNotifications?.clear?.():globalThis.AurumCompactNotifications?.cleanup?.();
+     if(task&&typeof task.then==='function')task.catch(()=>{});
+   }catch{}
    renderHistory();
    return true
  }
