@@ -1,0 +1,2273 @@
+diff --git a/app/src/androidTest/kotlin/io/aurum/aurumf/UiParityEvidenceTest.kt b/app/src/androidTest/kotlin/io/aurum/aurumf/UiParityEvidenceTest.kt
+--- a/app/src/androidTest/kotlin/io/aurum/aurumf/UiParityEvidenceTest.kt
++++ b/app/src/androidTest/kotlin/io/aurum/aurumf/UiParityEvidenceTest.kt
+@@ -38,12 +38,42 @@ class UiParityEvidenceTest {
+             val primary=listOf("Genel","F","Veriler","Kn","K_Tarihsel","Öğrenme","AI")
+             primary.forEachIndexed { index,label ->
+                 navigate(scenario,label,true)
++                if(label=="F") assertIdleOperationGeometry(scenario,"F’yi Çalıştır","F")
++                if(label=="Öğrenme") assertLearningStructure(scenario)
++                if(label=="AI") assertAiStructure(scenario)
++                if(label=="Veriler") assertDataMarketStrip(scenario,"Verileri Çalıştır")
++                if(label=="K_Tarihsel") assertDualOperationGeometry(
++                    scenario,"K_Tarihsel’i Çalıştır",setOf("Başlangıç T1–T30’u Doldur","Başlangıç T1–T30 Kilitli")
++                )
+                 capture(scenario,output,"0"+index+"-"+label)
+             }
+-            listOf("Piyasa","Ayarlar").forEachIndexed { index,label ->
+-                navigate(scenario,"Genel",true)
+-                navigate(scenario,label,false)
+-                capture(scenario,output,"0"+(index+7)+"-"+label)
++            navigate(scenario,"Genel",true)
++            navigate(scenario,"Piyasa",false)
++            capture(scenario,output,"07-Piyasa")
++
++            navigate(scenario,"Genel",true)
++            navigate(scenario,"Sanal portföy (P)",false)
++            assertPortfolioStructure(scenario)
++            capture(scenario,output,"08-Portföy")
++
++            navigate(scenario,"Genel",true)
++            navigate(scenario,"Ayarlar",false)
++            assertSettingsAccordion(scenario)
++            capture(scenario,output,"09-Ayarlar")
++            val groups=listOf(
++                    "Otomatik Güncelleme Zamanlayıcısı",
++                    "Sağlık / Süreklilik",
++                    "Bildirimler ve Loglar",
++                    "Yasaklı Fonlar · Fon Evreni Filtresi",
++                    "Bakım ve Onarım",
++                    "Dışa / İçe Aktarma · Tam Yedek",
++                    "AL/SAT Bildirim Teslimi",
++                    "F sistemi ayarları",
++                    "Varsayılan Ayarlara Döndür"
++                )
++            groups.forEachIndexed { index,title ->
++                openSettingsGroup(scenario,title)
++                capture(scenario,output,"1"+index.toString().padStart(2,'0')+"-Ayarlar-"+index)
+             }
+         }
+     }
+@@ -77,6 +107,176 @@ class UiParityEvidenceTest {
+         check(ready){"Page still loading: "+label}
+     }
+ 
++    private fun assertLearningStructure(scenario:ActivityScenario<MainActivity>) {
++        scenario.onActivity { activity ->
++            val views=flatten(activity.findViewById(android.R.id.content))
++            val clickableTabs=views.filterIsInstance<TextView>()
++                .filter { it.isClickable }
++                .map { it.text.toString() }
++                .toSet()
++            listOf("Öğrenme","Davranış","50+ Karakter","Performans").forEach { title ->
++                check(title in clickableTabs){"Learning tab missing: "+title}
++            }
++            val texts=views.filterIsInstance<TextView>().map { it.text.toString() }.toSet()
++            check("Öğrenme eğilimi" in texts) {
++                "Legacy learning trend section missing"
++            }
++            check("AI / Öğrenme Etki Raporu" in texts) {
++                "Learning impact report missing"
++            }
++        }
++        instrumentation.waitForIdleSync()
++    }
++
++    private fun assertAiStructure(scenario:ActivityScenario<MainActivity>) {
++        scenario.onActivity { activity ->
++            val views=flatten(activity.findViewById(android.R.id.content))
++            val texts=views.filterIsInstance<TextView>().map { it.text.toString() }.toSet()
++            listOf("K10 model","Tarihsel kullanım","Son denetim","Aday model","Yönetim","K10 Yapay Zekâ Ayarları","Son AI Denetimi","AI / Öğrenme Etki Raporu","K10 AI Top 20").forEach { title ->
++                check(title in texts){"AI legacy presentation item missing: "+title}
++            }
++            check(views.filterIsInstance<EditText>().none { it.visibility==View.VISIBLE }) {
++                "AI page must show the legacy summary/action presentation; editable settings belong behind explicit actions"
++            }
++        }
++        instrumentation.waitForIdleSync()
++    }
++
++    private fun assertDataMarketStrip(
++        scenario:ActivityScenario<MainActivity>,
++        actionLabel:String
++    ) {
++        scenario.onActivity { activity ->
++            val views=flatten(activity.findViewById(android.R.id.content))
++            val texts=views.filterIsInstance<TextView>().map { it.text.toString() }.toSet()
++            listOf("BIST 100","USD/TRY","EUR/TRY","EUR/USD","Gram Altın","Altın Ons").forEach { name ->
++                check(name in texts){"Legacy rebuilt market indicator missing: "+name}
++            }
++            val refresh=views.filterIsInstance<TextView>()
++                .first { it.contentDescription?.toString()=="Piyasa bilgilerini yenile" }
++            assertEquals("legacy market refresh width",dp(activity,18),refresh.layoutParams.width)
++            assertEquals("legacy market refresh height",dp(activity,18),refresh.layoutParams.height)
++            val action=views.filterIsInstance<TextView>()
++                .first { it.contentDescription?.toString()==actionLabel }
++            check(action.isClickable){"Data primary action is not clickable"}
++        }
++        instrumentation.waitForIdleSync()
++    }
++
++    private fun assertIdleOperationGeometry(
++        scenario:ActivityScenario<MainActivity>,
++        actionLabel:String,
++        scopeLabel:String
++    ) {
++        scenario.onActivity { activity ->
++            val views=flatten(activity.findViewById(android.R.id.content))
++            val action=views.filterIsInstance<TextView>()
++                .first { it.isClickable && it.contentDescription?.toString()==actionLabel }
++            val actionCard=action.parent as ViewGroup
++            val zone=actionCard.parent as ViewGroup
++            assertEquals("legacy operation zone height",dp(activity,50),zone.layoutParams.height)
++            assertEquals("legacy operation action card height",dp(activity,50),actionCard.layoutParams.height)
++            val texts=views.filterIsInstance<TextView>().map { it.text.toString() }
++            check(scopeLabel+" hazır" !in texts){"Idle legacy operation strip must be hidden"}
++            listOf("Baştan başlat","Eksikleri tamamla","İptal","Temizle").forEach { name ->
++                val control=views.first { it.contentDescription?.toString()==name }
++                assertEquals("legacy mini operation height "+name,dp(activity,36),control.layoutParams.height)
++            }
++        }
++        instrumentation.waitForIdleSync()
++    }
++
++    private fun assertDualOperationGeometry(
++        scenario:ActivityScenario<MainActivity>,
++        primaryLabel:String,
++        secondaryLabels:Set<String>
++    ) {
++        scenario.onActivity { activity ->
++            val views=flatten(activity.findViewById(android.R.id.content))
++            val primary=views.filterIsInstance<TextView>()
++                .first { it.contentDescription?.toString()==primaryLabel }
++            val secondary=views.filterIsInstance<TextView>()
++                .first { it.contentDescription?.toString() in secondaryLabels }
++            val row=primary.parent as ViewGroup
++            check(secondary.parent===row){"Legacy K_Tarihsel actions must share one action row"}
++            val actionCard=row.parent as ViewGroup
++            val zone=actionCard.parent as ViewGroup
++            assertEquals("legacy dual-action row height",dp(activity,30),row.layoutParams.height)
++            assertEquals("legacy dual-action primary height",dp(activity,30),primary.layoutParams.height)
++            assertEquals("legacy dual-action secondary height",dp(activity,30),secondary.layoutParams.height)
++            assertEquals("legacy dual-action card height",dp(activity,50),actionCard.layoutParams.height)
++            assertEquals("legacy dual-action zone height",dp(activity,50),zone.layoutParams.height)
++        }
++        instrumentation.waitForIdleSync()
++    }
++
++    private fun assertPortfolioStructure(scenario:ActivityScenario<MainActivity>) {
++        scenario.onActivity { activity ->
++            val views=flatten(activity.findViewById(android.R.id.content))
++            val texts=views.filterIsInstance<TextView>().map { it.text.toString() }
++            listOf("ÖZET","FONLAR","İŞLEMLER","NAKİT HAREKETLERİ").forEach { title ->
++                check(title in texts){"Portfolio tab missing: "+title}
++            }
++            listOf("T.K/Z:","A.K/Z:","H.K/Z:","G.K/Z:").forEach { key ->
++                check(texts.any { it==key || it.startsWith(key) }){"Portfolio metric missing: "+key}
++            }
++        }
++        instrumentation.waitForIdleSync()
++    }
++
++    private fun openSettingsGroup(scenario:ActivityScenario<MainActivity>,title:String) {
++        scenario.onActivity { activity ->
++            flatten(activity.findViewById(android.R.id.content))
++                .first { it.isClickable && it.contentDescription?.toString()==title }
++                .performClick()
++        }
++        instrumentation.waitForIdleSync()
++    }
++
++    private fun assertSettingsAccordion(scenario:ActivityScenario<MainActivity>) {
++        val expected=listOf(
++            "Otomatik Güncelleme Zamanlayıcısı",
++            "Sağlık / Süreklilik",
++            "Bildirimler ve Loglar",
++            "Yasaklı Fonlar · Fon Evreni Filtresi",
++            "Bakım ve Onarım",
++            "Dışa / İçe Aktarma · Tam Yedek",
++            "AL/SAT Bildirim Teslimi",
++            "F sistemi ayarları",
++            "Varsayılan Ayarlara Döndür"
++        )
++        scenario.onActivity { activity ->
++            val views=flatten(activity.findViewById(android.R.id.content))
++            val clickable=views.filter { it.isClickable }
++                .mapNotNull { it.contentDescription?.toString() }
++                .toSet()
++            expected.forEach { title ->
++                check(title in clickable){"Settings accordion summary missing: "+title}
++            }
++            listOf("Sorunları Gider / Onarım","Tablo ve Hesaplama Denetimi","Bildirimler ve Loglar · Diğer").forEach { stale ->
++                check(stale !in clickable){"Stale settings accordion must not be rendered: "+stale}
++            }
++            val renderedOrder=views.filter { it.isClickable }
++                .mapNotNull { it.contentDescription?.toString() }
++                .filter { it in expected }
++            check(renderedOrder==expected){"Settings accordion order mismatch: "+renderedOrder}
++            fun click(title:String) {
++                flatten(activity.findViewById(android.R.id.content))
++                    .first { it.isClickable && it.contentDescription?.toString()==title }
++                    .performClick()
++            }
++            click("Sağlık / Süreklilik")
++            var up=flatten(activity.findViewById(android.R.id.content))
++                .filterIsInstance<TextView>().count { it.text.toString()=="∧" }
++            check(up==1){"Exactly one settings section must be open; found "+up}
++            click("Yasaklı Fonlar · Fon Evreni Filtresi")
++            up=flatten(activity.findViewById(android.R.id.content))
++                .filterIsInstance<TextView>().count { it.text.toString()=="∧" }
++            check(up==1){"Opening a settings section must close the previous one; found "+up}
++        }
++        instrumentation.waitForIdleSync()
++    }
++
+     private fun capture(scenario:ActivityScenario<MainActivity>,output:File,name:String) {
+         var tree=JSONObject()
+         scenario.onActivity { activity ->
+@@ -147,10 +347,11 @@ class UiParityEvidenceTest {
+             assertEquals("bottom nav right margin",dp(activity,8),(nav.layoutParams as ViewGroup.MarginLayoutParams).rightMargin)
+             val scroll=views.filterIsInstance<ScrollView>().first()
+             val content=scroll.getChildAt(0)
+-            assertEquals("page padding left",dp(activity,9),content.paddingLeft)
+-            assertEquals("page padding top",dp(activity,9),content.paddingTop)
+-            assertEquals("page padding right",dp(activity,9),content.paddingRight)
+-            assertEquals("page padding bottom",dp(activity,9),content.paddingBottom)
++            // Final legacy mobile cascade: @media(max-width:519px) #content { padding:7px!important }.
++            assertEquals("page padding left",dp(activity,7),content.paddingLeft)
++            assertEquals("page padding top",dp(activity,7),content.paddingTop)
++            assertEquals("page padding right",dp(activity,7),content.paddingRight)
++            assertEquals("page padding bottom",dp(activity,7),content.paddingBottom)
+             val labels=(0 until nav.childCount).map { item ->
+                 val group=nav.getChildAt(item) as ViewGroup
+                 (0 until group.childCount).mapNotNull { group.getChildAt(it) as? TextView }.last()
+@@ -169,6 +370,39 @@ class UiParityEvidenceTest {
+             assertEquals("legacy table body sp",8.45f,io.aurum.aurumf.ui.UiTokens.TableBodySp,0.001f)
+             assertEquals("legacy table cell padding",6,io.aurum.aurumf.ui.UiTokens.TableCellPadding)
+             assertEquals("legacy table row height",30,io.aurum.aurumf.ui.UiTokens.TableRowHeight)
++            val clickableDescriptions=views.filter { it.isClickable }
++                .mapNotNull { it.contentDescription?.toString() }
++                .toSet()
++            listOf("Veriler","Kn Tabloları","K_Tarihsel","Piyasa Özeti","Yapay Zekâ Merkezi","Ayarlar").forEach { title ->
++                check(title in clickableDescriptions){"Overview quick-access control missing: "+title}
++            }
++            listOf("F Tablosu","K9 Öğrenme","K10 AI","Fon Piyasası").forEach { stale ->
++                check(stale !in clickableDescriptions){"Stale quick-access control must not be rendered: "+stale}
++            }
++            val quick=views.filterIsInstance<ViewGroup>()
++                .first { it.isClickable && it.contentDescription?.toString()=="Veriler" }
++            assertEquals("F quick card minimum height",dp(activity,68),quick.minimumHeight)
++            assertEquals("F quick card left padding",dp(activity,7),quick.paddingLeft)
++            assertEquals("F quick card top padding",dp(activity,6),quick.paddingTop)
++            assertEquals("F quick card right padding",dp(activity,7),quick.paddingRight)
++            assertEquals("F quick card bottom padding",dp(activity,6),quick.paddingBottom)
++            val quickTexts=(0 until quick.childCount).mapNotNull { quick.getChildAt(it) as? TextView }
++            val quickTitle=quickTexts.first { it.text.toString()=="Veriler" }
++            val quickSub=quickTexts.first { it.text.toString()=="Veri merkezi" }
++            assertEquals("F quick title sp",11.2f,quickTitle.textSize/activity.resources.displayMetrics.scaledDensity,0.06f)
++            assertEquals("F quick subtitle sp",8.35f,quickSub.textSize/activity.resources.displayMetrics.scaledDensity,0.06f)
++            val portfolio=views.filterIsInstance<ViewGroup>()
++                .first { it.isClickable && it.contentDescription?.toString()=="Sanal portföy (P)" }
++            val narrow=activity.resources.configuration.screenWidthDp<=390
++            assertEquals("F overview portfolio minimum height",dp(activity,88),portfolio.minimumHeight)
++            assertEquals("F overview portfolio left padding",dp(activity,if(narrow)9 else 10),portfolio.paddingLeft)
++            assertEquals("F overview portfolio top padding",dp(activity,if(narrow)8 else 9),portfolio.paddingTop)
++            val portfolioTexts=flatten(portfolio).filterIsInstance<TextView>()
++            val portfolioTitle=portfolioTexts.first { it.text.toString()=="Sanal portföy (P):" }
++            assertEquals("F overview portfolio title sp",9.2f,portfolioTitle.textSize/activity.resources.displayMetrics.scaledDensity,0.06f)
++            listOf("Toplam:","T.K/Z:","A.K/Z:","H.K/Z:","G.K/Z:").forEach { key ->
++                check(portfolioTexts.any { it.text.toString()==key }){"F overview portfolio line missing: "+key}
++            }
+         }
+     }
+ 
+
+diff --git a/app/src/main/kotlin/io/aurum/aurumf/MainActivity.kt b/app/src/main/kotlin/io/aurum/aurumf/MainActivity.kt
+--- a/app/src/main/kotlin/io/aurum/aurumf/MainActivity.kt
++++ b/app/src/main/kotlin/io/aurum/aurumf/MainActivity.kt
+@@ -283,7 +283,8 @@ class MainActivity : Activity() {
+         when(page) {
+             "Genel Bakış" -> {
+                 val run=dao.latestValidRun()
+-                val selectedRows=run?.let { dao.selectionsForRun(it.id).filter { row -> row.rank>0 }.sortedBy { row -> row.rank } } ?: emptyList()
++                val runRows=run?.let { dao.selectionsForRun(it.id) } ?: emptyList()
++                val selectedRows=runRows.filter { row -> row.rank>0 }.sortedBy { row -> row.rank }
+                 val selectedCount=selectedRows.size
+                 val portfolio=dao.latestPortfolioSnapshot()
+                 val qualifiedStates=dao.qualifiedTradeStates()
+@@ -294,19 +295,72 @@ class MainActivity : Activity() {
+                     .takeIf { it.isNotEmpty() }
+                     ?.let { values -> values.reduce { a,b -> a.add(b) }.divide(java.math.BigDecimal(values.size),java.math.MathContext.DECIMAL64) }
+                     ?.setScale(2,java.math.RoundingMode.HALF_UP)?.toPlainString() ?: "—"
++                val maturedGroups=dao.eligibleSelectionOutcomesAsOf(java.time.Instant.now().toString())
++                    .groupBy { it.runId }.values
++                    .sortedBy { group -> group.maxOfOrNull { it.evaluatedAtUtc }?:"" }
++                    .takeLast(7)
++                val recentPrecision=mutableListOf<Double>()
++                maturedGroups.forEach { rows ->
++                    if(rows.isNotEmpty()) {
++                        val ranked=dao.selectionsForRun(rows.first().runId).filter { it.rank>0 }.map { it.symbol }.toSet()
++                        val selectedOutcomes=rows.filter { it.symbol in ranked }
++                        if(selectedOutcomes.isNotEmpty()) {
++                            recentPrecision += selectedOutcomes.count { it.targetHit }.toDouble()/selectedOutcomes.size.toDouble()
++                        }
++                    }
++                }
++                val targetPrecision=recentPrecision.takeIf { it.isNotEmpty() }?.average()?.times(100.0)
++                val dataQuality=runRows.mapNotNull { it.dataQualityDecimal.toBigDecimalOrNull() }
++                    .takeIf { it.isNotEmpty() }?.let { values ->
++                        values.reduce { a,b -> a.add(b) }
++                            .divide(java.math.BigDecimal(values.size),java.math.MathContext.DECIMAL64)
++                            .multiply(java.math.BigDecimal("100"))
++                    }
++                val dnaRows=runRows.mapNotNull { row ->
++                    runCatching {
++                        val a=org.json.JSONArray(row.contributionsJson)
++                        (0 until a.length()).mapNotNull { i ->
++                            val o=a.optJSONObject(i) ?: return@mapNotNull null
++                            val inputs=o.optJSONObject("inputs") ?: return@mapNotNull null
++                            inputs.optString("dnaScore").toBigDecimalOrNull()?.let { score ->
++                                score to inputs.optInt("dnaNeighbors",0)
++                            }
++                        }.firstOrNull()
++                    }.getOrNull()
++                }
++                val dnaAverage=dnaRows.takeIf { it.isNotEmpty() }?.map { it.first }
++                    ?.reduce { a,b -> a.add(b) }?.divide(java.math.BigDecimal(dnaRows.size),java.math.MathContext.DECIMAL64)
++                val dnaNeighborCount=dnaRows.count { it.second>=5 }
++                val behaviorCoverage=runRows.takeIf { it.isNotEmpty() }?.let {
++                    100.0*dnaRows.size.toDouble()/it.size.toDouble()
++                }
++                val overviewChampion=dao.champion()
++                val overviewValidation=overviewChampion?.validationJson?.let { raw ->
++                    runCatching { JSONObject(raw) }.getOrNull()
++                }
++                val overviewPrecision=overviewValidation?.optString("precisionAtN")?.toBigDecimalOrNull()
++                val overviewNdcg=overviewValidation?.optString("ndcg")?.toBigDecimalOrNull()
++                val overviewLearningScore=if(overviewPrecision!=null && overviewNdcg!=null) {
++                    overviewPrecision.multiply(java.math.BigDecimal("0.58"))
++                        .add(overviewNdcg.multiply(java.math.BigDecimal("0.42")))
++                        .multiply(java.math.BigDecimal("100"))
++                        .coerceIn(java.math.BigDecimal.ZERO,java.math.BigDecimal("100"))
++                } else null
+ 
+                 quickAccess()
+                 sectionHead("Sonuç ve Öğrenme Özeti","Canlı sistem görünümü",true)
+                 legacyOverviewMetricGrid(listOf(
+                     Triple("Aktif seçim",selectedCount.toString(),"F · Nihai liste"),
+-                    Triple("Hedef isabet","—","10G Reel Top20 Precision@20"),
+-                    Triple("Öğrenme puanı","—","Yeni kanıt bekleniyor"),
+-                    Triple("Davranış kapsamı","—","Fon DNA analizi"),
+-                    Triple("DNA kapsamı","—","K8 benzerlik kanıtı"),
++                    Triple("Hedef isabet",targetPrecision?.let { String.format(java.util.Locale("tr","TR"),"%.2f%%",it) }?:"—","10G Reel Top20 Precision@20"),
++                    Triple("Öğrenme puanı",overviewLearningScore
++                        ?.setScale(2,java.math.RoundingMode.HALF_UP)?.toPlainString()?.plus("/100")?:"—",
++                        if(maturedGroups.isEmpty())"Yeni kanıt bekleniyor" else maturedGroups.size.toString()+" dönem kanıt"),
++                    Triple("Davranış kapsamı",behaviorCoverage?.let { String.format(java.util.Locale("tr","TR"),"%.2f%%",it) }?:"—",dnaRows.size.toString()+" fon · DNA analizi"),
++                    Triple("DNA kapsamı",dnaAverage?.setScale(2,java.math.RoundingMode.HALF_UP)?.toPlainString()?.plus("%")?:"—",dnaNeighborCount.toString()+" fon · K8"),
+                     Triple("Ortalama F skoru",avgScore,"Seçili fonlar"),
+-                    Triple("Veri kalite",if(health.lastMarketDataAt!=null)"100/100" else "—","Persist edilmiş doğrulanmış veri"),
++                    Triple("Veri kalite",dataQuality?.setScale(0,java.math.RoundingMode.HALF_UP)?.toPlainString()?.plus("/100")?:"—",runRows.size.toString()+" fon"),
+                     Triple("Güncelleme zamanı",health.lastMarketDataAt?.toString()?:"—","TEFAS NAV authoritative"),
+-                    Triple("Model","Aurum Fund modeli",health.activeModelVersion?:"Kt30 · Xhr · Durable · Noleak"),
++                    Triple("Model","Aurum Fund modeli","Kt30 · Xhr · Durable · Noleak · 2026.08"),
+                 ))
+                 legacyPortfolioOverviewCard(PortfolioReportService(dao).report(),dao.portfolioSnapshots(),dao.portfolioState())
+                 legacyLearningDiscipline()
+@@ -460,10 +514,17 @@ class MainActivity : Activity() {
+                         "Run "+run.asOfUtc+" · "+run.modelVersion+" · "+run.formulaVersion,
+                         "F modeli: native persisted sonuç · NAV kesim saati kaynakta yoksa güven cezası uygulanır."
+                     ))
+-                    legacyGlnGdn(
+-                        selected.firstOrNull()?.symbol?:"—",
+-                        selected.lastOrNull()?.symbol?:"—"
++                    val selectionHistory=mutableListOf<List<String>>()
++                    for(previousRun in dao.recentRuns(40)) {
++                        if(previousRun.id==run.id || !previousRun.integrityPassed) continue
++                        val symbols=dao.selectionsForRun(previousRun.id)
++                            .filter { it.rank>0 }.sortedBy { it.rank }.take(20).map { it.symbol }
++                        if(symbols.size>=20) selectionHistory.add(symbols)
++                    }
++                    val selectionDelta=legacyMembershipDelta(
++                        selected.take(20).map { it.symbol },selectionHistory,"Henüz çıkan fon yok"
+                     )
++                    legacyGlnGdn(selectionDelta.first,selectionDelta.second)
+                     if(selected.isEmpty()) {
+                         empty("F tablosu henüz oluşturulmadı.")
+                     } else {
+@@ -576,7 +637,7 @@ class MainActivity : Activity() {
+                         }
+                     }}
+                 )
+-                legacyMarketStrip(dao.portalQuotes().filter { it.region=="TR" }.take(6))
++                legacyDataMarketIndicators(dao.portalQuotes())
+                 legacyInlineActionRow(listOf(
+                     "Eksikleri Tamamla" to {
+                         AppScheduler.refreshDataNow(this)
+@@ -619,9 +680,9 @@ class MainActivity : Activity() {
+                         row.code.contains(fDataQuery.trim(),ignoreCase=true) ||
+                         row.name.contains(fDataQuery.trim(),ignoreCase=true)
+                 }
+-                val fPageCount=kotlin.math.max(1,(filteredLatestRows.size+99)/100)
++                val fPageCount=kotlin.math.max(1,(filteredLatestRows.size+199)/200)
+                 fDataPage=fDataPage.coerceIn(0,fPageCount-1)
+-                val pageLatestRows=filteredLatestRows.drop(fDataPage*100).take(100)
++                val pageLatestRows=filteredLatestRows.drop(fDataPage*200).take(200)
+                 // Legacy F final contract keeps the canonical DATA_COLUMNS order and replaces
+                 // the raw date column with the effective marketTime column at the same position.
+                 val allocationSnapshot=if(latestFundDate==null) emptyList() else dao.fundAllocationsOn(latestFundDate)
+@@ -996,7 +1057,27 @@ class MainActivity : Activity() {
+                         "İsabet ort" to "—"
+                     )
+                 )
+-                legacyGlnGdn(ranked.firstOrNull()?.row?.symbol?:"—",ranked.lastOrNull()?.row?.symbol?:"—")
++                fun criterionMembership(rows:List<io.aurum.aurumf.persistence.SelectionResultEntity>):List<String> =
++                    rows.mapNotNull { row ->
++                        val a=runCatching { JSONArray(row.contributionsJson) }.getOrNull() ?: return@mapNotNull null
++                        val evidence=(0 until a.length()).mapNotNull { i -> a.optJSONObject(i) }
++                            .firstOrNull { it.optString("criterion")==activeCriterion } ?: return@mapNotNull null
++                        val criterionRank=evidence.optInt("criterionRank",0)
++                        if(criterionRank in 1..20) criterionRank to row.symbol else null
++                    }.sortedWith(compareBy<Pair<Int,String>> { it.first }.thenBy { it.second })
++                        .map { it.second }
++                val criterionHistory=mutableListOf<List<String>>()
++                if(run!=null) {
++                    for(previousRun in dao.recentRuns(40)) {
++                        if(previousRun.id==run.id || !previousRun.integrityPassed) continue
++                        val symbols=criterionMembership(dao.selectionsForRun(previousRun.id))
++                        if(symbols.size>=20) criterionHistory.add(symbols)
++                    }
++                }
++                val criterionDelta=legacyMembershipDelta(
++                    ranked.take(20).map { it.row.symbol },criterionHistory,"Henüz çıkan fon yok"
++                )
++                legacyGlnGdn(criterionDelta.first,criterionDelta.second)
+                 sectionHead("Kn Kriter Tabloları","K1–K7 karar · K8/K9/K10 meta analiz")
+                 legacyCriteriaTabs(labels,activeCriterion) { selected ->
+                     activeCriterion=selected
+@@ -1087,6 +1168,8 @@ class MainActivity : Activity() {
+                     op.stage.contains("K_TARIHSEL",ignoreCase=true) ||
+                     op.stage.contains("HISTORY",ignoreCase=true)
+                 }
++                val initialHistoryTrend=KHistoricalService(dao).latestTrend()
++                val initialHistorySeedDone=(initialHistoryTrend?.rows?.drop(1)?.size?:0)>=30
+                 legacyOperationBlock(
+                     "K_Tarihsel",
+                     "K_Tarihsel’i Çalıştır",
+@@ -1099,20 +1182,22 @@ class MainActivity : Activity() {
+                             dao.requestOperationCancel(op.operationId,java.time.Instant.now().toString())
+                             showPage("K_Tarihsel")
+                         }
+-                    }}
+-                )
+-                legacyGhostAction("Başlangıç T1–T30’u Doldur") {
+-                    scope.launch {
++                    }},
++                    secondaryLabel=if(initialHistorySeedDone)"Başlangıç T1–T30 Kilitli" else "Başlangıç T1–T30’u Doldur",
++                    secondaryAction={
++                        scope.launch {
+                         runCatching { KHistoricalService(dao).rebuildFromPersistedRuns() }
+-                            .onSuccess { count ->
+-                                Toast.makeText(this@MainActivity,"K_Tarihsel yeniden kuruldu · "+count+" satır",Toast.LENGTH_LONG).show()
+-                                showPage("K_Tarihsel")
+-                            }
+-                            .onFailure {
+-                                Toast.makeText(this@MainActivity,it.message?:"K_Tarihsel yeniden hesaplanamadı",Toast.LENGTH_LONG).show()
+-                            }
+-                    }
+-                }
++                        .onSuccess { count ->
++                        Toast.makeText(this@MainActivity,"K_Tarihsel yeniden kuruldu · "+count+" satır",Toast.LENGTH_LONG).show()
++                        showPage("K_Tarihsel")
++                        }
++                        .onFailure {
++                        Toast.makeText(this@MainActivity,it.message?:"K_Tarihsel yeniden hesaplanamadı",Toast.LENGTH_LONG).show()
++                        }
++                        }
++                    },
++                    secondaryEnabled=!initialHistorySeedDone
++                )
+                 val latestRun=dao.latestValidRun()
+                 legacyTimeCard(
+                     "TEFAS gerçek veri tarihi" to (health.lastMarketDataAt?.toString()?:"—"),
+@@ -1121,9 +1206,9 @@ class MainActivity : Activity() {
+                 )
+                 sectionHead(
+                     "K_Tarihsel günlük karşılaştırma",
+-                    "T0: güncel Kn ↔ güncel Reel · T1–T30: Kn(d) ↔ sonraki işlem günü Reel(d+1)"
++                    "T0 canlı · T1–T30: Kn(d) → Reel(d+1)"
+                 )
+-                val trend=KHistoricalService(dao).latestTrend()
++                val trend=initialHistoryTrend
+                 if(trend==null) {
+                     empty("Henüz Kn aynası oluşturulmadı. Önce Kn tablosunu çalıştırın.")
+                 } else {
+@@ -1287,6 +1372,17 @@ class MainActivity : Activity() {
+             }
+             "Öğrenme" -> {
+                 val champion=dao.champion()
++                val championValidation=champion?.validationJson?.let { raw ->
++                    runCatching { JSONObject(raw) }.getOrNull()
++                }
++                val championPrecision=championValidation?.optString("precisionAtN")?.toBigDecimalOrNull()
++                val championNdcg=championValidation?.optString("ndcg")?.toBigDecimalOrNull()
++                val championLearningScore=if(championPrecision!=null && championNdcg!=null) {
++                    championPrecision.multiply(java.math.BigDecimal("0.58"))
++                        .add(championNdcg.multiply(java.math.BigDecimal("0.42")))
++                        .multiply(java.math.BigDecimal("100"))
++                        .coerceIn(java.math.BigDecimal.ZERO,java.math.BigDecimal("100"))
++                } else null
+                 val models=dao.models()
+                 val run=dao.latestValidRun()
+                 val selectionRows=run?.let { dao.selectionsForRun(it.id) }.orEmpty()
+@@ -1319,8 +1415,8 @@ class MainActivity : Activity() {
+                 }
+                 val historical=trend?.rows?.drop(1).orEmpty()
+                 val p7=ratio(historical.take(7))
+-                val p14=ratio(historical.take(14))
+-                val delta=if(p7!=null&&p14!=null)(p7-p14)*100.0 else null
++                val previous7=ratio(historical.drop(7).take(7))
++                val delta=if(p7!=null&&previous7!=null)(p7-previous7)*100.0 else null
+                 val k8Covered=selectionRows.count { cScore(it,"K8")!="—" }
+                 val behaviorCoverage=if(selectionRows.isNotEmpty())
+                     100.0*k8Covered.toDouble()/selectionRows.size.toDouble() else null
+@@ -1365,12 +1461,14 @@ class MainActivity : Activity() {
+                 when(activeLearningTab) {
+                     "Öğrenme" -> {
+                         legacyOverviewMetricGrid(listOf(
+-                            Triple("Öğrenme puanı",champion?.let{"100/100"}?:"—","ileri doğrulama"),
++                            Triple("Öğrenme puanı",championLearningScore
++                                ?.setScale(2,java.math.RoundingMode.HALF_UP)?.toPlainString()?.plus("/100")?:"—",
++                                "Precision@N + NDCG ileri doğrulama"),
+                             Triple("Son 7 dönem",p7?.let{String.format(java.util.Locale("tr","TR"),"%.1f%%",it*100)}?:"—","Precision@20"),
+                             Triple("Değişim",delta?.let{String.format(java.util.Locale("tr","TR"),"%+.1f puan",it)}?:"—","7 dönem"),
+                             Triple("Davranış kapsamı",behaviorCoverage?.let{String.format(java.util.Locale("tr","TR"),"%.2f%%",it)}?:"—","Yeterli örnek"),
+                             Triple("Onaylanan aday",models.count{it.active}.toString(),"model kapısı"),
+-                            Triple("Reddedilen aday",models.count{!it.active}.toString(),"manuel onay"),
++                            Triple("Reddedilen aday",models.count{it.role=="RETIRED"}.toString(),"model kapısı"),
+                             Triple("Bağımsız dönem",historical.size.toString(),"Tekilleştirilmiş"),
+                             Triple("Son karar",champion?.let{"ÖĞRENİYOR"}?:"BEKLEME","Model kapısı")
+                         ))
+@@ -1836,6 +1934,199 @@ class MainActivity : Activity() {
+                 }
+                 card("Zamanlayıcı davranışı","Manuel modül düğmeleri otomatik pipeline tetikleriyle birleştirilmez; her çalışma scheduler geçmişine durum/not yazar.")
+ 
++                title("Sağlık / Süreklilik",settingsGroup=true)
++                card("Genel sağlık",health.overall.name)
++                health.components.forEach { c ->
++                    card(c.name,c.level.name+" · "+c.message)
++                }
++                card("Storage",health.storageBytes.toString()+" bytes")
++                val retentionState=AppScheduler.logRetentionSchedulerState(this)
++                card(
++                    "Bakım zamanlayıcısı",
++                    "Sonraki Pazar 00:00 temizliği: "+(retentionState.first?.toString()?:"—")+
++                        " · "+(if(retentionState.second)"kesin alarm" else "yaklaşık alarm")
++                )
++
++                title("Bildirimler ve Loglar",settingsGroup=true)
++                val importantAuditGroups=dao.recentAudit(500)
++                    .filter { row ->
++                        io.aurum.common.logging.OperationalEventPolicy.isImportantAudit(
++                            row.level,row.subsystem,row.code,row.message
++                        )
++                    }
++                    .groupBy { row ->
++                        io.aurum.common.logging.OperationalEventPolicy.dedupeKey(
++                            row.subsystem,row.code,row.message
++                        )
++                    }
++                    .values
++                    .map { group -> group.sortedByDescending { it.timestampUtc } }
++                    .sortedByDescending { group -> group.firstOrNull()?.timestampUtc?:"" }
++                    .take(20)
++                card(
++                    "Önemli loglar · en fazla 20 olay",
++                    if(importantAuditGroups.isEmpty()) "Kayıt yok."
++                    else importantAuditGroups.joinToString("\\n") { group ->
++                        val last=group.first()
++                        last.timestampUtc+" · "+last.code+" · "+last.message+
++                            (if(group.size>1)" · x"+group.size else "")
++                    }
++                )
++                val importantDeliveryGroups=dao.recentNotificationDeliveries(250)
++                    .filter { row ->
++                        io.aurum.common.logging.OperationalEventPolicy.isImportantNotification(
++                            row.eventType,row.title,row.body,row.importance
++                        )
++                    }
++                    .groupBy { row -> row.fingerprint }
++                    .values
++                    .map { group -> group.sortedByDescending { it.deliveredAtUtc } }
++                    .sortedByDescending { group -> group.firstOrNull()?.deliveredAtUtc?:"" }
++                    .take(20)
++                card(
++                    "Önemli bildirim teslimleri · en fazla 20 olay",
++                    if(importantDeliveryGroups.isEmpty()) "Kayıt yok."
++                    else importantDeliveryGroups.joinToString("\\n") { group ->
++                        val last=group.first()
++                        val channels=group.map { it.channel }.distinct().sorted().joinToString("/")
++                        last.deliveredAtUtc+" · "+last.eventType+" · "+last.title+" · "+channels+
++                            (if(group.size>1)" · x"+group.size else "")
++                    }
++                )
++                actionButton("Log ve Bildirimleri Temizle","Tüm log/audit ve teslim bildirim kayıtlarını kalıcı olarak temizle") {
++                    AlertDialog.Builder(this)
++                        .setTitle("Log ve bildirimler kalıcı silinsin mi?")
++                        .setMessage("Bu işlem yalnız operasyonel log ve bildirim kayıtlarını temizler; K_Tarihsel, portföy ve aktif AL/SAT durumu korunur.")
++                        .setNegativeButton("Vazgeç",null)
++                        .setPositiveButton("Temizle") { _,_ ->
++                            scope.launch {
++                                dao.clearAudit()
++                                dao.clearNotificationDeliveries()
++                                Toast.makeText(this@MainActivity,"Log ve bildirimler temizlendi",Toast.LENGTH_SHORT).show()
++                                showPage("Ayarlar")
++                            }
++                        }.show()
++                }
++                card("Otomatik temizlik","Pazar 00:00 · Europe/Istanbul hedefi. Operasyonel log ve bildirim teslim izlerinde 7 günü aşan kayıtlar kalıcı olarak silinir; Android bakım penceresi yürütmeyi kısa süre erteleyebilir.")
++
++                title("Yasaklı Fonlar · Fon Evreni Filtresi",settingsGroup=true)
++                val blockedService=io.aurum.aurumf.signal.BlockedInstrumentService(dao)
++                val blockedItems=blockedService.list().sortedBy { it.symbol }
++                card(
++                    "Fon evreni",
++                    if(blockedItems.isEmpty())
++                        "Yasaklı fon yok."
++                    else
++                        blockedItems.joinToString(" · ") { it.symbol }+
++                            "\nYasaktan çıkarılan kod için silinmiş eski veri kendiliğinden geri gelmez."
++                )
++                val blockedEditor=EditText(this).apply {
++                    referenceField()
++                    hint="Fon kodu / kodları"
++                    isSingleLine=false
++                    contentDescription="Fon kodu / kodları"
++                }
++                content.addView(blockedEditor)
++                fun blockedCodes():List<String> = blockedEditor.text.toString()
++                    .split(",",";"," ","\n","\t")
++                    .map { it.trim().uppercase(java.util.Locale.ROOT) }
++                    .filter { it.isNotBlank() }
++                    .distinct()
++                actionButton("Yasakla ve Evrenden Çıkar","Girilen kodları fon evreninden çıkar; yerel veri ve aktif işlem etkisini güvenli biçimde temizle") {
++                    val codes=blockedCodes()
++                    if(codes.isEmpty()) {
++                        Toast.makeText(this,"En az bir kod girin",Toast.LENGTH_SHORT).show()
++                    } else {
++                        AlertDialog.Builder(this)
++                            .setTitle(codes.joinToString(", ")+" yasaklansın mı?")
++                            .setMessage("Bu işlem ilgili kodların yerel veri, seçim ve varsa sanal portföy/AL-SAT etkisini kaldırır. Yasak kaldırılırsa eski silinmiş veri canlandırılmaz.")
++                            .setNegativeButton("Vazgeç",null)
++                            .setPositiveButton("Yasakla") { _,_ ->
++                                scope.launch {
++                                    runCatching { codes.forEach { blockedService.block(it) } }
++                                        .onSuccess {
++                                            Toast.makeText(this@MainActivity,"Yasak listesi güncellendi",Toast.LENGTH_SHORT).show()
++                                            showPage("Ayarlar")
++                                        }
++                                        .onFailure {
++                                            Toast.makeText(this@MainActivity,it.message?:"Yasaklama başarısız",Toast.LENGTH_LONG).show()
++                                        }
++                                }
++                            }.show()
++                    }
++                }
++                actionButton("Yasağı Kaldır","Girilen kodları yasak listesinden çıkar; veri sonraki yetkili aktarımda yeniden alınır") {
++                    val codes=blockedCodes()
++                    if(codes.isEmpty()) {
++                        Toast.makeText(this,"En az bir kod girin",Toast.LENGTH_SHORT).show()
++                    } else scope.launch {
++                        runCatching { codes.forEach { blockedService.unblock(it) } }
++                            .onSuccess {
++                                Toast.makeText(this@MainActivity,"Yasak kaldırıldı",Toast.LENGTH_SHORT).show()
++                                showPage("Ayarlar")
++                            }
++                            .onFailure {
++                                Toast.makeText(this@MainActivity,it.message?:"Yasak kaldırılamadı",Toast.LENGTH_LONG).show()
++                            }
++                    }
++                }
++                if(blockedItems.isNotEmpty()) {
++                    actionButton("Tüm Yasakları Kaldır","Yasak listesini boşalt; silinmiş veriler kendiliğinden geri yüklenmez") {
++                        AlertDialog.Builder(this)
++                            .setTitle("Tüm yasaklar kaldırılsın mı?")
++                            .setMessage("Liste boşaltılır; daha önce silinmiş veri sonraki veri aktarımında yeniden alınır.")
++                            .setNegativeButton("Vazgeç",null)
++                            .setPositiveButton("Kaldır") { _,_ ->
++                                scope.launch {
++                                    runCatching { blockedItems.forEach { blockedService.unblock(it.symbol) } }
++                                        .onSuccess { showPage("Ayarlar") }
++                                        .onFailure {
++                                            Toast.makeText(this@MainActivity,it.message?:"Yasaklar kaldırılamadı",Toast.LENGTH_LONG).show()
++                                        }
++                                }
++                            }.show()
++                    }
++                }
++
++                title("Bakım ve Onarım",settingsGroup=true)
++                card(
++                    "Onarım merkezi",
++                    "Mevcut doğrulanmış veriyi koruyarak eksik/yarım kalmış veri akışını yeniden kontrol eder. Manuel onarım otomatik zamanlayıcı profilini değiştirmez."
++                )
++                actionButton("Veri Onarımını Çalıştır","Eksik ve onarılabilir veri için kontrollü onarım işini kuyruğa al") {
++                    AppScheduler.repairDataNow(this)
++                    Toast.makeText(this,"Veri onarımı kuyruğa alındı",Toast.LENGTH_SHORT).show()
++                }
++                actionButton("Piyasa Kaynaklarını Yeniden Kontrol Et","Piyasa/finans portalı kaynaklarını bağımsız olarak yeniden kuyruğa al") {
++                    AppScheduler.refreshPortalNow(this)
++                    Toast.makeText(this,"Piyasa kaynak kontrolü kuyruğa alındı",Toast.LENGTH_SHORT).show()
++                }
++
++                title("Tablo ve Hesaplama Denetimi")
++                val auditRun=dao.latestValidRun()
++                val auditPublications=dao.pipelineStagePublications().associateBy { it.stage }
++                val auditData=dao.latestCompletedDataPublicationAmong(listOf("HISTORICAL_SYNC","FUND_SYNC","DATA_SYNC"))
++                card(
++                    "Veri gerçekliği",
++                    "TEFAS / piyasa gerçek veri zamanı: "+(health.lastMarketDataAt?.toString()?:"—")+
++                        "\nSon başarılı veri yayını: "+(auditData?.updatedAtUtc?:"—")+
++                        "\nDurum: "+(auditData?.state?:"—")
++                )
++                card(
++                    "Hesaplama zinciri",
++                    "Kn: "+(auditPublications["KN"]?.publishedAtUtc?:"—")+
++                        "\nK_Tarihsel: "+(auditPublications["K_TARIHSEL"]?.publishedAtUtc?:"—")+
++                        "\nF: "+(auditPublications["F"]?.publishedAtUtc?:"—")
++                )
++                card(
++                    "Son doğrulanmış model çalışması",
++                    if(auditRun==null) "Henüz doğrulanmış çalışma yok."
++                    else auditRun.asOfUtc+" · "+auditRun.status+
++                        " · bütünlük "+(if(auditRun.integrityPassed)"GEÇTİ" else "BEKLEME")+
++                        "\nmodel "+auditRun.modelVersion+" · formül "+auditRun.formulaVersion+
++                        " · şema "+auditRun.dataSchemaVersion
++                )
++
+                 title("Dışa / İçe Aktarma · Tam Yedek",settingsGroup=true)
+                 val exchangeFolder=exchangeTreeUri()
+                 card(
+@@ -1913,48 +2204,6 @@ class MainActivity : Activity() {
+                         "Android belge-klasörü (SAF) erişim izni uygulama kaldırıldığında sistem tarafından silinir; yeniden kurulum ve tam geri yükleme sonrasında çıktı/yedek klasörünü bir kez yeniden seçmeniz gerekir."
+                 )
+ 
+-                title("Bildirimler ve Loglar · Diğer",settingsGroup=true)
+-                val otherLogs=dao.recentAudit(500)
+-                    .filter { row ->
+-                        val code=row.code.uppercase(java.util.Locale.ROOT)
+-                        val message=row.message.uppercase(java.util.Locale.ROOT)
+-                        val critical=sequenceOf(
+-                            "FAIL","ERROR","SECURITY","BLOCK","TRADE","AL_SAT","NOTIFICATION",
+-                            "MODEL","BACKUP","RESTORE","IMPORT","EXPORT","INTEGRITY","REPAIR",
+-                            "CANCEL","INTERRUPT","GATE","WARNING","WARN"
+-                        ).any { it in code || it in message }
+-                        val routineInstrumentSuccess=
+-                            (("SUCCESS" in code || "SUCCEEDED" in code || " OK" in message || message.endsWith("OK")) &&
+-                             !critical)
+-                        critical || !routineInstrumentSuccess
+-                    }
+-                    .distinctBy { row ->
+-                        row.code+"|"+row.subsystem+"|"+
+-                            row.message.replace(Regex("\\b[A-Z0-9]{2,12}\\b"),"<item>")
+-                    }
+-                    .take(20)
+-                card(
+-                    "Önemli olaylar · en fazla 20 kayıt",
+-                    if(otherLogs.isEmpty()) "Kayıt yok." else otherLogs.take(100).joinToString("\\n") {
+-                        it.timestampUtc+" · "+it.code+" · "+it.message
+-                    }
+-                )
+-                actionButton("Log ve Bildirimleri Temizle","Tüm log/audit ve teslim bildirim kayıtlarını kalıcı olarak temizle") {
+-                    AlertDialog.Builder(this)
+-                        .setTitle("Log ve bildirimler kalıcı silinsin mi?")
+-                        .setMessage("Bu işlem yalnız operasyonel log ve bildirim kayıtlarını temizler; K_Tarihsel, portföy ve aktif AL/SAT durumu korunur.")
+-                        .setNegativeButton("Vazgeç",null)
+-                        .setPositiveButton("Temizle") { _,_ ->
+-                            scope.launch {
+-                                dao.clearAudit()
+-                                dao.clearNotificationDeliveries()
+-                                Toast.makeText(this@MainActivity,"Log ve bildirimler temizlendi",Toast.LENGTH_SHORT).show()
+-                                showPage("Ayarlar")
+-                            }
+-                        }.show()
+-                }
+-                card("Otomatik temizlik","Pazar 00:00 · Europe/Istanbul hedefi. Operasyonel log ve bildirim teslim izlerinde 7 günü aşan kayıtlar kalıcı olarak silinir; Android bakım penceresi yürütmeyi kısa süre erteleyebilir.")
+-
+                 title("AL/SAT Bildirim Teslimi",settingsGroup=true)
+                 val tradeDelivery=TradeAlertDeliveryService(this,dao)
+                 val tradeConfig=tradeDelivery.config()
+@@ -2071,6 +2320,28 @@ class MainActivity : Activity() {
+                         }
+                     }
+                 }
++
++                title("Varsayılan Ayarlara Döndür",settingsGroup=true)
++                card(
++                    "Uygulama ayarları",
++                    "Kullanıcıya açık model, risk, veri ve öğrenme parametrelerini şema varsayılanlarına döndürür. Zamanlayıcı saatleri, OpenAI API anahtarı, yedek klasörü ve veritabanı verileri değiştirilmez."
++                )
++                actionButton("Varsayılanları Geri Yükle","Şema ayarlarını doğrulanmış varsayılan değerlere döndür") {
++                    AlertDialog.Builder(this)
++                        .setTitle("Uygulama ayarları varsayılana dönsün mü?")
++                        .setMessage("Model/veri/risk ayarları varsayılan değerlere döner. Veri tabloları, portföy, API anahtarı ve zamanlayıcı saatleri korunur.")
++                        .setNegativeButton("Vazgeç",null)
++                        .setPositiveButton("Varsayılana Dön") { _,_ ->
++                            val defaults=SettingsSchema.specs.associate { it.key to it.defaultValue }
++                            val ok=repo.replaceValidated(defaults)
++                            Toast.makeText(
++                                this,
++                                if(ok)"Varsayılan ayarlar geri yüklendi" else "Varsayılan ayarlar doğrulanamadı",
++                                Toast.LENGTH_LONG
++                            ).show()
++                            if(ok) showPage("Ayarlar")
++                        }.show()
++                }
+             }
+             "Sağlık" -> {
+                 card("Genel",health.overall.name)
+@@ -2525,6 +2796,108 @@ class MainActivity : Activity() {
+         ).apply { bottomMargin=dp(8) })
+     }
+ 
++    private fun legacyDataMarketIndicators(quotes:List<io.aurum.aurumf.persistence.PortalQuoteEntity>) {
++        val byKey=quotes.associateBy { it.key.uppercase(java.util.Locale.ROOT) }
++        fun n(key:String):java.math.BigDecimal?=byKey[key]?.valueDecimal?.toBigDecimalOrNull()
++        val bist=n("BIST100")
++        val usd=n("USDTRY")
++        val eur=n("EURTRY")
++        val eurUsd=n("EURUSD") ?: if(eur!=null&&usd!=null&&usd.signum()!=0)
++            eur.divide(usd,java.math.MathContext.DECIMAL64) else null
++        val ons=n("GOLD")
++        val gram=if(ons!=null&&usd!=null)
++            ons.multiply(usd).divide(java.math.BigDecimal("31.1034768"),java.math.MathContext.DECIMAL64)
++        else null
++        fun fmt(v:java.math.BigDecimal?,digits:Int,bistMode:Boolean=false):String {
++            if(v==null) return "—"
++            return if(bistMode) java.text.NumberFormat.getIntegerInstance(java.util.Locale("tr","TR")).format(v)
++            else java.text.NumberFormat.getNumberInstance(java.util.Locale("tr","TR")).apply {
++                minimumFractionDigits=digits
++                maximumFractionDigits=digits
++                isGroupingUsed=false
++            }.format(v)
++        }
++        val items=listOf(
++            Triple("BIST 100",fmt(bist,0,true),"BIST100"),
++            Triple("USD/TRY",fmt(usd,4),"USDTRY"),
++            Triple("EUR/TRY",fmt(eur,4),"EURTRY"),
++            Triple("EUR/USD",fmt(eurUsd,4),"EURUSD"),
++            Triple("Gram Altın",fmt(gram,2),"GRAMTRY"),
++            Triple("Altın Ons",fmt(ons,2),"GOLDUSD")
++        )
++        val wrap=FrameLayout(this).apply { setPadding(0,dp(1),0,0) }
++        val grid=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL }
++        items.chunked(3).forEachIndexed { rowIndex,rowItems ->
++            val row=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }
++            rowItems.forEachIndexed { index,item ->
++                val cell=LinearLayout(this).apply {
++                    orientation=LinearLayout.VERTICAL
++                    setPadding(dp(4),dp(4),dp(4),dp(4))
++                    minimumHeight=dp(35)
++                    background=GradientDrawable().apply {
++                        setColor(UiTokens.Surface)
++                        cornerRadius=dpF(9f)
++                        setStroke(dp(1),UiTokens.CardLine)
++                    }
++                }
++                cell.addView(TextView(this).apply {
++                    text=item.first
++                    textSize=6.6f
++                    setTextColor(UiTokens.Muted)
++                    maxLines=1
++                })
++                val valueRow=LinearLayout(this).apply {
++                    orientation=LinearLayout.HORIZONTAL
++                    gravity=Gravity.CENTER_VERTICAL
++                }
++                valueRow.addView(TextView(this).apply {
++                    text=item.second
++                    textSize=8.1f
++                    setTypeface(typeface,Typeface.BOLD)
++                    setTextColor(UiTokens.Text)
++                    maxLines=1
++                },LinearLayout.LayoutParams(0,LinearLayout.LayoutParams.WRAP_CONTENT,1f))
++                valueRow.addView(TextView(this).apply {
++                    text="—"
++                    textSize=6.9f
++                    setTextColor(UiTokens.Muted)
++                    gravity=Gravity.END
++                })
++                cell.addView(valueRow)
++                row.addView(cell,LinearLayout.LayoutParams(0,LinearLayout.LayoutParams.WRAP_CONTENT,1f).apply {
++                    if(index>0) leftMargin=dp(3)
++                })
++            }
++            grid.addView(row,LinearLayout.LayoutParams(
++                LinearLayout.LayoutParams.MATCH_PARENT,LinearLayout.LayoutParams.WRAP_CONTENT
++            ).apply { if(rowIndex>0) topMargin=dp(3) })
++        }
++        wrap.addView(grid,FrameLayout.LayoutParams(
++            FrameLayout.LayoutParams.MATCH_PARENT,FrameLayout.LayoutParams.WRAP_CONTENT
++        ).apply { rightMargin=dp(19) })
++        wrap.addView(TextView(this).apply {
++            text="↻"
++            textSize=11f
++            gravity=Gravity.CENTER
++            setTextColor(UiTokens.GoldStrong)
++            isClickable=true
++            isFocusable=true
++            contentDescription="Piyasa bilgilerini yenile"
++            background=GradientDrawable().apply {
++                setColor(UiTokens.SurfaceAlt)
++                cornerRadius=dpF(7f)
++                setStroke(dp(1),UiTokens.GoldLine)
++            }
++            setOnClickListener {
++                AppScheduler.refreshPortalNow(this@MainActivity)
++                Toast.makeText(this@MainActivity,"Piyasa göstergeleri yenileme kuyruğa alındı",Toast.LENGTH_SHORT).show()
++            }
++        },FrameLayout.LayoutParams(dp(18),dp(18),Gravity.TOP or Gravity.END))
++        content.addView(wrap,LinearLayout.LayoutParams(
++            LinearLayout.LayoutParams.MATCH_PARENT,LinearLayout.LayoutParams.WRAP_CONTENT
++        ).apply { topMargin=dp(1); bottomMargin=dp(2) })
++    }
++
+     private fun legacyMarketStrip(quotes:List<io.aurum.aurumf.persistence.PortalQuoteEntity>) {
+         if(quotes.isEmpty()) return
+         var row:LinearLayout?=null
+@@ -2847,8 +3220,8 @@ class MainActivity : Activity() {
+             if(enabled) setOnClickListener { onPage(target) }
+         }
+         row.addView(pagerButton("← Önceki",page-1,page>0),LinearLayout.LayoutParams(0,dp(30),1f))
+-        val start=if(count==0)0 else page*100+1
+-        val end=kotlin.math.min(count,(page+1)*100)
++        val start=if(count==0)0 else page*200+1
++        val end=kotlin.math.min(count,(page+1)*200)
+         row.addView(TextView(this).apply {
+             text=if(count==0)"0 / 0" else start.toString()+"–"+end+" / "+count
+             textSize=8.2f
+@@ -3293,120 +3666,229 @@ class MainActivity : Activity() {
+         scopeLabel:String,
+         actionLabel:String,
+         onRun:()->Unit,
+-        onCancel:(()->Unit)?=null
++        onCancel:(()->Unit)?=null,
++        secondaryLabel:String?=null,
++        secondaryAction:(()->Unit)?=null,
++        secondaryEnabled:Boolean=true
+     ) {
++        val busy=onCancel!=null
++        val zone=FrameLayout(this).apply {
++            minimumHeight=dp(50)
++        }
++
+         val actionCard=LinearLayout(this).apply {
+             orientation=LinearLayout.VERTICAL
+-            setPadding(dp(8),dp(8),dp(8),dp(8))
++            gravity=Gravity.CENTER
++            setPadding(dp(7),dp(6),dp(7),dp(6))
+             background=GradientDrawable(
+                 GradientDrawable.Orientation.TL_BR,
+-                intArrayOf(android.graphics.Color.argb(252,4,13,38),android.graphics.Color.argb(254,1,4,15))
++                intArrayOf(android.graphics.Color.argb(245,4,13,38),android.graphics.Color.argb(254,1,5,18))
+             ).apply {
+                 cornerRadius=dpF(10f)
+-                setStroke(dp(1),UiTokens.Hairline)
++                setStroke(dp(1),UiTokens.CardLine)
+             }
+         }
+-        actionCard.addView(TextView(this).apply {
+-            text=actionLabel
++        fun operationButton(textValue:String,gold:Boolean,enabled:Boolean,action:()->Unit)=TextView(this).apply {
++            text=textValue
+             textSize=9f
+             gravity=Gravity.CENTER
+             setTypeface(typeface,Typeface.BOLD)
+-            setTextColor(android.graphics.Color.rgb(16,17,20))
++            setTextColor(if(gold) android.graphics.Color.rgb(16,17,20) else UiTokens.Text)
+             setPadding(dp(9),dp(6),dp(9),dp(6))
+-            isClickable=true
+-            isFocusable=true
+-            background=GradientDrawable(
+-                GradientDrawable.Orientation.LEFT_RIGHT,
+-                intArrayOf(android.graphics.Color.rgb(154,116,35),android.graphics.Color.rgb(207,169,65),android.graphics.Color.rgb(234,208,102))
+-            ).apply {
+-                cornerRadius=dpF(8f)
+-                setStroke(dp(1),android.graphics.Color.argb(122,244,213,108))
++            isClickable=enabled
++            isFocusable=enabled
++            alpha=if(enabled)1f else .48f
++            contentDescription=textValue
++            maxLines=1
++            ellipsize=TextUtils.TruncateAt.END
++            background=if(gold) {
++                GradientDrawable(
++                    GradientDrawable.Orientation.LEFT_RIGHT,
++                    intArrayOf(
++                        android.graphics.Color.rgb(154,116,35),
++                        android.graphics.Color.rgb(207,169,65),
++                        android.graphics.Color.rgb(234,208,102)
++                    )
++                ).apply {
++                    cornerRadius=dpF(8f)
++                    setStroke(dp(1),android.graphics.Color.argb(122,244,213,108))
++                }
++            } else {
++                GradientDrawable().apply {
++                    setColor(android.graphics.Color.argb(184,3,10,34))
++                    cornerRadius=dpF(8f)
++                    setStroke(dp(1),UiTokens.GoldLine)
++                }
+             }
+-            setOnClickListener { onRun() }
+-        },LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,dp(30)))
+-        content.addView(actionCard,LinearLayout.LayoutParams(
+-            LinearLayout.LayoutParams.MATCH_PARENT,LinearLayout.LayoutParams.WRAP_CONTENT
+-        ).apply { bottomMargin=dp(4) })
+-
+-        val operation=LinearLayout(this).apply {
+-            orientation=LinearLayout.VERTICAL
+-            setPadding(dp(8),dp(6),dp(8),dp(6))
+-            background=GradientDrawable().apply {
+-                setColor(android.graphics.Color.argb(130,6,18,48))
+-                cornerRadius=dpF(9f)
+-                setStroke(dp(1),UiTokens.Hairline)
++            if(enabled) setOnClickListener { action() }
++        }
++        if(secondaryLabel==null || secondaryAction==null) {
++            actionCard.addView(
++                operationButton(actionLabel,true,true,onRun),
++                LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,dp(30))
++            )
++        } else {
++            val actionRow=LinearLayout(this).apply {
++                orientation=LinearLayout.HORIZONTAL
++                gravity=Gravity.CENTER_VERTICAL
+             }
++            actionRow.addView(
++                operationButton(actionLabel,true,true,onRun),
++                LinearLayout.LayoutParams(0,dp(30),1f)
++            )
++            actionRow.addView(
++                operationButton(secondaryLabel,false,secondaryEnabled,secondaryAction),
++                LinearLayout.LayoutParams(0,dp(30),1.25f).apply { leftMargin=dp(6) }
++            )
++            actionCard.addView(
++                actionRow,
++                LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,dp(30))
++            )
+         }
+-        operation.addView(TextView(this).apply {
+-            text="●  "+scopeLabel+" hazır"
+-            textSize=8.6f
+-            setTextColor(UiTokens.Muted)
+-        })
+-        operation.addView(View(this).apply {
+-            background=GradientDrawable().apply {
+-                setColor(android.graphics.Color.argb(35,240,213,109))
+-                cornerRadius=dpF(99f)
++        zone.addView(actionCard,FrameLayout.LayoutParams(
++            FrameLayout.LayoutParams.MATCH_PARENT,dp(50)
++        ))
++
++        if(busy) {
++            val operation=LinearLayout(this).apply {
++                orientation=LinearLayout.VERTICAL
++                gravity=Gravity.CENTER_VERTICAL
++                setPadding(dp(11),dp(6),dp(7),dp(6))
++                background=GradientDrawable(
++                    GradientDrawable.Orientation.TL_BR,
++                    intArrayOf(android.graphics.Color.argb(254,5,14,40),android.graphics.Color.argb(255,1,5,18))
++                ).apply {
++                    cornerRadius=dpF(15f)
++                    setStroke(dp(1),android.graphics.Color.argb(36,187,199,214))
++                }
++                contentDescription=scopeLabel+" işlem durumu"
+             }
+-        },LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,dp(3)).apply { topMargin=dp(5) })
+-        content.addView(operation,LinearLayout.LayoutParams(
+-            LinearLayout.LayoutParams.MATCH_PARENT,LinearLayout.LayoutParams.WRAP_CONTENT
+-        ).apply { bottomMargin=dp(4) })
++            val caption=LinearLayout(this).apply {
++                orientation=LinearLayout.HORIZONTAL
++                gravity=Gravity.CENTER_VERTICAL
++                minimumHeight=dp(23)
++            }
++            caption.addView(View(this).apply {
++                background=GradientDrawable().apply {
++                    setColor(UiTokens.GoldStrong)
++                    shape=GradientDrawable.OVAL
++                }
++            },LinearLayout.LayoutParams(dp(6),dp(6)))
++            caption.addView(TextView(this).apply {
++                text=scopeLabel+" işlem sürüyor"
++                textSize=8.6f
++                setTextColor(UiTokens.Muted)
++                maxLines=1
++                ellipsize=TextUtils.TruncateAt.END
++            },LinearLayout.LayoutParams(
++                0,LinearLayout.LayoutParams.WRAP_CONTENT,1f
++            ).apply { leftMargin=dp(7) })
++            operation.addView(caption)
++            operation.addView(FrameLayout(this).apply {
++                background=GradientDrawable().apply {
++                    setColor(android.graphics.Color.argb(28,106,133,163))
++                    cornerRadius=dpF(99f)
++                }
++            },LinearLayout.LayoutParams(
++                LinearLayout.LayoutParams.MATCH_PARENT,dp(4)
++            ).apply { topMargin=dp(4) })
++            zone.addView(operation,FrameLayout.LayoutParams(
++                FrameLayout.LayoutParams.MATCH_PARENT,dp(50)
++            ))
++        }
++
++        content.addView(zone,LinearLayout.LayoutParams(
++            LinearLayout.LayoutParams.MATCH_PARENT,dp(50)
++        ).apply { bottomMargin=dp(5) })
+ 
+-        val mini=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }
++        val mini=LinearLayout(this).apply {
++            orientation=LinearLayout.HORIZONTAL
++            setPadding(dp(2),0,dp(2),0)
++        }
++        data class MiniSpec(val icon:String,val label:String,val enabled:Boolean,val action:()->Unit)
+         val specs=listOf(
+-            Triple("↺","Baştan başlat",onRun),
+-            Triple("＋","Eksikleri tamamla",onRun),
+-            Triple("×","İptal",onCancel ?: {}),
+-            Triple("⌫","Temizle",{ showPage(currentPage) })
++            MiniSpec("↺","Baştan başlat",true,onRun),
++            MiniSpec("＋","Eksikleri tamamla",true,onRun),
++            MiniSpec("×","İptal",onCancel!=null,onCancel ?: {}),
++            MiniSpec("⌫","Temizle",true,{ showPage(currentPage) })
+         )
+         specs.forEachIndexed { index,spec ->
+-            mini.addView(TextView(this).apply {
+-                text=spec.first+" "+spec.second
+-                textSize=7.6f
++            val button=LinearLayout(this).apply {
++                orientation=LinearLayout.HORIZONTAL
+                 gravity=Gravity.CENTER
+-                setTextColor(UiTokens.Muted)
+-                isClickable=spec.second!="İptal" || onCancel!=null
+-                isFocusable=isClickable
+-                setPadding(dp(3),dp(5),dp(3),dp(5))
++                minimumHeight=dp(36)
++                isClickable=spec.enabled
++                isFocusable=spec.enabled
++                alpha=if(spec.enabled)1f else .55f
++                contentDescription=spec.label
++                setPadding(dp(1),dp(4),dp(1),dp(4))
+                 background=GradientDrawable().apply {
+-                    setColor(android.graphics.Color.argb(150,2,7,24))
+-                    cornerRadius=dpF(8f)
+-                    setStroke(dp(1),UiTokens.Hairline)
++                    setColor(android.graphics.Color.argb(184,3,10,34))
++                    cornerRadius=dpF(10f)
++                    setStroke(dp(1),UiTokens.GoldLine)
+                 }
+-                if(isClickable) setOnClickListener { spec.third() }
+-            },LinearLayout.LayoutParams(0,dp(29),1f).apply {
+-                if(index>0) leftMargin=dp(3)
++                if(spec.enabled) setOnClickListener { spec.action() }
++            }
++            button.addView(TextView(this).apply {
++                text=spec.icon
++                textSize=13.333f
++                setTextColor(UiTokens.Gold)
++                gravity=Gravity.CENTER
+             })
++            button.addView(TextView(this).apply {
++                text=spec.label
++                textSize=9.333f
++                setTextColor(UiTokens.Muted)
++                gravity=Gravity.CENTER
++                maxLines=1
++            },LinearLayout.LayoutParams(
++                LinearLayout.LayoutParams.WRAP_CONTENT,LinearLayout.LayoutParams.WRAP_CONTENT
++            ).apply { leftMargin=dp(2) })
++            mini.addView(button,LinearLayout.LayoutParams(
++                0,dp(36),1f
++            ).apply { if(index>0) leftMargin=dp(4) })
+         }
+         content.addView(mini,LinearLayout.LayoutParams(
+-            LinearLayout.LayoutParams.MATCH_PARENT,LinearLayout.LayoutParams.WRAP_CONTENT
+-        ).apply { bottomMargin=dp(7) })
++            LinearLayout.LayoutParams.MATCH_PARENT,dp(36)
++        ).apply { bottomMargin=dp(10) })
+     }
+ 
+     private fun legacyTimeCard(vararg rows:Pair<String,String>) {
++        val compact=currentPage=="Seçimler" || currentPage=="Kriterler"
++        val minHeight=if(compact)52 else 64
++        val horizontalPadding=if(compact)8 else 10
++        val verticalPadding=if(compact)5 else 6
++        val rowHeight=if(compact)14 else 17
++        val labelSp=if(compact)8f else 10.433f
++        val valueSp=if(compact)8.15f else 10.833f
+         val box=LinearLayout(this).apply {
+             orientation=LinearLayout.VERTICAL
+-            setPadding(dp(8),dp(5),dp(8),dp(5))
+-            background=GradientDrawable().apply {
+-                setColor(android.graphics.Color.argb(190,3,10,34))
+-                cornerRadius=dpF(10f)
+-                setStroke(dp(1),UiTokens.Hairline)
++            minimumHeight=dp(minHeight)
++            setPadding(dp(horizontalPadding),dp(verticalPadding),dp(horizontalPadding),dp(verticalPadding))
++            background=GradientDrawable(
++                GradientDrawable.Orientation.TL_BR,
++                intArrayOf(android.graphics.Color.argb(252,4,13,38),android.graphics.Color.argb(254,1,4,15))
++            ).apply {
++                cornerRadius=dpF(13f)
++                setStroke(dp(1),UiTokens.CardLine)
+             }
+         }
+         rows.forEach { pair ->
+             val row=LinearLayout(this).apply {
+                 orientation=LinearLayout.HORIZONTAL
+                 gravity=Gravity.CENTER_VERTICAL
+-                minimumHeight=dp(14)
++                minimumHeight=dp(rowHeight)
+             }
+             row.addView(TextView(this).apply {
+                 text=pair.first
+-                textSize=8f
++                textSize=labelSp
+                 setTextColor(UiTokens.Muted)
++                maxLines=1
++                ellipsize=TextUtils.TruncateAt.END
+             },LinearLayout.LayoutParams(0,LinearLayout.LayoutParams.WRAP_CONTENT,1f))
+             row.addView(TextView(this).apply {
+                 text=pair.second
+-                textSize=8.15f
++                textSize=valueSp
+                 setTypeface(typeface,Typeface.BOLD)
+                 setTextColor(UiTokens.Text)
+                 maxLines=1
+@@ -3415,73 +3897,152 @@ class MainActivity : Activity() {
+         }
+         content.addView(box,LinearLayout.LayoutParams(
+             LinearLayout.LayoutParams.MATCH_PARENT,LinearLayout.LayoutParams.WRAP_CONTENT
+-        ).apply { bottomMargin=dp(7) })
++        ).apply { topMargin=dp(7); bottomMargin=dp(7) })
+     }
+ 
+     private fun legacyPerformanceLines(items:List<Pair<String,String>>) {
+-        val box=LinearLayout(this).apply {
++        val scroller=HorizontalScrollView(this).apply {
++            isHorizontalScrollBarEnabled=false
++        }
++        val row=LinearLayout(this).apply {
+             orientation=LinearLayout.HORIZONTAL
+             gravity=Gravity.CENTER_VERTICAL
+-            setPadding(dp(10),dp(7),dp(10),dp(7))
+-            background=GradientDrawable().apply {
+-                setColor(android.graphics.Color.argb(107,6,18,48))
+-                cornerRadius=dpF(10f)
+-                setStroke(dp(1),UiTokens.GoldLine)
+-            }
+         }
+         items.forEachIndexed { index,item ->
+-            val cell=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL }
+-            cell.addView(TextView(this@MainActivity).apply { text=item.first; textSize=8.2f; setTextColor(UiTokens.Muted) })
+-            cell.addView(TextView(this@MainActivity).apply { text=item.second; textSize=9f; setTypeface(typeface,Typeface.BOLD); setTextColor(UiTokens.GoldStrong) })
+-            box.addView(cell,LinearLayout.LayoutParams(0,LinearLayout.LayoutParams.WRAP_CONTENT,1f).apply { if(index>0) leftMargin=dp(4) })
++            val cell=LinearLayout(this).apply {
++                orientation=LinearLayout.HORIZONTAL
++                gravity=Gravity.CENTER_VERTICAL
++            }
++            cell.addView(TextView(this).apply {
++                text=item.first+":"
++                textSize=11.333f
++                setTextColor(UiTokens.Muted)
++            })
++            cell.addView(TextView(this).apply {
++                text=item.second
++                textSize=11.333f
++                setTypeface(typeface,Typeface.BOLD)
++                setTextColor(UiTokens.GoldStrong)
++            },LinearLayout.LayoutParams(
++                LinearLayout.LayoutParams.WRAP_CONTENT,LinearLayout.LayoutParams.WRAP_CONTENT
++            ).apply { leftMargin=dp(3) })
++            row.addView(cell,LinearLayout.LayoutParams(
++                LinearLayout.LayoutParams.WRAP_CONTENT,LinearLayout.LayoutParams.WRAP_CONTENT
++            ).apply { if(index>0) leftMargin=dp(10) })
+         }
+-        content.addView(box,LinearLayout.LayoutParams(
++        scroller.addView(row)
++        content.addView(scroller,LinearLayout.LayoutParams(
+             LinearLayout.LayoutParams.MATCH_PARENT,LinearLayout.LayoutParams.WRAP_CONTENT
+-        ).apply { bottomMargin=dp(7) })
++        ).apply { leftMargin=dp(2); rightMargin=dp(2); topMargin=dp(7); bottomMargin=dp(7) })
+     }
+ 
+     private fun legacyDataStatusCard(lines:List<String>) {
+         val box=LinearLayout(this).apply {
+             orientation=LinearLayout.VERTICAL
+-            setPadding(dp(8),dp(8),dp(8),dp(8))
++            minimumHeight=dp(54)
++            setPadding(dp(9),dp(9),dp(9),dp(9))
+             background=GradientDrawable(
+                 GradientDrawable.Orientation.TL_BR,
+                 intArrayOf(android.graphics.Color.argb(252,4,13,38),android.graphics.Color.argb(254,1,4,15))
+             ).apply {
+                 cornerRadius=dpF(10f)
+-                setStroke(dp(1),UiTokens.Hairline)
++                setStroke(dp(1),UiTokens.CardLine)
+             }
+         }
+-        lines.forEach { line -> box.addView(TextView(this).apply {
+-            text=line
+-            textSize=8.6f
+-            setTextColor(UiTokens.Muted)
+-            setPadding(0,dp(2),0,dp(2))
+-        }) }
++        lines.forEachIndexed { index,line ->
++            box.addView(TextView(this).apply {
++                text=line
++                textSize=10.533f
++                setTextColor(if(index==0) android.graphics.Color.rgb(190,200,212) else UiTokens.Muted)
++                setLineSpacing(0f,1.35f)
++                minimumHeight=dp(15)
++                maxLines=2
++                ellipsize=TextUtils.TruncateAt.END
++            })
++        }
+         content.addView(box,LinearLayout.LayoutParams(
+             LinearLayout.LayoutParams.MATCH_PARENT,LinearLayout.LayoutParams.WRAP_CONTENT
+-        ).apply { bottomMargin=dp(7) })
++        ).apply { bottomMargin=dp(8) })
++    }
++
++    private fun legacyMembershipDelta(
++        currentSymbols:List<String>,
++        previousSnapshots:List<List<String>>,
++        noOutgoingText:String
++    ):Pair<String,String> {
++        val current=currentSymbols.map { it.trim().uppercase() }.filter { it.isNotBlank() }.distinct().take(20)
++        if(current.size<20) return "—" to "—"
++        var newer=current
++        var oldest=current
++        var incoming:List<String>?=null
++        var outgoing:List<String>?=null
++        var previousFound=false
++        previousSnapshots.forEach { raw ->
++            val older=raw.map { it.trim().uppercase() }.filter { it.isNotBlank() }.distinct().take(20)
++            if(older.size<20) return@forEach
++            previousFound=true
++            val olderSet=older.toSet()
++            val newerSet=newer.toSet()
++            if(incoming==null) {
++                val x=newer.filterNot { it in olderSet }
++                if(x.isNotEmpty()) incoming=x
++            }
++            if(outgoing==null) {
++                val x=older.filterNot { it in newerSet }
++                if(x.isNotEmpty()) outgoing=x
++            }
++            oldest=older
++            newer=older
++        }
++        val gln=(incoming ?: if(previousFound) oldest else current)
++            .takeIf { it.isNotEmpty() }?.joinToString(" · ") ?: "Henüz değişiklik yok"
++        val gdn=outgoing?.takeIf { it.isNotEmpty() }?.joinToString(" · ") ?: noOutgoingText
++        return gln to gdn
+     }
+ 
+     private fun legacyGlnGdn(gln:String,gdn:String) {
++        val criteriaMode=currentPage=="Kriterler"
++        val horizontal=if(criteriaMode)9 else 9
++        val vertical=if(criteriaMode)7 else 9
++        val textSp=if(criteriaMode)8.6f else 11.266f
+         val box=LinearLayout(this).apply {
+             orientation=LinearLayout.VERTICAL
+-            setPadding(dp(8),dp(7),dp(8),dp(7))
+-            background=GradientDrawable().apply {
+-                setColor(android.graphics.Color.argb(220,3,10,34))
++            setPadding(dp(horizontal),dp(vertical),dp(horizontal),dp(vertical))
++            background=GradientDrawable(
++                GradientDrawable.Orientation.TL_BR,
++                intArrayOf(android.graphics.Color.argb(252,4,13,38),android.graphics.Color.argb(254,1,4,15))
++            ).apply {
+                 cornerRadius=dpF(10f)
+-                setStroke(dp(1),UiTokens.Hairline)
++                setStroke(dp(1),UiTokens.CardLine)
+             }
+         }
+-        listOf("GLN" to gln,"GDN" to gdn).forEach { p ->
+-            val row=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }
+-            row.addView(TextView(this@MainActivity).apply { text=p.first+":"; textSize=9f; setTextColor(UiTokens.Muted) })
+-            row.addView(TextView(this@MainActivity).apply { text=p.second; textSize=9f; setTypeface(typeface,Typeface.BOLD); setTextColor(UiTokens.GoldStrong); setPadding(dp(7),0,0,0) })
+-            box.addView(row)
++        listOf("GLN:" to gln,"GDN:" to gdn).forEachIndexed { index,p ->
++            val row=LinearLayout(this).apply {
++                orientation=LinearLayout.HORIZONTAL
++                gravity=Gravity.CENTER_VERTICAL
++            }
++            row.addView(TextView(this@MainActivity).apply {
++                text=p.first
++                textSize=textSp
++                setTextColor(UiTokens.Muted)
++            })
++            row.addView(TextView(this@MainActivity).apply {
++                text=p.second
++                textSize=textSp
++                setTypeface(typeface,Typeface.BOLD)
++                setTextColor(UiTokens.Text)
++                maxLines=2
++                ellipsize=TextUtils.TruncateAt.END
++            },LinearLayout.LayoutParams(
++                0,LinearLayout.LayoutParams.WRAP_CONTENT,1f
++            ).apply { leftMargin=dp(6) })
++            box.addView(row,LinearLayout.LayoutParams(
++                LinearLayout.LayoutParams.MATCH_PARENT,LinearLayout.LayoutParams.WRAP_CONTENT
++            ).apply { if(index>0) topMargin=dp(3) })
+         }
+         content.addView(box,LinearLayout.LayoutParams(
+             LinearLayout.LayoutParams.MATCH_PARENT,LinearLayout.LayoutParams.WRAP_CONTENT
+-        ).apply { bottomMargin=dp(7) })
++        ).apply { bottomMargin=dp(8) })
+     }
+ 
+     private fun card(title:String,body:String,accent:Int=UiTokens.Gold):TextView {
+@@ -3595,11 +4156,16 @@ class MainActivity : Activity() {
+         val bodies=mutableListOf<LinearLayout>()
+         val subtitles=mapOf(
+             "Otomatik Güncelleme Zamanlayıcısı" to "Europe/Istanbul · bağımsız çalışma profilleri",
++            "Sağlık / Süreklilik" to "Salt okunur sağlık · veri · storage · bakım",
++            "Yasaklı Fonlar · Fon Evreni Filtresi" to "Fon evreninden kalıcı dışlama",
++            "Sorunları Gider / Onarım" to "Eksik veri · kaynak ve yerel onarım",
++            "Tablo ve Hesaplama Denetimi" to "Veri bütünlüğü · zaman damgaları · Kn/K_Tarihsel/F",
+             "Dışa / İçe Aktarma · Tam Yedek" to "JSON · CSV · XLSX · TXT · PDF · yedek/geri yükle",
+             "Bildirimler ve Loglar · Diğer" to "Son kayıtlar · operasyon günlüğü",
+             "AL/SAT Bildirim Teslimi" to "Kalıcı outbox · native relay",
+             "B sistemi ayarları" to "Politika ve hesaplama seçenekleri",
+-            "F sistemi ayarları" to "Politika ve hesaplama seçenekleri"
++            "F sistemi ayarları" to "Politika ve hesaplama seçenekleri",
++            "Varsayılan Ayarlara Döndür" to "Model · veri · risk · öğrenme varsayılanları"
+         )
+ 
+         groups.forEach { group ->
+@@ -3623,22 +4189,22 @@ class MainActivity : Activity() {
+             val summary=LinearLayout(this).apply {
+                 orientation=LinearLayout.HORIZONTAL
+                 gravity=Gravity.CENTER_VERTICAL
+-                setPadding(dp(10),dp(7),dp(7),dp(7))
++                setPadding(dp(10),dp(8),dp(10),dp(8))
+                 isClickable=true
+                 isFocusable=true
+                 contentDescription=group.title
+             }
+             val copy=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL }
+             copy.addView(TextView(this).apply {
+                 text=group.title
+-                textSize=10.6f
++                textSize=11.2f
+                 setTypeface(typeface,Typeface.BOLD)
+                 setTextColor(UiTokens.Text)
+             })
+             val sub=subtitles[group.title]
+             if(!sub.isNullOrBlank()) copy.addView(TextView(this).apply {
+                 text=sub
+-                textSize=8.4f
++                textSize=9.1f
+                 setTextColor(UiTokens.Muted)
+                 maxLines=2
+             })
+@@ -3654,8 +4220,13 @@ class MainActivity : Activity() {
+             val body=LinearLayout(this).apply {
+                 orientation=LinearLayout.VERTICAL
+                 visibility=View.GONE
+-                setPadding(dp(8),dp(1),dp(8),dp(7))
++                setPadding(dp(10),0,dp(10),dp(10))
+             }
++            body.addView(View(this).apply {
++                setBackgroundColor(UiTokens.Hairline)
++            },LinearLayout.LayoutParams(
++                LinearLayout.LayoutParams.MATCH_PARENT,dp(1)
++            ).apply { bottomMargin=dp(8) })
+             group.children.forEach { v ->
+                 (v.parent as? android.view.ViewGroup)?.removeView(v)
+                 body.addView(v)
+@@ -3683,7 +4254,7 @@ class MainActivity : Activity() {
+             wrapper.addView(body)
+             content.addView(wrapper,LinearLayout.LayoutParams(
+                 LinearLayout.LayoutParams.MATCH_PARENT,LinearLayout.LayoutParams.WRAP_CONTENT
+-            ).apply { bottomMargin=dp(7) })
++            ).apply { topMargin=dp(6); bottomMargin=dp(0) })
+         }
+     }
+ 
+@@ -3708,25 +4279,30 @@ class MainActivity : Activity() {
+     }
+ 
+     private fun legacyOverviewMetricGrid(items:List<Triple<String,String,String>>) {
++        val overviewMode=currentPage=="Genel Bakış"
++        val narrow=resources.configuration.screenWidthDp<=390
++        val gap=if(overviewMode) { if(narrow) 10 else 12 } else 10
++        val hPad=if(overviewMode) { if(narrow) 9 else 10 } else 9
++        val vPad=if(overviewMode) { if(narrow) 8 else 9 } else 9
+         var row:LinearLayout?=null
+         items.forEachIndexed { index,item ->
+             if(index%2==0) {
+                 row=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }
+                 content.addView(row,LinearLayout.LayoutParams(
+                     LinearLayout.LayoutParams.MATCH_PARENT,LinearLayout.LayoutParams.WRAP_CONTENT
+-                ).apply { bottomMargin=dp(10) })
++                ).apply { bottomMargin=dp(gap) })
+             }
+             val box=LinearLayout(this).apply {
+                 orientation=LinearLayout.VERTICAL
+                 gravity=Gravity.CENTER_VERTICAL
+-                setPadding(dp(9),dp(8),dp(9),dp(8))
+-                minimumHeight=dp(76)
++                setPadding(dp(hPad),dp(vPad),dp(hPad),dp(vPad))
++                if(overviewMode) minimumHeight=dp(if(item.first=="Model")88 else 76)
+                 background=GradientDrawable(
+                     GradientDrawable.Orientation.TL_BR,
+                     intArrayOf(android.graphics.Color.argb(252,4,13,38),android.graphics.Color.argb(254,1,4,15))
+                 ).apply {
+                     cornerRadius=dpF(14f)
+-                    setStroke(dp(1),UiTokens.Hairline)
++                    setStroke(dp(1),UiTokens.CardLine)
+                 }
+             }
+             box.addView(TextView(this).apply {
+@@ -3738,7 +4314,7 @@ class MainActivity : Activity() {
+             })
+             box.addView(TextView(this).apply {
+                 text=item.second
+-                textSize=14f
++                textSize=if(overviewMode && item.first=="Model")11f else 14f
+                 setTypeface(typeface,Typeface.BOLD)
+                 setTextColor(UiTokens.Text)
+                 setPadding(0,dp(4),0,0)
+@@ -3754,7 +4330,7 @@ class MainActivity : Activity() {
+             row!!.addView(box,LinearLayout.LayoutParams(
+                 0,LinearLayout.LayoutParams.WRAP_CONTENT,1f
+             ).apply {
+-                if(index%2==0) rightMargin=dp(5) else leftMargin=dp(5)
++                if(index%2==0) rightMargin=dp(gap/2) else leftMargin=dp(gap/2)
+             })
+         }
+     }
+@@ -3764,27 +4340,31 @@ class MainActivity : Activity() {
+         snapshots:List<io.aurum.aurumf.persistence.PortfolioSnapshotEntity>,
+         state:io.aurum.aurumf.persistence.PortfolioStateEntity?
+     ) {
++        val narrow=resources.configuration.screenWidthDp<=390
++        val overviewGap=if(narrow)10 else 12
+         val box=LinearLayout(this).apply {
+             orientation=LinearLayout.VERTICAL
+             gravity=Gravity.CENTER_VERTICAL
+-            setPadding(dp(8),dp(4),dp(8),dp(4))
++            setPadding(dp(if(narrow)9 else 10),dp(if(narrow)8 else 9),dp(if(narrow)9 else 10),dp(if(narrow)8 else 9))
++            minimumHeight=dp(88)
+             isClickable=true
+             isFocusable=true
+             contentDescription="Sanal portföy (P)"
+             background=GradientDrawable(
+                 GradientDrawable.Orientation.TL_BR,
+                 intArrayOf(android.graphics.Color.argb(252,4,13,38),android.graphics.Color.argb(254,1,4,15))
+             ).apply {
+-                cornerRadius=dpF(10f)
+-                setStroke(dp(1),UiTokens.Hairline)
++                cornerRadius=dpF(14f)
++                setStroke(dp(1),UiTokens.CardLine)
+             }
+             setOnClickListener { showPage("Portföy") }
+         }
+         box.addView(TextView(this).apply {
+             text="Sanal portföy (P):"
+-            textSize=10.933f
+-            setTypeface(typeface,Typeface.BOLD)
++            textSize=9.2f
++            setTypeface(typeface,Typeface.NORMAL)
+             setTextColor(UiTokens.Muted)
++            setPadding(0,0,0,dp(5))
+         })
+ 
+         val equity=p?.equity
+@@ -3808,11 +4388,10 @@ class MainActivity : Activity() {
+             return nf.format(v)
+         }
+         fun money(v:java.math.BigDecimal?):String =
+-            v?.let { (if(it.signum()>0)"+" else "")+tr(it,0)+" TL" } ?: "—"
++            v?.let { (if(it.signum()>=0)"+" else "−")+tr(it.abs(),0)+" TL" } ?: "—"
+         fun percentRatio(v:java.math.BigDecimal?):String =
+             v?.multiply(java.math.BigDecimal("100"))?.let {
+-                (if(it.signum()>0)"+" else if(it.signum()<0)"-" else "")+
+-                    tr(it.abs(),2)+"%"
++                (if(it.signum()>=0)"+" else "−")+"%"+tr(it.abs(),2)
+             } ?: "—"
+         fun periodAt(cut:java.time.Instant):Pair<java.math.BigDecimal?,java.math.BigDecimal?> {
+             val cur=equity ?: return null to null
+@@ -3847,36 +4426,48 @@ class MainActivity : Activity() {
+         } ?: 1L
+ 
+         fun pv(x:Pair<java.math.BigDecimal?,java.math.BigDecimal?>)=money(x.first)+" ("+percentRatio(x.second)+")"
+-        fun line(key:String,value:String,tone:java.math.BigDecimal?)=TextView(this).apply {
+-            val all=key+" "+value
+-            val span=android.text.SpannableString(all)
+-            span.setSpan(
+-                android.text.style.ForegroundColorSpan(UiTokens.Muted),
+-                0,key.length,android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+-            )
+-            val color=if((tone?.signum()?:0)>=0) UiTokens.Good else UiTokens.Bad
+-            span.setSpan(
+-                android.text.style.ForegroundColorSpan(color),
+-                key.length+1,all.length,android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+-            )
+-            text=span
+-            textSize=9.2f
+-            setTypeface(typeface,Typeface.BOLD)
+-            setPadding(0,dp(2),0,0)
+-            maxLines=1
++        fun line(key:String,value:String,tone:java.math.BigDecimal?):LinearLayout {
++            val row=LinearLayout(this).apply {
++                orientation=LinearLayout.HORIZONTAL
++                gravity=Gravity.CENTER_VERTICAL
++            }
++            row.addView(TextView(this).apply {
++                text=key
++                textSize=8.5f
++                setTypeface(typeface,Typeface.NORMAL)
++                setTextColor(UiTokens.Muted)
++                maxLines=1
++            })
++            row.addView(TextView(this).apply {
++                text=value
++                textSize=8.5f
++                setTypeface(typeface,Typeface.BOLD)
++                setTextColor(if((tone?.signum()?:0)>=0) UiTokens.Good else UiTokens.Bad)
++                maxLines=1
++                ellipsize=TextUtils.TruncateAt.END
++            },LinearLayout.LayoutParams(0,LinearLayout.LayoutParams.WRAP_CONTENT,1f).apply {
++                leftMargin=dp(6)
++            })
++            return row
++        }
++        listOf(
++            line("Toplam:",money(equity),equity),
++            line("T.K/Z:",money(total)+" ("+percentRatio(totalRatio)+", "+ageDays+"gün)",total),
++            line("A.K/Z:",pv(month),month.first),
++            line("H.K/Z:",pv(week),week.first),
++            line("G.K/Z:",pv(day),day.first)
++        ).forEachIndexed { index,row ->
++            box.addView(row,LinearLayout.LayoutParams(
++                LinearLayout.LayoutParams.MATCH_PARENT,LinearLayout.LayoutParams.WRAP_CONTENT
++            ).apply { if(index<4) bottomMargin=dp(4) })
+         }
+-        box.addView(line("Toplam:",money(equity),equity))
+-        box.addView(line("T.K/Z:",money(total)+" ("+percentRatio(totalRatio)+", "+ageDays+"gün)",total))
+-        box.addView(line("A.K/Z:",pv(month),month.first))
+-        box.addView(line("H.K/Z:",pv(week),week.first))
+-        box.addView(line("G.K/Z:",pv(day),day.first))
+ 
+         val lastRow=content.getChildAt(content.childCount-1) as? LinearLayout
+         if(lastRow!=null && lastRow.orientation==LinearLayout.HORIZONTAL && lastRow.childCount==1) {
+             lastRow.addView(
+                 box,
+                 LinearLayout.LayoutParams(0,LinearLayout.LayoutParams.WRAP_CONTENT,1f).apply {
+-                    leftMargin=dp(6)
++                    leftMargin=dp(overviewGap/2)
+                 }
+             )
+         } else {
+@@ -3885,7 +4476,7 @@ class MainActivity : Activity() {
+                 LinearLayout.LayoutParams(
+                     LinearLayout.LayoutParams.MATCH_PARENT,
+                     LinearLayout.LayoutParams.WRAP_CONTENT
+-                ).apply { bottomMargin=dp(12) }
++                ).apply { bottomMargin=dp(overviewGap) }
+             )
+         }
+     }
+@@ -3896,8 +4487,7 @@ class MainActivity : Activity() {
+         fun panel(gold:Boolean)=LinearLayout(this).apply {
+             orientation=LinearLayout.VERTICAL
+             gravity=Gravity.CENTER_VERTICAL
+-            setPadding(dp(11),dp(10),dp(11),dp(10))
+-            minimumHeight=dp(82)
++            setPadding(dp(11),dp(9),dp(11),dp(9))
+             background=GradientDrawable(
+                 GradientDrawable.Orientation.TL_BR,
+                 intArrayOf(android.graphics.Color.argb(252,4,13,38),android.graphics.Color.argb(254,1,4,15))
+@@ -3941,8 +4531,8 @@ class MainActivity : Activity() {
+             textSize=9.3f
+             setTextColor(UiTokens.Muted)
+         })
+-        row.addView(discipline,LinearLayout.LayoutParams(0,LinearLayout.LayoutParams.WRAP_CONTENT,1f).apply { rightMargin=dp(5) })
+-        row.addView(copyright,LinearLayout.LayoutParams(0,LinearLayout.LayoutParams.MATCH_PARENT,1f).apply { leftMargin=dp(5) })
++        row.addView(discipline,LinearLayout.LayoutParams(0,LinearLayout.LayoutParams.WRAP_CONTENT,1f).apply { rightMargin=dp(6) })
++        row.addView(copyright,LinearLayout.LayoutParams(0,LinearLayout.LayoutParams.MATCH_PARENT,1f).apply { leftMargin=dp(6) })
+         content.addView(row,LinearLayout.LayoutParams(
+             LinearLayout.LayoutParams.MATCH_PARENT,LinearLayout.LayoutParams.WRAP_CONTENT
+         ).apply { bottomMargin=dp(10) })
+@@ -4114,51 +4704,53 @@ class MainActivity : Activity() {
+                 content.addView(row,LinearLayout.LayoutParams(
+                     LinearLayout.LayoutParams.MATCH_PARENT,LinearLayout.LayoutParams.WRAP_CONTENT
+                 ).apply {
+-                    if(index<items.size-2) bottomMargin=dp(8)
++                    leftMargin=dp(7)
++                    rightMargin=dp(7)
++                    if(index<items.size-2) bottomMargin=dp(12)
+                 })
+             }
+             val tile=LinearLayout(this).apply {
+                 orientation=LinearLayout.VERTICAL
+                 gravity=Gravity.CENTER
+-                setPadding(dp(8),dp(6),dp(8),dp(6))
+-                minimumHeight=dp(72)
++                minimumHeight=dp(68)
++                setPadding(dp(7),dp(6),dp(7),dp(6))
+                 isClickable=true
+                 isFocusable=true
+-                contentDescription=item[3]
++                contentDescription=item[1]
+                 background=GradientDrawable(
+                     GradientDrawable.Orientation.TL_BR,
+-                    intArrayOf(android.graphics.Color.argb(230,5,15,43),android.graphics.Color.argb(247,2,7,24))
++                    intArrayOf(android.graphics.Color.argb(252,4,13,38),android.graphics.Color.argb(254,1,4,15))
+                 ).apply {
+                     cornerRadius=dpF(13f)
+-                    setStroke(dp(1),android.graphics.Color.argb(51,212,175,55))
++                    setStroke(dp(1),UiTokens.CardLine)
+                 }
+                 setOnClickListener{showPage(item[3])}
+             }
+             tile.addView(TextView(this).apply {
+                 text=item[0]
+-                textSize=14f
++                textSize=17f
+                 gravity=Gravity.CENTER
+                 setTypeface(typeface,Typeface.BOLD)
+                 setTextColor(UiTokens.GoldStrong)
+                 background=GradientDrawable().apply {
+                     setColor(UiTokens.SurfaceAlt)
+                     cornerRadius=dpF(7f)
+                 }
+-            },LinearLayout.LayoutParams(dp(27),dp(27)).apply{
++            },LinearLayout.LayoutParams(dp(24),dp(24)).apply{
+                 gravity=Gravity.CENTER_HORIZONTAL
+                 bottomMargin=dp(4)
+             })
+             tile.addView(TextView(this).apply {
+                 text=item[1]
+-                textSize=13f
++                textSize=11.2f
+                 gravity=Gravity.CENTER
+                 setTypeface(typeface,Typeface.BOLD)
+                 setTextColor(UiTokens.Text)
+                 maxLines=1
+             })
+             tile.addView(TextView(this).apply {
+                 text=item[2]
+-                textSize=9.5f
++                textSize=8.35f
+                 gravity=Gravity.CENTER
+                 setTextColor(UiTokens.Muted)
+                 maxLines=2
+@@ -4167,7 +4759,7 @@ class MainActivity : Activity() {
+             row!!.addView(tile,LinearLayout.LayoutParams(
+                 0,LinearLayout.LayoutParams.WRAP_CONTENT,1f
+             ).apply {
+-                if(index%2==0) rightMargin=dp(4) else leftMargin=dp(4)
++                if(index%2==0) rightMargin=dp(6) else leftMargin=dp(6)
+             })
+         }
+     }
+
+diff --git a/app/src/main/kotlin/io/aurum/aurumf/notification/NotificationCoordinator.kt b/app/src/main/kotlin/io/aurum/aurumf/notification/NotificationCoordinator.kt
+--- a/app/src/main/kotlin/io/aurum/aurumf/notification/NotificationCoordinator.kt
++++ b/app/src/main/kotlin/io/aurum/aurumf/notification/NotificationCoordinator.kt
+@@ -18,6 +18,8 @@ class NotificationCoordinator(
+ 
+     suspend fun deliver(event:NotificationEvent,policy:NotificationPolicy):NotificationDecision {
+         val now=clock()
++        if(!io.aurum.common.logging.OperationalEventPolicy.isImportantNotification(event))
++            return NotificationDecision(false,"ROUTINE_SUPPRESSED")
+         if(isQuiet(now,policy) && event.importance!=NotificationImportance.CRITICAL) return NotificationDecision(false,"QUIET_HOURS")
+         if(dao.notificationCountForFingerprint(event.fingerprint)>=policy.maxRepeatsPerFingerprint)
+             return NotificationDecision(false,"REPEAT_LIMIT")
+
+diff --git a/app/src/main/kotlin/io/aurum/aurumf/persistence/AurumDao.kt b/app/src/main/kotlin/io/aurum/aurumf/persistence/AurumDao.kt
+--- a/app/src/main/kotlin/io/aurum/aurumf/persistence/AurumDao.kt
++++ b/app/src/main/kotlin/io/aurum/aurumf/persistence/AurumDao.kt
+@@ -154,12 +154,27 @@ interface AurumDao {
+     @Query("SELECT * FROM audit_events ORDER BY timestampUtc DESC LIMIT :limit")
+     suspend fun recentAudit(limit:Int): List<AuditEventEntity>
+ 
++    @Query("SELECT * FROM audit_events ORDER BY timestampUtc DESC")
++    suspend fun allAudit():List<AuditEventEntity>
++
++    @Query("DELETE FROM audit_events WHERE id IN (:ids)")
++    suspend fun deleteAuditByIds(ids:List<String>):Int
++
+     @Query("DELETE FROM audit_events WHERE timestampUtc < :cutoffUtc")
+     suspend fun deleteAuditBefore(cutoffUtc:String):Int
+ 
+     @Query("DELETE FROM audit_events")
+     suspend fun clearAudit():Int
+ 
++    @Query("DELETE FROM audit_events WHERE level = 'INFO' AND code IN ('QUALIFIED_BUY','QUALIFIED_SELL')")
++    suspend fun deleteRoutineInstrumentAudit():Int
++
++    @Query("SELECT * FROM notification_deliveries ORDER BY deliveredAtUtc DESC")
++    suspend fun allNotificationDeliveries():List<NotificationDeliveryEntity>
++
++    @Query("DELETE FROM notification_deliveries WHERE id IN (:ids)")
++    suspend fun deleteNotificationDeliveriesByIds(ids:List<String>):Int
++
+     @Query("DELETE FROM notification_deliveries WHERE deliveredAtUtc < :cutoffUtc")
+     suspend fun deleteNotificationDeliveriesBefore(cutoffUtc:String):Int
+ 
+@@ -208,6 +223,9 @@ interface AurumDao {
+     @Insert(onConflict = OnConflictStrategy.ABORT)
+     suspend fun appendNotificationDelivery(row: NotificationDeliveryEntity)
+ 
++    @Query("SELECT * FROM notification_deliveries ORDER BY deliveredAtUtc DESC LIMIT :limit")
++    suspend fun recentNotificationDeliveries(limit:Int):List<NotificationDeliveryEntity>
++
+     @Query("SELECT * FROM notification_deliveries WHERE fingerprint = :fingerprint ORDER BY deliveredAtUtc DESC LIMIT 1")
+     suspend fun latestNotification(fingerprint:String): NotificationDeliveryEntity?
+ 
+
+diff --git a/app/src/main/kotlin/io/aurum/aurumf/scheduler/AppScheduler.kt b/app/src/main/kotlin/io/aurum/aurumf/scheduler/AppScheduler.kt
+--- a/app/src/main/kotlin/io/aurum/aurumf/scheduler/AppScheduler.kt
++++ b/app/src/main/kotlin/io/aurum/aurumf/scheduler/AppScheduler.kt
+@@ -30,12 +30,14 @@ object AppScheduler {
+ 
+     const val ACTION_DATA_ALARM="io.aurum.aurumf.action.DATA_ALARM"
+     const val ACTION_MARKET_ALARM="io.aurum.aurumf.action.MARKET_ALARM"
++    const val ACTION_LOG_RETENTION_ALARM="io.aurum.aurumf.action.LOG_RETENTION_ALARM"
+     const val EXTRA_SCHEDULED_AT="scheduledAtEpochMs"
+ 
+     private const val DATA_SERIAL="aurumf.data.pipeline.serial"
+     private const val PORTAL_SERIAL="aurumf.portal.serial"
+     private const val DATA_ALARM_REQUEST_CODE=24001
+     private const val MARKET_ALARM_REQUEST_CODE=24002
++    private const val LOG_RETENTION_ALARM_REQUEST_CODE=24003
+     private const val SCHEDULER_PREFS="aurumf.scheduler.native.v1"
+ 
+     private val DEFAULT_DATA_TIMES=(0..23).map{LocalTime.of(it,40)}
+@@ -58,12 +60,11 @@ object AppScheduler {
+             .addTag(DAILY_AUDIT).build()
+         wm.enqueueUniquePeriodicWork(DAILY_AUDIT,ExistingPeriodicWorkPolicy.KEEP,audit)
+ 
++        // The weekly maintenance contract is a wall-clock contract (Sunday 00:00
++        // Europe/Istanbul), not a drifting 7-day WorkManager interval.
+         wm.cancelUniqueWork(LEGACY_LOG_RETENTION)
+-        val retentionDelay=nextSundayMidnightDelay()
+-        val retention=PeriodicWorkRequestBuilder<LogRetentionWorker>(7,TimeUnit.DAYS)
+-            .setInitialDelay(retentionDelay.toMillis(),TimeUnit.MILLISECONDS)
+-            .addTag(LOG_RETENTION).build()
+-        wm.enqueueUniquePeriodicWork(LOG_RETENTION,ExistingPeriodicWorkPolicy.KEEP,retention)
++        wm.cancelUniqueWork(LOG_RETENTION)
++        scheduleNextLogRetentionAlarm(app)
+ 
+         val model=PeriodicWorkRequestBuilder<ModelEvaluationWorker>(24,TimeUnit.HOURS)
+             .addTag(MODEL_EVALUATION).build()
+@@ -72,12 +73,16 @@ object AppScheduler {
+ 
+     private val LOG_RETENTION_ZONE:ZoneId=ZoneId.of("Europe/Istanbul")
+ 
+-    internal fun nextSundayMidnightDelay(now:Instant=Instant.now()):Duration {
++    internal fun nextSundayMidnight(now:Instant=Instant.now()):Instant {
+         val local=now.atZone(LOG_RETENTION_ZONE)
+         val delta=(DayOfWeek.SUNDAY.value-local.dayOfWeek.value+7)%7
+         var target=local.toLocalDate().plusDays(delta.toLong()).atStartOfDay(LOG_RETENTION_ZONE)
+         if(!target.toInstant().isAfter(now)) target=target.plusWeeks(1)
+-        val delay=Duration.between(now,target.toInstant())
++        return target.toInstant()
++    }
++
++    internal fun nextSundayMidnightDelay(now:Instant=Instant.now()):Duration {
++        val delay=Duration.between(now,nextSundayMidnight(now))
+         return if(delay.isNegative) Duration.ZERO else delay
+     }
+ 
+@@ -168,6 +173,19 @@ object AppScheduler {
+         return next
+     }
+ 
++    fun scheduleNextLogRetentionAlarm(context:Context,now:Instant=Instant.now()):Instant {
++        val app=context.applicationContext
++        val alarm=app.getSystemService(Context.ALARM_SERVICE) as AlarmManager
++        val next=nextSundayMidnight(now)
++        val pi=logRetentionAlarmPendingIntent(app,next.toEpochMilli())
++        schedule(alarm,next,pi)
++        app.getSharedPreferences(SCHEDULER_PREFS,Context.MODE_PRIVATE).edit()
++            .putLong("nextLogRetentionAt",next.toEpochMilli())
++            .putBoolean("logRetentionExact",exactAllowed(alarm))
++            .apply()
++        return next
++    }
++
+     private fun schedule(alarm:AlarmManager,next:Instant,pi:PendingIntent) {
+         if(exactAllowed(alarm)) alarm.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,next.toEpochMilli(),pi)
+         else alarm.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,next.toEpochMilli(),pi)
+@@ -184,6 +202,7 @@ object AppScheduler {
+         val app=context.applicationContext
+         scheduleNextDataAlarm(app)
+         scheduleNextMarketAlarm(app)
++        scheduleNextLogRetentionAlarm(app)
+     }
+ 
+     fun openExactAlarmSettings(context:Context) {
+@@ -205,6 +224,22 @@ object AppScheduler {
+         return p.getLong("nextMarketAt",0L).takeIf{it>0}?.let(Instant::ofEpochMilli) to p.getBoolean("marketExact",false)
+     }
+ 
++    fun logRetentionSchedulerState(context:Context):Pair<Instant?,Boolean> {
++        val p=context.applicationContext.getSharedPreferences(SCHEDULER_PREFS,Context.MODE_PRIVATE)
++        val at=p.getLong("nextLogRetentionAt",0L).takeIf{it>0}?.let(Instant::ofEpochMilli)
++        return at to p.getBoolean("logRetentionExact",false)
++    }
++
++    fun enqueueScheduledLogRetention(context:Context,scheduledAtEpochMs:Long) {
++        val at=scheduledAtEpochMs.takeIf{it>0}?:System.currentTimeMillis()
++        val req=OneTimeWorkRequestBuilder<LogRetentionWorker>()
++            .setInputData(workDataOf("scheduledAtUtc" to Instant.ofEpochMilli(at).toString()))
++            .addTag(LOG_RETENTION)
++            .build()
++        WorkManager.getInstance(context.applicationContext)
++            .enqueueUniqueWork(LOG_RETENTION,ExistingWorkPolicy.REPLACE,req)
++    }
++
+     fun enqueueScheduledData(context:Context,scheduledAtEpochMs:Long) {
+         val network=Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
+         val at=scheduledAtEpochMs.takeIf{it>0}?:System.currentTimeMillis()
+@@ -280,6 +315,16 @@ object AppScheduler {
+             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+     }
+ 
++    private fun logRetentionAlarmPendingIntent(context:Context,scheduledAt:Long):PendingIntent {
++        val intent=Intent(context,SchedulerAlarmReceiver::class.java)
++            .setAction(ACTION_LOG_RETENTION_ALARM)
++            .putExtra(EXTRA_SCHEDULED_AT,scheduledAt)
++        return PendingIntent.getBroadcast(
++            context,LOG_RETENTION_ALARM_REQUEST_CODE,intent,
++            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
++        )
++    }
++
+     private fun parseTimes(raw:String?,fallback:List<LocalTime>):List<LocalTime> {
+         val parsed=raw?.split(",")?.mapNotNull{runCatching{LocalTime.parse(it.trim())}.getOrNull()}
+             ?.let(::normalizeTimes).orEmpty()
+
+diff --git a/app/src/main/kotlin/io/aurum/aurumf/scheduler/SchedulerAlarmReceiver.kt b/app/src/main/kotlin/io/aurum/aurumf/scheduler/SchedulerAlarmReceiver.kt
+--- a/app/src/main/kotlin/io/aurum/aurumf/scheduler/SchedulerAlarmReceiver.kt
++++ b/app/src/main/kotlin/io/aurum/aurumf/scheduler/SchedulerAlarmReceiver.kt
+@@ -15,6 +15,10 @@ class SchedulerAlarmReceiver:BroadcastReceiver() {
+                 AppScheduler.enqueueScheduledMarket(context,intent.getLongExtra(AppScheduler.EXTRA_SCHEDULED_AT,0L))
+                 AppScheduler.scheduleNextMarketAlarm(context)
+             }
++            AppScheduler.ACTION_LOG_RETENTION_ALARM -> {
++                AppScheduler.enqueueScheduledLogRetention(context,intent.getLongExtra(AppScheduler.EXTRA_SCHEDULED_AT,0L))
++                AppScheduler.scheduleNextLogRetentionAlarm(context)
++            }
+             Intent.ACTION_BOOT_COMPLETED,
+             Intent.ACTION_TIME_CHANGED,
+             Intent.ACTION_TIMEZONE_CHANGED -> AppScheduler.ensurePeriodic(context)
+
+diff --git a/app/src/main/kotlin/io/aurum/aurumf/scheduler/Workers.kt b/app/src/main/kotlin/io/aurum/aurumf/scheduler/Workers.kt
+--- a/app/src/main/kotlin/io/aurum/aurumf/scheduler/Workers.kt
++++ b/app/src/main/kotlin/io/aurum/aurumf/scheduler/Workers.kt
+@@ -406,6 +406,26 @@ class LogRetentionWorker(context:Context,params:WorkerParameters):
+         val dao=DatabaseFactory.get(applicationContext).aurumDao()
+         val cutoff=Instant.now().minus(7,java.time.temporal.ChronoUnit.DAYS).toString()
+         DataMutationCoordinator.serialized {
++            val routineAuditIds=dao.allAudit()
++                .filterNot { row ->
++                    io.aurum.common.logging.OperationalEventPolicy.isImportantAudit(
++                        row.level,row.subsystem,row.code,row.message
++                    )
++                }
++                .map { it.id }
++            if(routineAuditIds.isNotEmpty()) dao.deleteAuditByIds(routineAuditIds)
++
++            val routineDeliveryIds=dao.allNotificationDeliveries()
++                .filterNot { row ->
++                    io.aurum.common.logging.OperationalEventPolicy.isImportantNotification(
++                        row.eventType,row.title,row.body,row.importance
++                    )
++                }
++                .map { it.id }
++            if(routineDeliveryIds.isNotEmpty())
++                dao.deleteNotificationDeliveriesByIds(routineDeliveryIds)
++
++            dao.deleteRoutineInstrumentAudit()
+             dao.deleteAuditBefore(cutoff)
+             dao.deleteNotificationDeliveriesBefore(cutoff)
+         }
+
+diff --git a/app/src/main/kotlin/io/aurum/aurumf/signal/ManualProductCardTradeService.kt b/app/src/main/kotlin/io/aurum/aurumf/signal/ManualProductCardTradeService.kt
+--- a/app/src/main/kotlin/io/aurum/aurumf/signal/ManualProductCardTradeService.kt
++++ b/app/src/main/kotlin/io/aurum/aurumf/signal/ManualProductCardTradeService.kt
+@@ -40,7 +40,7 @@ class ManualProductCardTradeService(private val dao:AurumDao,private val portfol
+         val state=if(side==SignalSide.BUY) QualifiedTradeStateEntity(symbol,"BUY",now.toString(),now.toString(),token,JSONArray(listOf(token)).toString(),1,now.toString(),price.toPlainString(),stop?.toPlainString(),"MANUAL_PRODUCT_CARD",now.toString(),price.toPlainString(),now.toString(),null,null,null,null,null,false,false)
+         else previous!!.copy(status="SELL",processedRunTokensJson=JSONArray(listOf(token)).toString(),sellAtUtc=now.toString(),sellPriceDecimal=price.toPlainString(),exitReason=manualExitReason)
+         dao.putQualifiedTradeStates(listOf(state))
+-        dao.appendAudit(AuditEventEntity(UUID.randomUUID().toString(),now.toString(),"INFO","qualified-trade",token,"QUALIFIED_"+side.name,symbol+" · MANUAL_PRODUCT_CARD",JSONObject(mapOf("symbol" to symbol,"side" to side.name,"price" to price.toPlainString(),"reason" to manualExitReason)).toString(),AurumVersions.APP,"MANUAL_PRODUCT_CARD","MANUAL_PRODUCT_CARD",AurumVersions.DATA_SCHEMA,JSONObject(mapOf("source" to "MANUAL_PRODUCT_CARD","signalId" to id)).toString()))
++        dao.appendAudit(AuditEventEntity(UUID.randomUUID().toString(),now.toString(),"INFO","qualified-trade",token,"MANUAL_QUALIFIED_"+side.name,symbol+" · MANUAL_PRODUCT_CARD",JSONObject(mapOf("symbol" to symbol,"side" to side.name,"price" to price.toPlainString(),"reason" to manualExitReason)).toString(),AurumVersions.APP,"MANUAL_PRODUCT_CARD","MANUAL_PRODUCT_CARD",AurumVersions.DATA_SCHEMA,JSONObject(mapOf("source" to "MANUAL_PRODUCT_CARD","signalId" to id)).toString()))
+         return Applied(event,token)
+     }
+     private suspend fun resolvePersistedPrice(symbol:String,now:Instant):BigDecimal? {
+
+diff --git a/app/src/main/kotlin/io/aurum/aurumf/signal/QualifiedTradeCoordinator.kt b/app/src/main/kotlin/io/aurum/aurumf/signal/QualifiedTradeCoordinator.kt
+--- a/app/src/main/kotlin/io/aurum/aurumf/signal/QualifiedTradeCoordinator.kt
++++ b/app/src/main/kotlin/io/aurum/aurumf/signal/QualifiedTradeCoordinator.kt
+@@ -143,19 +143,27 @@ class QualifiedTradeCoordinator(
+                 dao.appendSignal(signal)
+             }
+             portfolio.apply(event,id,id)
++        }
++        val marks=inputs.filter{it.analysisEligible}.mapNotNull{it.price?.let{p->it.symbol to p}}.toMap()
++        portfolio.mark(marks,now)
++        if(advanced.events.isNotEmpty()) {
++            val buys=advanced.events.filter{it.side==SignalSide.BUY}.map{it.symbol}
++            val sells=advanced.events.filter{it.side==SignalSide.SELL}.map{it.symbol}
+             dao.appendAudit(AuditEventEntity(
+-                id=UUID.randomUUID().toString(), timestampUtc=event.at.toString(), level="INFO",
++                id=UUID.randomUUID().toString(), timestampUtc=now.toString(), level="INFO",
+                 subsystem="qualified-trade", operationId=runId,
+-                code="QUALIFIED_"+event.side.name,
+-                message=event.symbol+" · "+event.reason,
+-                metadataJson=JSONObject(mapOf("symbol" to event.symbol,"side" to event.side.name,"price" to event.price.toPlainString(),"reason" to event.reason)).toString(),
++                code="QUALIFIED_LIFECYCLE_SUMMARY",
++                message="AL "+buys.size+" · SAT "+sells.size+" · toplam "+advanced.events.size+" enstrüman",
++                metadataJson=JSONObject()
++                    .put("buySymbols",JSONArray(buys))
++                    .put("sellSymbols",JSONArray(sells))
++                    .put("count",advanced.events.size)
++                    .toString(),
+                 appVersion=AurumVersions.APP, modelVersion=run.modelVersion, formulaVersion=run.formulaVersion,
+                 dataSchemaVersion=AurumVersions.DATA_SCHEMA,
+                 provenanceJson=JSONObject(mapOf("analysisRunId" to runId,"source" to "AUTO_LIFECYCLE")).toString()
+             ))
+         }
+-        val marks=inputs.filter{it.analysisEligible}.mapNotNull{it.price?.let{p->it.symbol to p}}.toMap()
+-        portfolio.mark(marks,now)
+         return advanced.events
+     }
+ 
+@@ -176,19 +184,42 @@ class QualifiedTradeCoordinator(
+             SfEntitlementEvidencePoint(run.id,Instant.parse(run.asOfUtc),run.formulaVersion,run.integrityPassed,selectedSymbols)
+         }
+         val out=linkedMapOf<String,SfEntitlementDecision>()
++        val failClosedItems=mutableListOf<JSONObject>()
+         for(symbol in currentSelected.sorted()) {
+-            val decision=SfEntitlementReconstruction.reconstruct(symbol,currentRun.id,currentRun.formulaVersion,points)
++            val decision=SfEntitlementReconstruction.reconstruct(
++                symbol,currentRun.id,currentRun.formulaVersion,points
++            )
+             out[symbol]=decision
+             decision.failClosedReason?.let { reason ->
+-                dao.appendAudit(AuditEventEntity(
+-                    UUID.randomUUID().toString(),currentAt.toString(),"WARN","qualified-trade",currentRun.id,
+-                    "SF_ENTITLEMENT_FAIL_CLOSED","S/F entitlement reconstruction stopped at an unknown evidence boundary",
+-                    JSONObject(mapOf("symbol" to symbol,"reason" to reason,"effectiveSinceUtc" to decision.since?.toString())).toString(),
+-                    AurumVersions.APP,currentRun.modelVersion,currentRun.formulaVersion,AurumVersions.DATA_SCHEMA,
+-                    JSONObject(mapOf("analysisRunId" to currentRun.id,"evidencePointCount" to points.size)).toString()
+-                ))
++                failClosedItems += JSONObject()
++                    .put("symbol",symbol)
++                    .put("reason",reason)
++                    .put("effectiveSinceUtc",decision.since?.toString())
+             }
+         }
++        if(failClosedItems.isNotEmpty()) {
++            dao.appendAudit(AuditEventEntity(
++                id=UUID.randomUUID().toString(),
++                timestampUtc=currentAt.toString(),
++                level="WARN",
++                subsystem="qualified-trade",
++                operationId=currentRun.id,
++                code="SF_ENTITLEMENT_FAIL_CLOSED",
++                message="S/F entitlement reconstruction stopped at unknown evidence boundaries · "+failClosedItems.size+" enstrüman",
++                metadataJson=JSONObject()
++                    .put("count",failClosedItems.size)
++                    .put("items",JSONArray(failClosedItems))
++                    .toString(),
++                appVersion=AurumVersions.APP,
++                modelVersion=currentRun.modelVersion,
++                formulaVersion=currentRun.formulaVersion,
++                dataSchemaVersion=AurumVersions.DATA_SCHEMA,
++                provenanceJson=JSONObject(mapOf(
++                    "analysisRunId" to currentRun.id,
++                    "evidencePointCount" to points.size
++                )).toString()
++            ))
++        }
+         return out
+     }
+ 
+
+diff --git a/app/src/main/kotlin/io/aurum/aurumf/ui/UiTokens.kt b/app/src/main/kotlin/io/aurum/aurumf/ui/UiTokens.kt
+--- a/app/src/main/kotlin/io/aurum/aurumf/ui/UiTokens.kt
++++ b/app/src/main/kotlin/io/aurum/aurumf/ui/UiTokens.kt
+@@ -23,6 +23,7 @@ object UiTokens {
+     val Bad=Color.rgb(255,114,124)
+     val Blue=Color.rgb(103,173,255)
+     val Hairline=Color.argb(37,174,190,208)       // --ref-line rgba(...,.145)
++    val CardLine=Color.argb(36,181,194,210)        // final card border rgba(181,194,210,.14)
+     val GoldLine=Color.argb(56,222,191,89)        // --ref-line-gold rgba(...,.22)
+ 
+     const val Space1=4
+@@ -42,8 +43,8 @@ object UiTokens {
+     const val TableCellPadding=6
+     const val TableRowHeight=30
+     const val CardPadding=9
+-    const val PagePaddingHorizontal=9
+-    const val PagePaddingVertical=9
++    const val PagePaddingHorizontal=7
++    const val PagePaddingVertical=7
+     const val CardPaddingHorizontal=9
+     const val CardPaddingVertical=9
+     const val CardRadius=10f
+
+diff --git a/app/src/test/kotlin/io/aurum/aurumf/scheduler/LogRetentionScheduleTest.kt b/app/src/test/kotlin/io/aurum/aurumf/scheduler/LogRetentionScheduleTest.kt
+--- /dev/null
++++ b/app/src/test/kotlin/io/aurum/aurumf/scheduler/LogRetentionScheduleTest.kt
+@@ -0,0 +1,27 @@
++package io.aurum.aurumf.scheduler
++
++import org.junit.Assert.assertEquals
++import org.junit.Test
++import java.time.Duration
++import java.time.Instant
++
++class LogRetentionScheduleTest {
++    @Test
++    fun nextCleanupTargetsSundayMidnightIstanbul() {
++        val oneSecondBefore=Instant.parse("2026-10-03T20:59:59Z")
++        assertEquals(
++            Instant.parse("2026-10-03T21:00:00Z"),
++            AppScheduler.nextSundayMidnight(oneSecondBefore)
++        )
++        assertEquals(Duration.ofSeconds(1),AppScheduler.nextSundayMidnightDelay(oneSecondBefore))
++    }
++
++    @Test
++    fun exactBoundaryMovesToFollowingSunday() {
++        val boundary=Instant.parse("2026-10-03T21:00:00Z")
++        assertEquals(
++            Instant.parse("2026-10-10T21:00:00Z"),
++            AppScheduler.nextSundayMidnight(boundary)
++        )
++    }
++}
+
+diff --git a/src/main/kotlin/io/aurum/common/logging/OperationalEventPolicy.kt b/src/main/kotlin/io/aurum/common/logging/OperationalEventPolicy.kt
+--- /dev/null
++++ b/src/main/kotlin/io/aurum/common/logging/OperationalEventPolicy.kt
+@@ -0,0 +1,51 @@
++package io.aurum.common.logging
++
++import io.aurum.common.notification.NotificationEvent
++import io.aurum.common.notification.NotificationImportance
++import java.util.Locale
++
++/**
++ * Presentation/notification policy only. Domain evidence stays in its owning tables.
++ * General history is intentionally reserved for events that need user attention or
++ * carry application-wide operational significance.
++ */
++object OperationalEventPolicy {
++    private val importantTokens=listOf(
++        "FAIL","FAILED","FAILURE","ERROR","SECURITY","BLOCK",
++        "AL_SAT","NOTIFICATION","BACKUP","RESTORE","IMPORT","EXPORT",
++        "INTEGRITY","REPAIR","CANCEL","INTERRUPT","GATE",
++        "SCHEDULER","WARNING","WARN"
++    )
++
++    fun isImportantAudit(level:String,subsystem:String,code:String,message:String):Boolean {
++        val l=level.uppercase(Locale.ROOT)
++        val c=code.uppercase(Locale.ROOT)
++        val m=message.uppercase(Locale.ROOT)
++        if(l=="ERROR" || l=="WARN" || l=="WARNING" || l=="CRITICAL") return true
++        if(subsystem.equals("blocked-universe",ignoreCase=true)) return true
++        if(c.startsWith("MANUAL_QUALIFIED_") || c=="TRADE_REMOVED_AS_NEVER_TRADED") return true
++        if(c.startsWith("MODEL_") && "EVIDENCE" !in c) return true
++        return importantTokens.any { it in c || it in m }
++    }
++
++    fun isImportantNotification(event:NotificationEvent):Boolean =
++        isImportantNotification(event.type,event.title,event.body,event.importance.name)
++
++    fun isImportantNotification(type:String,title:String,body:String,importance:String):Boolean {
++        val imp=importance.uppercase(Locale.ROOT)
++        if(imp=="HIGH" || imp=="CRITICAL") return true
++        val t=type.uppercase(Locale.ROOT)
++        val text=(title+" "+body).uppercase(Locale.ROOT)
++        if("TRADE" in t || "BUY" in t || "SELL" in t || "AL_SAT" in t) return true
++        if(t.startsWith("MODEL_") && "EVIDENCE" !in t) return true
++        return importantTokens.any { it in t || it in text }
++    }
++
++    fun dedupeKey(subsystem:String,code:String,message:String):String {
++        val normalized=message.uppercase(Locale.ROOT)
++            .replace(Regex("\\b[A-Z0-9]{2,12}\\b"),"<ITEM>")
++            .replace(Regex("\\s+")," ")
++            .trim()
++        return subsystem.uppercase(Locale.ROOT)+"|"+code.uppercase(Locale.ROOT)+"|"+normalized
++    }
++}
+
+diff --git a/src/test/kotlin/io/aurum/aurumf/DomainChecks.kt b/src/test/kotlin/io/aurum/aurumf/DomainChecks.kt
+--- a/src/test/kotlin/io/aurum/aurumf/DomainChecks.kt
++++ b/src/test/kotlin/io/aurum/aurumf/DomainChecks.kt
+@@ -1,4 +1,5 @@
+ package io.aurum.aurumf
++import io.aurum.common.logging.operationalEventPolicyChecks
+ 
+ fun main() {
+     extremeMoveEligibilityChecks()
+@@ -19,5 +20,6 @@ fun main() {
+     legacyTableContractChecks()
+     tradingSessionCountChecks()
+     manualExitPolicyChecks()
+-    println("AurumF domain checks: PASS")
++    operationalEventPolicyChecks()
++ println("AurumF domain checks: PASS")
+ }
+
+diff --git a/src/test/kotlin/io/aurum/common/logging/OperationalEventPolicyTest.kt b/src/test/kotlin/io/aurum/common/logging/OperationalEventPolicyTest.kt
+--- /dev/null
++++ b/src/test/kotlin/io/aurum/common/logging/OperationalEventPolicyTest.kt
+@@ -0,0 +1,33 @@
++package io.aurum.common.logging
++
++import io.aurum.common.notification.NotificationEvent
++import io.aurum.common.notification.NotificationImportance
++import java.time.Instant
++
++fun operationalEventPolicyChecks() {
++    check(!OperationalEventPolicy.isImportantAudit(
++        "INFO","qualified-trade","QUALIFIED_LIFECYCLE_SUMMARY","AL 3 · SAT 1 · toplam 4 enstrüman"
++    ))
++    check(OperationalEventPolicy.isImportantAudit(
++        "INFO","qualified-trade","MANUAL_QUALIFIED_BUY","THYAO · MANUAL_PRODUCT_CARD"
++    ))
++    check(OperationalEventPolicy.isImportantAudit(
++        "WARN","scheduler","SCHEDULER_FAILED","Alarm yeniden kurulamadı"
++    ))
++    check(OperationalEventPolicy.isImportantAudit(
++        "INFO","blocked-universe","INSTRUMENT_LOCAL_DELETE","THYAO · USER_DELETE_WITHOUT_BLOCK"
++    ))
++
++    val routine=NotificationEvent("1","DATA_ROW_OK","Veri","THYAO güncellendi",
++        NotificationImportance.NORMAL,"r1",Instant.EPOCH)
++    val trade=NotificationEvent("2","TRADE_BUY","AL","THYAO",
++        NotificationImportance.NORMAL,"r2",Instant.EPOCH)
++    val critical=NotificationEvent("3","OTHER","Kritik","Güvenlik",
++        NotificationImportance.CRITICAL,"r3",Instant.EPOCH)
++    val model=NotificationEvent("4","MODEL_PROMOTED","Model","Aday model şampiyon oldu",
++        NotificationImportance.NORMAL,"r4",Instant.EPOCH)
++    check(!OperationalEventPolicy.isImportantNotification(routine))
++    check(OperationalEventPolicy.isImportantNotification(trade))
++    check(OperationalEventPolicy.isImportantNotification(critical))
++    check(OperationalEventPolicy.isImportantNotification(model))
++}
