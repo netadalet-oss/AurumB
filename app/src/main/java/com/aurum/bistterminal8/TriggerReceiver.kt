@@ -8,6 +8,14 @@ import java.time.Instant
 
 class TriggerReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action == AurumScheduler.ACTION_MAINTENANCE) {
+            AurumScheduler.scheduleWeeklyMaintenance(context)
+            ContextCompat.startForegroundService(
+                context,
+                Intent(context, MaintenanceService::class.java)
+            )
+            return
+        }
         val slotTime = intent.getStringExtra("slotTime") ?: return
         if (!AurumScheduler.valid(slotTime)) return
         val kind = intent.getStringExtra("pipelineKind").let { if (it == "market") "market" else "data" }
