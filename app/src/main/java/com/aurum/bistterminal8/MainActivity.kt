@@ -57,7 +57,8 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Foreground launch must remain idle. Boot/time-change receivers and explicit schedule commands own alarm rearming.
+        // Foreground launch remains network-idle; only the wall-clock weekly maintenance alarm is made durable here.
+        AurumScheduler.scheduleWeeklyMaintenance(this)
         WebView.setWebContentsDebuggingEnabled((applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0)
         exportFolder = getSharedPreferences("aurum_export_folder", MODE_PRIVATE)
             .getString("uri", null)?.let(Uri::parse)
