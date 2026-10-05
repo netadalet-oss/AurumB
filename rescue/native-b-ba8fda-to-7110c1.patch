@@ -2139,6 +2139,7 @@ diff --git a/app/src/main/kotlin/io/aurum/aurumb/ui/UiTokens.kt b/app/src/main/k
      const val CardRadius=10f
 
 diff --git a/app/src/test/kotlin/io/aurum/aurumb/scheduler/LogRetentionScheduleTest.kt b/app/src/test/kotlin/io/aurum/aurumb/scheduler/LogRetentionScheduleTest.kt
+new file mode 100644
 --- /dev/null
 +++ b/app/src/test/kotlin/io/aurum/aurumb/scheduler/LogRetentionScheduleTest.kt
 @@ -0,0 +1,27 @@
@@ -2171,6 +2172,7 @@ diff --git a/app/src/test/kotlin/io/aurum/aurumb/scheduler/LogRetentionScheduleT
 +}
 
 diff --git a/src/main/kotlin/io/aurum/common/logging/OperationalEventPolicy.kt b/src/main/kotlin/io/aurum/common/logging/OperationalEventPolicy.kt
+new file mode 100644
 --- /dev/null
 +++ b/src/main/kotlin/io/aurum/common/logging/OperationalEventPolicy.kt
 @@ -0,0 +1,51 @@
@@ -2244,6 +2246,7 @@ diff --git a/src/test/kotlin/io/aurum/aurumb/DomainChecks.kt b/src/test/kotlin/i
  }
 
 diff --git a/src/test/kotlin/io/aurum/common/logging/OperationalEventPolicyTest.kt b/src/test/kotlin/io/aurum/common/logging/OperationalEventPolicyTest.kt
+new file mode 100644
 --- /dev/null
 +++ b/src/test/kotlin/io/aurum/common/logging/OperationalEventPolicyTest.kt
 @@ -0,0 +1,33 @@
