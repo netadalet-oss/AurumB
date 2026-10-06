@@ -128,6 +128,11 @@ jobs:
           ! grep -F "c=Number(x.changePct)" "$R"
           ! grep -F "p=x.stale?null:Number(x.changePct)" "$R"
           ! grep -F "Number.isFinite(Number(x.changePct))" "$R"
+          # K_Tarihsel T1-T30/backfill + automatic archive regression lock
+          grep -F "const HISTORY_30_LEGACY_KIND='BACKFILL_K_TARIHSEL_30D';" "$R"
+          grep -F "async function archiveHistorical(job)" "$R"
+          grep -F "await kh117AdvanceArchive(kh117T0())" "$R"
+          grep -F "historyTableFingerprint()" "$R"
           # Final signing is secret-backed below; no throwaway key generation is permitted.
       - name: Full Android verification
         run: |
