@@ -4677,8 +4677,8 @@ try{AurumUpdateAPI.state.cleanREV20={version:'REV20.0-CLEAN',activatedAt:new Dat
       r.insertAdjacentElement('afterend',b);
     });
   }
-  const mo=new MutationObserver(()=>{if(document.querySelector('input[type="range"][id^="aurumScaleVal_"]'))enhance()});
-  if(document.documentElement)mo.observe(document.documentElement,{subtree:true,childList:true});
+  /* settingsPage() already schedules enhance() after every settings render; a permanent
+     whole-DOM observer only repeated the same scan on unrelated page mutations. */
   document.addEventListener('click',e=>{
     /* Only top-level settings cards are mutually exclusive. Nested disclosure panels must
        stay inside their parent card; closing the parent made export submenus appear to
