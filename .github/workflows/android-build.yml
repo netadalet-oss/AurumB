@@ -116,6 +116,10 @@ jobs:
           grep -F "Sağlık / Süreklilik" app/src/main/assets/scheduler-settings.js
           grep -F "Salt okunur" app/src/main/assets/scheduler-settings.js
           grep -F "__aurumHistory20Bridged" app/src/main/assets/scheduler-settings.js
+          # K_Tarihsel functional contract: preserve T1-T30 source runs and automatic archive state.
+          grep -F "30 distinct trading dates" app/src/main/assets/core.js
+          grep -F "seenDates.size<30" app/src/main/assets/core.js
+          grep -F "khArchive:{schema:1,live:null,rows:[]}" app/src/main/assets/core.js
           grep -F "globalThis.showAurumNotice=function" app/src/main/assets/scheduler-settings.js
           grep -F "globalThis.log=async function" app/src/main/assets/scheduler-settings.js
           grep -F "if (u.protocol !== 'https:') return false;" app/src/main/assets/offline-first.js
