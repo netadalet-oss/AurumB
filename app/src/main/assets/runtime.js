@@ -4755,14 +4755,8 @@ try{AurumUpdateAPI.state.cleanREV20={version:'REV20.0-CLEAN',activatedAt:new Dat
     return `<div class="aurum-market-indicators aurum-r3-market">${item('BIST 100','XU100')}${item('USD','USDTRY')}${item('EUR','EURTRY')}${item('Parite','EURUSD',4)}${item('Altın gr','GRAMTRY')}${item('Ons','GOLDUSD')}</div>`;
   };
 
-  function widen(){
-    document.querySelectorAll('.aurum-v141225 table').forEach(t=>{
-      const hs=[...t.querySelectorAll('thead th')],i=hs.findIndex(x=>/VER[Iİ]ZAMANI/i.test((x.textContent||'').replace(/\s/g,'')));
-      if(i<0)return;hs[i].classList.add('aurum-r3-verizamani');
-      t.querySelectorAll('tbody tr').forEach(tr=>tr.children[i]?.classList.add('aurum-r3-verizamani'));
-    });
-  }
-  const mo=new MutationObserver(()=>widen());if(document.documentElement)mo.observe(document.documentElement,{subtree:true,childList:true});queueMicrotask(widen);
+  /* Veri Zamanı width is owned by the final CSS/table render contract.
+     The old whole-document observer rescanned every table after every DOM mutation. */
 })();
 
 
