@@ -6190,8 +6190,8 @@ try{AurumUpdateAPI.state.r225={version:'REV20.25-RELIABILITY-FILL-NEWS',activate
    if(REMOVE_TEXT.some(x=>t===x||t.startsWith(x+' —'))) n.remove();
   });
  }
- new MutationObserver(clean).observe(document.documentElement,{subtree:true,childList:true});
- if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',clean,{once:true});else clean();
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',clean,{once:true});else queueMicrotask(clean);
+ /* Later render owners already omit these stale copy nodes. Avoid a permanent whole-DOM observer. */
 })();
 
 
