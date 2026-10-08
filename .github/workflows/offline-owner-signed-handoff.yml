@@ -1,0 +1,52 @@
+name: Unsigned Owner Signing Handoff
+
+on:
+  push:
+    branches: [integrate/legacy-b-pending-safe-20261008]
+    paths:
+      - ".github/workflows/offline-owner-signed-handoff.yml"
+      - "app/**"
+      - "tests/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  unsigned-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Verify latest Legacy safety contracts
+        run: |
+          set -euo pipefail
+          node tests/pending-revisions-retained.test.js
+          node tests/legacy-restore-atomicity.test.js
+          grep -F 'android:allowBackup="false"' app/src/main/AndroidManifest.xml
+      - name: Build unsigned production APK
+        run: gradle --no-daemon :app:assembleRelease
+      - name: Produce certificate-preserving offline signing input
+        run: |
+          set -euo pipefail
+          TOOL="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          APK="$(find app/build/outputs/apk/release -type f -name '*unsigned*.apk' | head -1)"
+          test -s "$APK"
+          test -s "$TOOL/lib/apksigner.jar"
+          mkdir -p app/build/owner-signing
+          "$TOOL/zipalign" -f -p 4 "$APK" app/build/owner-signing/AurumB-aligned-unsigned.apk
+          cp "$TOOL/lib/apksigner.jar" app/build/owner-signing/apksigner.jar
+          sha256sum app/build/owner-signing/AurumB-aligned-unsigned.apk > app/build/owner-signing/SHA256.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AurumB-owner-signing-input
+          path: app/build/owner-signing/
+          if-no-files-found: error
+          retention-days: 3
