@@ -1,13 +1,14 @@
 plugins {
     id 'com.android.application'
     id 'org.jetbrains.kotlin.android'
+    id 'org.jetbrains.kotlin.kapt'
 }
 
 android {
     namespace 'com.aurum.bistterminal8'
     compileSdk 35
 
-    compileOptions {
+    compileOptions { coreLibraryDesugaringEnabled true;
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
@@ -22,6 +23,7 @@ android {
         applicationId 'com.aurum.nextrevised09'
         minSdk 26
         targetSdk 35
+        testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
         versionCode 123
         versionName '2.0.0-r38-separate-economic'
     }
@@ -35,9 +37,21 @@ android {
 }
 
 dependencies {
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.5'
+    implementation 'androidx.room:room-runtime:2.6.1'
+    implementation 'androidx.room:room-ktx:2.6.1'
+    kapt 'androidx.room:room-compiler:2.6.1'
     implementation 'androidx.core:core-ktx:1.15.0'
     implementation 'androidx.appcompat:appcompat:1.7.0'
     implementation 'androidx.activity:activity-ktx:1.7.0'
     implementation 'androidx.webkit:webkit:1.12.1'
     testImplementation 'junit:junit:4.13.2'
+    androidTestImplementation 'androidx.test.ext:junit:1.2.1'
+    androidTestImplementation 'androidx.test:runner:1.6.2'
+    androidTestImplementation 'androidx.test:core:1.6.1'
+    androidTestImplementation 'androidx.sqlite:sqlite-framework:2.4.0'
+    androidTestImplementation 'androidx.room:room-testing:2.6.1'
 }
+
+
+kapt { arguments { arg("room.schemaLocation", "$projectDir/schemas") } }
