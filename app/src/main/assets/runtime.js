@@ -1245,10 +1245,15 @@ async function restoreRestorePoint(id){
     tx.oncomplete=()=>resolve();
     tx.onabort=()=>reject(tx.error||new Error('RESTORE_TRANSACTION_ABORTED'));
     tx.onerror=()=>reject(tx.error||new Error('RESTORE_TRANSACTION_FAILED'));
-    for(const name of names){
-      const store=tx.objectStore(name);store.clear();
-      const rows=name==='meta'?[...metaRows,...retained]:snapshots.get(name);
-      for(const row of rows)store.put(row);
+    try {
+      for(const name of names){
+        const store=tx.objectStore(name);store.clear();
+        const rows=name==='meta'?[...metaRows,...retained]:snapshots.get(name);
+        for(const row of rows)store.put(row);
+      }
+    } catch(error) {
+      try{tx.abort()}catch{}
+      reject(error);
     }
   });
   showAurumNotice('Geri yükleme tamamlandı; uygulama yeniden açılıyor','success',2500);
