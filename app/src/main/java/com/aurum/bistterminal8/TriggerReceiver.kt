@@ -9,6 +9,10 @@ import java.time.Instant
 class TriggerReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == AurumScheduler.ACTION_MAINTENANCE) {
+            val epoch=intent.getLongExtra("epoch",0L)
+            val expected=context.getSharedPreferences("aurum_scheduler",Context.MODE_PRIVATE)
+                .getLong("next_maintenance",0L)
+            if(epoch<=0L || expected!=epoch)return
             AurumScheduler.scheduleWeeklyMaintenance(context)
             runCatching {
                 ContextCompat.startForegroundService(context, Intent(context, MaintenanceService::class.java))
@@ -20,7 +24,10 @@ class TriggerReceiver : BroadcastReceiver() {
         val kind = intent.getStringExtra("pipelineKind").let { if (it == "market") "market" else "data" }
         // Do not run stale alarms after the user disables or edits a schedule.
         if (!AurumScheduler.enabled(context, kind) || slotTime !in AurumScheduler.configuredTimes(context, kind)) return
-        val epoch = intent.getLongExtra("epoch", 0L).takeIf { it > 0L } ?: System.currentTimeMillis()
+        val epoch = intent.getLongExtra("epoch",0L).takeIf { it>0L } ?: return
+        val expected=context.getSharedPreferences("aurum_scheduler",Context.MODE_PRIVATE)
+            .getLong("next_" + kind + "_" + slotTime.replace(":",""),0L)
+        if(epoch!=expected)return
 
         // One-shot alarms are always re-armed, including duplicate deliveries.
         // Re-arm from the later of the scheduled instant and the actual delivery time.
