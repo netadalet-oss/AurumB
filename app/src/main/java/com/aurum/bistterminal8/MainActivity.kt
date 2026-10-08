@@ -8,7 +8,6 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.net.Uri
 import android.os.Bundle
-import android.webkit.JavascriptInterface
 import android.webkit.JsPromptResult
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
@@ -50,11 +49,6 @@ class MainActivity : AppCompatActivity() {
             .build()
     }
 
-    inner class NativeBridge {
-        @JavascriptInterface
-        fun call(message: String, body: String): String = handleNative(message, body)
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // Foreground launch remains network-idle; restore persisted alarms and weekly maintenance.
@@ -73,13 +67,17 @@ class MainActivity : AppCompatActivity() {
         webView.isFocusable = true
         webView.isFocusableInTouchMode = true
         webView.descendantFocusability = android.view.ViewGroup.FOCUS_AFTER_DESCENDANTS
-        webView.addJavascriptInterface(NativeBridge(), "AurumNativeBridge")
         webView.webChromeClient = object : WebChromeClient() {
             override fun onJsPrompt(
                 view: WebView?, url: String?, message: String?, defaultValue: String?, result: JsPromptResult?
             ): Boolean {
                 if (message?.startsWith("aurum://native?") == true) {
-                    result?.confirm(handleNative(message, defaultValue.orEmpty()))
+                    val source=runCatching { Uri.parse(url.orEmpty()) }.getOrNull()
+                    val trusted=source?.scheme=="https" &&
+                        source.host=="appassets.androidplatform.net" &&
+                        source.path?.startsWith("/assets/")==true &&
+                        view?.url?.startsWith("https://appassets.androidplatform.net/assets/")==true
+                    result?.confirm(if(trusted)handleNative(message,defaultValue.orEmpty()) else "ERR:UNTRUSTED_ORIGIN")
                     return true
                 }
                 return super.onJsPrompt(view, url, message, defaultValue, result)
@@ -397,7 +395,6 @@ class MainActivity : AppCompatActivity() {
         stopService(android.content.Intent(this, TransferKeepaliveService::class.java))
         dataOperationOwner?.let { OperationLock.release("data", it) }
         dataOperationOwner = null
-        webView.removeJavascriptInterface("AurumNativeBridge")
         webView.destroy()
         super.onDestroy()
     }
