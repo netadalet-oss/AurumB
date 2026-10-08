@@ -17,10 +17,9 @@ object SchedulerLedger {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         synchronized(this) {
             val previous = prefs.getString(token, null)
-            if (previous != null) {
-                val status = runCatching { JSONObject(previous).optString("status") }.getOrDefault("")
-                if (status in setOf("RUNNING", "COMPLETED")) return null
-            }
+            // Every epoch/kind/slot is at-most-once, even after a failed service start.
+            // Retries require a distinct explicit attempt ID, never a duplicate broadcast.
+            if (previous != null) return null
             val record = JSONObject()
                 .put("eventId", token)
                 .put("eventTime", Instant.ofEpochMilli(epoch).toString())
@@ -32,7 +31,7 @@ object SchedulerLedger {
                 .put("startedAt", Instant.now().toString())
                 .put("status", "RUNNING")
                 .put("attempt", 1)
-            prefs.edit().putString(token, record.toString()).commit()
+            if (!prefs.edit().putString(token, record.toString()).commit()) return null
             return token
         }
     }
