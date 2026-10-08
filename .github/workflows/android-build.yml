@@ -162,6 +162,29 @@ jobs:
             :app:lintDebug \
             --stacktrace
           test -f app/build/outputs/apk/release/app-release-unsigned.apk
+      # Signing credentials are NEVER uploaded to Actions. This handoff is
+      # intentionally unsigned; an owner-controlled, matching Legacy keystore
+      # is used only offline for the final signature.
+      - name: Prepare aligned unsigned APK for owner-controlled signing
+        shell: bash
+        run: |
+          set -euo pipefail
+          TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          UNSIGNED="$(find app/build/outputs/apk/release -type f -name '*unsigned*.apk' | head -1)"
+          test -s "$UNSIGNED"
+          test -x "$TOOLS/zipalign"
+          test -s "$TOOLS/lib/apksigner.jar"
+          mkdir -p app/build/offline-signing
+          "$TOOLS/zipalign" -f -p 4 "$UNSIGNED" app/build/offline-signing/AurumB-aligned-unsigned.apk
+          cp "$TOOLS/lib/apksigner.jar" app/build/offline-signing/apksigner.jar
+          sha256sum app/build/offline-signing/AurumB-aligned-unsigned.apk > app/build/offline-signing/SHA256.txt
+      - name: Upload unsigned owner signing inputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: AurumB-offline-signing-input
+          path: app/build/offline-signing/
+          if-no-files-found: error
+          retention-days: 3
       - name: Upload Gradle-signed installable APK
         uses: actions/upload-artifact@v4
         with:
