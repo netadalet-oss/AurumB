@@ -10,15 +10,16 @@ class TriggerReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == AurumScheduler.ACTION_MAINTENANCE) {
             AurumScheduler.scheduleWeeklyMaintenance(context)
-            ContextCompat.startForegroundService(
-                context,
-                Intent(context, MaintenanceService::class.java)
-            )
+            runCatching {
+                ContextCompat.startForegroundService(context, Intent(context, MaintenanceService::class.java))
+            }.onFailure { android.util.Log.e("AurumScheduler", "Maintenance start rejected", it) }
             return
         }
         val slotTime = intent.getStringExtra("slotTime") ?: return
         if (!AurumScheduler.valid(slotTime)) return
         val kind = intent.getStringExtra("pipelineKind").let { if (it == "market") "market" else "data" }
+        // Do not run stale alarms after the user disables or edits a schedule.
+        if (!AurumScheduler.enabled(context, kind) || slotTime !in AurumScheduler.configuredTimes(context, kind)) return
         val epoch = intent.getLongExtra("epoch", 0L).takeIf { it > 0L } ?: System.currentTimeMillis()
 
         // One-shot alarms are always re-armed, including duplicate deliveries.
@@ -37,6 +38,8 @@ class TriggerReceiver : BroadcastReceiver() {
             .putExtra("epoch", epoch)
             .putExtra("jobToken", jobToken)
             .putExtra("pipelineKind", kind)
-        ContextCompat.startForegroundService(context, service)
+            .putExtra("slotTime", slotTime)
+        runCatching { ContextCompat.startForegroundService(context, service) }
+            .onFailure { SchedulerLedger.complete(context, jobToken, "FAILED", "SERVICE_START: " + (it.message ?: it.javaClass.simpleName)) }
     }
 }
