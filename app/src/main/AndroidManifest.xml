@@ -17,6 +17,7 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <application
+        android:allowBackup="false"
         android:label="Aurum BIST Rev 20"
         android:icon="@drawable/ic_launcher"
         android:usesCleartextTraffic="false"

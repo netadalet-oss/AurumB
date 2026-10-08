@@ -1,7 +1,7 @@
 name: Android Build
 on:
   push:
-    branches: [ main, fix/legacy-standalone-integrity-20261008 ]
+    branches: [ main, fix/legacy-standalone-integrity-20261008 , integrate/legacy-b-pending-safe-20261008 ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
@@ -29,6 +29,9 @@ jobs:
           node --check app/src/main/assets/final-hardening.js
           node --check app/src/main/assets/native-market-http.js
           node --check app/src/main/assets/market-rebuilt.js
+      - name: Confirm retained parked safety revisions
+        run: node tests/pending-revisions-retained.test.js
+
       - name: Validate quality-gate contract
         run: |
           set -euo pipefail
@@ -159,6 +162,29 @@ jobs:
             :app:lintDebug \
             --stacktrace
           test -f app/build/outputs/apk/release/app-release-unsigned.apk
+      # Signing credentials are NEVER uploaded to Actions. This handoff is
+      # intentionally unsigned; an owner-controlled, matching Legacy keystore
+      # is used only offline for the final signature.
+      - name: Prepare aligned unsigned APK for owner-controlled signing
+        shell: bash
+        run: |
+          set -euo pipefail
+          TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          UNSIGNED="$(find app/build/outputs/apk/release -type f -name '*unsigned*.apk' | head -1)"
+          test -s "$UNSIGNED"
+          test -x "$TOOLS/zipalign"
+          test -s "$TOOLS/lib/apksigner.jar"
+          mkdir -p app/build/offline-signing
+          "$TOOLS/zipalign" -f -p 4 "$UNSIGNED" app/build/offline-signing/AurumB-aligned-unsigned.apk
+          cp "$TOOLS/lib/apksigner.jar" app/build/offline-signing/apksigner.jar
+          sha256sum app/build/offline-signing/AurumB-aligned-unsigned.apk > app/build/offline-signing/SHA256.txt
+      - name: Upload unsigned owner signing inputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: AurumB-offline-signing-input
+          path: app/build/offline-signing/
+          if-no-files-found: error
+          retention-days: 3
       - name: Upload Gradle-signed installable APK
         uses: actions/upload-artifact@v4
         with:
@@ -205,7 +231,7 @@ jobs:
           if-no-files-found: error
 
   legacy-fresh-release:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/fix/legacy-standalone-integrity-20261008'
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/fix/legacy-standalone-integrity-20261008' || github.ref == 'refs/heads/integrate/legacy-b-pending-safe-20261008')
     needs: [assemble]
     runs-on: ubuntu-latest
     timeout-minutes: 40
@@ -237,6 +263,11 @@ jobs:
           for v in RELEASE_KEYSTORE_B64 RELEASE_STORE_PASSWORD RELEASE_KEY_ALIAS RELEASE_KEY_PASSWORD; do
             [ -n "${!v}" ] && present=$((present+1))
           done
+          # New integration APKs must NEVER silently rotate their signing key.
+          if [ "$GITHUB_REF" = "refs/heads/integrate/legacy-b-pending-safe-20261008" ] && [ "$present" -ne 4 ]; then
+            echo "::error::Existing release signing secrets required; refusing new identity"
+            exit 1
+          fi
           if [ "$present" -eq 4 ]; then
             printf '%s' "$RELEASE_KEYSTORE_B64" | base64 -d > "$KEYSTORE"
             MODE=existing
