@@ -1,0 +1,21 @@
+'use strict';
+const fs=require('node:fs'),assert=require('node:assert/strict');
+const base='app/src/main/java/com/aurum/bistterminal8/';
+function read(name){return fs.readFileSync(base+name+'.kt','utf8')}
+const m=read('MainActivity'),p=read('PipelineService'),t=read('TriggerReceiver');
+const ledger=read('SchedulerLedger');
+const assets=fs.readFileSync('app/src/main/assets/runtime.js','utf8');
+const manifest=fs.readFileSync('app/src/main/AndroidManifest.xml','utf8');
+assert.ok(m.includes('onJsPrompt('),'Origin-scoped browser bridge absent');
+assert.ok(p.includes('onJsPrompt('),'Origin-scoped background bridge absent');
+assert.ok(!/\baddJavascriptInterface\s*\(/.test(m+p),'Unscoped bridge was reintroduced');
+assert.ok(m.includes('appassets.androidplatform.net'));
+assert.ok(p.includes('appassets.androidplatform.net'));
+assert.ok(ledger.includes('fun acquire('),'At-most-once slot ledger absent');
+assert.ok(t.includes('scheduleNextForTime('),'Alarm rearm absent');
+assert.ok(t.includes('enabled(context'),'Disabled schedule must not run');
+assert.ok(p.includes('SERVICE_DESTROYED_BEFORE_COMPLETION'),'Interrupted pipeline must fail');
+assert.ok(p.includes('OperationLock.acquire'),'Pipeline execution must serialize');
+assert.ok(/android:allowBackup="false"/.test(manifest),'Automatic OS data restore must be disabled');
+assert.ok(/(f51restore|restorePoint|geri.yükleme|restoreManifest|restore)/i.test(assets));
+console.log('PASS B: delayed scheduler, origin, interruption, operation lock and recovery improvements already retained in standalone release');
