@@ -9,6 +9,12 @@ const start=source.indexOf("const R44_RESTORE_INDEX_KEY=");
 const end=source.indexOf("async function clearFromSettings(",start);
 assert(start>0&&end>start,'restore engine extraction');
 const restoreCode=source.slice(start,end);
+const resetStart=source.indexOf('async function resetApplicationR44(){',end);
+const resetEnd=source.indexOf('function restorePointsModule()',resetStart);
+assert(resetStart>end&&resetEnd>resetStart,'reset engine extraction');
+const resetCode=source.slice(resetStart,resetEnd);
+assert.match(resetCode,/state\.db\.transaction\(names,'readwrite'\)/);
+assert.match(resetCode,/startsWith\('restorePoint:'\)/);
 assert.match(restoreCode,/crypto\.subtle\.digest\('SHA-256'/);
 assert.match(restoreCode,/state\.db\.transaction\(names,'readwrite'\)/);
 assert.match(restoreCode,/tx\.abort\(\)/);
@@ -53,6 +59,7 @@ const state={db:{
 const ctx={
   state,TextEncoder,crypto:webcrypto,console,Promise,Date,Math,
   setTimeout:(fn,delay)=>{},location:{reload:()=>{}},
+  localStorage:{removeItem:key=>local.delete(key)},RUNTIME_META_KEY:'legacy-runtime-key',
   nowISO:()=>new Date().toISOString(),
   confirm:()=>true,showAurumNotice:()=>{},
   readLocal:(key,fallback)=>local.has(key)?clone(local.get(key)):fallback,
@@ -63,8 +70,8 @@ const ctx={
   dbDelete:async(name,key)=>values.set(name,values.get(name).filter(r=>r.key!==key)),
   AURUM_RUNTIME_VERSION:'LEGACY-TEST'
 };
-vm.runInNewContext(restoreCode+'\n;globalThis.testEngine={createRestorePoint,restoreRestorePoint,r44RestoreIndex}',ctx);
-const {createRestorePoint,restoreRestorePoint}=ctx.testEngine;
+vm.runInNewContext(restoreCode+resetCode+'\n;globalThis.testEngine={createRestorePoint,restoreRestorePoint,r44RestoreIndex,resetApplicationR44}',ctx);
+const {createRestorePoint,restoreRestorePoint,resetApplicationR44,r44RestoreIndex}=ctx.testEngine;
 (async()=>{
   const original=await createRestorePoint('TEST',{skipConfirm:true});
   assert.equal(original.stored.length,names.length);
@@ -85,5 +92,17 @@ const {createRestorePoint,restoreRestorePoint}=ctx.testEngine;
   await assert.rejects(()=>restoreRestorePoint(original.id),/SIMULATED_WRITE_FAILURE/);
   assert.equal(values.get('records')[0].value.price,73,'transaction abort leaves current records intact');
   failPutStore=null;
-  console.log('PASS Legacy restore: SHA-256 integrity, prefetch, atomic commit, rollback, tamper and write-failure tests');
+  failPutStore='meta';
+  await assert.rejects(()=>resetApplicationR44(),/SIMULATED_WRITE_FAILURE/);
+  assert.equal(values.get('records')[0].value.price,73,'failed reset must abort all stores');
+  failPutStore=null;
+  await resetApplicationR44();
+  assert.equal(values.get('records').length,0,'reset clears active records');
+  assert.equal(values.get('settings').length,0,'reset clears settings');
+  const safety=r44RestoreIndex()[0];
+  assert(safety?.id,'pre-reset recovery checkpoint survives');
+  assert(values.get('meta').some(r=>r.key==='restorePoint:'+safety.id+':manifest'),'reset must preserve rollback blobs');
+  await restoreRestorePoint(safety.id);
+  assert.equal(values.get('records')[0].value.price,73,'rollback after reset recovers active rows');
+  console.log('PASS Legacy restore/reset: SHA-256 integrity, prefetch, atomic commits, checkpoint retention, tamper and failure rollback');
 })().catch(e=>{console.error(e);process.exitCode=1});
