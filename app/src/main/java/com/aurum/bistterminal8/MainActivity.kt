@@ -57,8 +57,8 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Foreground launch remains network-idle; only the wall-clock weekly maintenance alarm is made durable here.
-        AurumScheduler.scheduleWeeklyMaintenance(this)
+        // Foreground launch remains network-idle; restore persisted alarms and weekly maintenance.
+        AurumScheduler.rearm(this)
         WebView.setWebContentsDebuggingEnabled((applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0)
         exportFolder = getSharedPreferences("aurum_export_folder", MODE_PRIVATE)
             .getString("uri", null)?.let(Uri::parse)
@@ -164,15 +164,17 @@ class MainActivity : AppCompatActivity() {
             }
             "transfer_keepalive" -> {
                 val enabled = uri.getQueryParameter("enabled") != "0"
-                if (enabled) {
-                    ContextCompat.startForegroundService(
-                        this,
-                        android.content.Intent(this, TransferKeepaliveService::class.java)
-                    )
-                } else {
-                    stopService(android.content.Intent(this, TransferKeepaliveService::class.java))
-                }
-                "OK"
+                runCatching {
+                    if (enabled) {
+                        ContextCompat.startForegroundService(
+                            this,
+                            android.content.Intent(this, TransferKeepaliveService::class.java)
+                        )
+                    } else {
+                        stopService(android.content.Intent(this, TransferKeepaliveService::class.java))
+                    }
+                    "OK"
+                }.getOrElse { "ERR:KEEPALIVE_START" }
             }
                         "http_request" -> {
                 val id = uri.getQueryParameter("requestId").orEmpty()

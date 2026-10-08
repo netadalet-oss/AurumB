@@ -131,7 +131,8 @@ class PipelineService : Service() {
                             if (ok) "COMPLETED" else "FAILED",
                             detail
                         )
-                        if (ok && kind == "data") {
+                        // Both market and data pipelines publish snapshots consumed by the foreground WebView.
+                        if (ok) {
                             PublicationBus.publish()
                         }
                         releaseTransferWakeLock()
@@ -263,6 +264,8 @@ class PipelineService : Service() {
         watchdogTask?.let { watchdog?.removeCallbacks(it) }
         watchdogTask = null
         watchdog = null
+        // Unexpected service destruction must not leave a successful-looking in-flight job.
+        operationLockOwner?.let { SchedulerLedger.complete(this, it, "FAILED", "SERVICE_DESTROYED_BEFORE_COMPLETION") }
         releaseTransferWakeLock()
         operationLockOwner?.let { owner -> operationLockKind?.let { kindKey -> OperationLock.release(kindKey, owner) } }
         operationLockKind = null
