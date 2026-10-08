@@ -1,7 +1,7 @@
 name: Android Build
 on:
   push:
-    branches: [ main, fix/legacy-standalone-integrity-20261008 ]
+    branches: [ main, fix/legacy-standalone-integrity-20261008 , integrate/legacy-b-pending-safe-20261008 ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
@@ -29,6 +29,9 @@ jobs:
           node --check app/src/main/assets/final-hardening.js
           node --check app/src/main/assets/native-market-http.js
           node --check app/src/main/assets/market-rebuilt.js
+      - name: Confirm retained parked safety revisions
+        run: node tests/pending-revisions-retained.test.js
+
       - name: Validate quality-gate contract
         run: |
           set -euo pipefail
@@ -205,7 +208,7 @@ jobs:
           if-no-files-found: error
 
   legacy-fresh-release:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/fix/legacy-standalone-integrity-20261008'
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/fix/legacy-standalone-integrity-20261008' || github.ref == 'refs/heads/integrate/legacy-b-pending-safe-20261008')
     needs: [assemble]
     runs-on: ubuntu-latest
     timeout-minutes: 40
@@ -237,6 +240,11 @@ jobs:
           for v in RELEASE_KEYSTORE_B64 RELEASE_STORE_PASSWORD RELEASE_KEY_ALIAS RELEASE_KEY_PASSWORD; do
             [ -n "${!v}" ] && present=$((present+1))
           done
+          # New integration APKs must NEVER silently rotate their signing key.
+          if [ "$GITHUB_REF" = "refs/heads/integrate/legacy-b-pending-safe-20261008" ] && [ "$present" -ne 4 ]; then
+            echo "::error::Existing release signing secrets required; refusing new identity"
+            exit 1
+          fi
           if [ "$present" -eq 4 ]; then
             printf '%s' "$RELEASE_KEYSTORE_B64" | base64 -d > "$KEYSTORE"
             MODE=existing
