@@ -6,10 +6,8 @@
   const isNative=m=>typeof m==='string'&&m.startsWith('aurum://native?');
   const nativeCall=(message,body='')=>{
     const raw=String(message||''),payload=String(body??'');
-    try{
-      const bridge=globalThis.AurumNativeBridge;
-      if(bridge&&typeof bridge.call==='function')return String(bridge.call(raw,payload)??'');
-    }catch{}
+    // Route to the WebChromeClient with strict main-frame origin checks.
+    // Do not expose Android command dispatch to arbitrary JavaScript frames.
     try{return originalPrompt(raw,payload)||''}catch{return''}
   };
   window.prompt=function(message,defaultValue=''){

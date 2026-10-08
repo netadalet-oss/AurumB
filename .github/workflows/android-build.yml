@@ -1,7 +1,7 @@
 name: Android Build
 on:
   push:
-    branches: [ main ]
+    branches: [ main, fix/legacy-standalone-integrity-20261008 ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
@@ -134,6 +134,18 @@ jobs:
           grep -F "await kh117AdvanceArchive(kh117T0())" "$R"
           grep -F "historyTableFingerprint()" "$R"
           # Final signing is secret-backed below; no throwaway key generation is permitted.
+      - name: Verify Legacy restore recovery and secure native command surfaces
+        run: |
+          set -euo pipefail
+          node tests/legacy-restore-atomicity.test.js
+          ! grep -R -F 'addJavascriptInterface(' app/src/main/java
+          ! grep -R -F '@JavascriptInterface' app/src/main/java
+          grep -F 'ERR:UNTRUSTED_ORIGIN' app/src/main/java/com/aurum/bistterminal8/MainActivity.kt
+          grep -F 'ERR:UNTRUSTED_ORIGIN' app/src/main/java/com/aurum/bistterminal8/PipelineService.kt
+          grep -F 'if(epoch!=expected)return' app/src/main/java/com/aurum/bistterminal8/TriggerReceiver.kt
+          grep -F 'if(!committed)created?.let' app/src/main/java/com/aurum/bistterminal8/MainActivity.kt
+          grep -F 'android:exported="true"' app/src/main/AndroidManifest.xml
+
       - name: Full Android verification
         run: |
           gradle --no-daemon clean \
@@ -191,3 +203,115 @@ jobs:
           name: AurumB-final-installable-apk
           path: app/build/outputs/apk/AurumB-final-install.apk
           if-no-files-found: error
+
+  legacy-fresh-release:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/fix/legacy-standalone-integrity-20261008'
+    needs: [assemble]
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+    env:
+      RELEASE_KEYSTORE_B64: ${{ secrets.AURUMB_KEYSTORE_B64 }}
+      RELEASE_STORE_PASSWORD: ${{ secrets.AURUMB_KEYSTORE_PASSWORD }}
+      RELEASE_KEY_ALIAS: ${{ secrets.AURUMB_KEY_ALIAS }}
+      RELEASE_KEY_PASSWORD: ${{ secrets.AURUMB_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Prepare Legacy fresh-install signing key
+        id: signing
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/aurumb-legacy"
+          KEYSTORE="$RUNNER_TEMP/aurumb-legacy/legacy-release.keystore"
+          META="$RUNNER_TEMP/aurumb-legacy/legacy-release-key.txt"
+          present=0
+          for v in RELEASE_KEYSTORE_B64 RELEASE_STORE_PASSWORD RELEASE_KEY_ALIAS RELEASE_KEY_PASSWORD; do
+            [ -n "${!v}" ] && present=$((present+1))
+          done
+          if [ "$present" -eq 4 ]; then
+            printf '%s' "$RELEASE_KEYSTORE_B64" | base64 -d > "$KEYSTORE"
+            MODE=existing
+          elif [ "$present" -eq 0 ]; then
+            RELEASE_STORE_PASSWORD="$(openssl rand -hex 24)"
+            RELEASE_KEY_PASSWORD="$(openssl rand -hex 24)"
+            RELEASE_KEY_ALIAS="aurumb-legacy"
+            keytool -genkeypair -v -storetype JKS -keystore "$KEYSTORE" \
+              -storepass "$RELEASE_STORE_PASSWORD" -alias "$RELEASE_KEY_ALIAS" \
+              -keypass "$RELEASE_KEY_PASSWORD" -keyalg RSA -keysize 4096 -validity 10000 \
+              -dname "CN=AurumB Legacy Release,O=AurumB,C=TR"
+            MODE=bootstrap
+          else
+            echo "::error::Partial signing secret configuration";exit 1
+          fi
+          CERT="$(keytool -list -v -keystore "$KEYSTORE" -storepass "$RELEASE_STORE_PASSWORD" -alias "$RELEASE_KEY_ALIAS" 2>/dev/null | sed -n 's/.*SHA256: //p' | head -1 | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')"
+          test -n "$CERT"
+          {
+            echo "AURUMB_LEGACY_STORE_PASSWORD=$RELEASE_STORE_PASSWORD"
+            echo "AURUMB_LEGACY_KEY_ALIAS=$RELEASE_KEY_ALIAS"
+            echo "AURUMB_LEGACY_KEY_PASSWORD=$RELEASE_KEY_PASSWORD"
+            echo "AURUMB_LEGACY_CERT_SHA256=$CERT"
+            echo "AURUMB_LEGACY_MODE=$MODE"
+          } > "$META"
+          chmod 600 "$KEYSTORE" "$META"
+          echo "::add-mask::$RELEASE_STORE_PASSWORD"
+          echo "::add-mask::$RELEASE_KEY_PASSWORD"
+          echo "keystore=$KEYSTORE" >> "$GITHUB_OUTPUT"
+          echo "meta=$META" >> "$GITHUB_OUTPUT"
+          echo "store_password=$RELEASE_STORE_PASSWORD" >> "$GITHUB_OUTPUT"
+          echo "key_password=$RELEASE_KEY_PASSWORD" >> "$GITHUB_OUTPUT"
+          echo "alias=$RELEASE_KEY_ALIAS" >> "$GITHUB_OUTPUT"
+          echo "cert=$CERT" >> "$GITHUB_OUTPUT"
+          echo "mode=$MODE" >> "$GITHUB_OUTPUT"
+      - name: Build standalone Legacy release APK
+        run: gradle --no-daemon :app:assembleRelease
+      - name: Align, sign and verify standalone Legacy APK
+        shell: bash
+        env:
+          KEYSTORE: ${{ steps.signing.outputs.keystore }}
+          STORE_PASSWORD: ${{ steps.signing.outputs.store_password }}
+          KEY_PASSWORD: ${{ steps.signing.outputs.key_password }}
+          KEY_ALIAS: ${{ steps.signing.outputs.alias }}
+          EXPECTED_CERT: ${{ steps.signing.outputs.cert }}
+        run: |
+          set -euo pipefail
+          BUILD_TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          UNSIGNED="$(find app/build/outputs/apk/release -type f -name '*unsigned.apk' | head -1)"
+          test -s "$UNSIGNED"
+          OUT=app/build/outputs/apk/release/AurumB-Legacy-R38-fresh-install.apk
+          "$BUILD_TOOLS/zipalign" -f -p 4 "$UNSIGNED" "$RUNNER_TEMP/aurumb-legacy-aligned.apk"
+          "$BUILD_TOOLS/apksigner" sign --ks "$KEYSTORE" \
+            --ks-pass "pass:$STORE_PASSWORD" --key-pass "pass:$KEY_PASSWORD" \
+            --ks-key-alias "$KEY_ALIAS" --out "$OUT" "$RUNNER_TEMP/aurumb-legacy-aligned.apk"
+          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$OUT" | tee "$RUNNER_TEMP/apksigner-legacy-b.txt"
+          ACTUAL="$(sed -n -E 's/.*certificate SHA-256 digest: //p' "$RUNNER_TEMP/apksigner-legacy-b.txt" | head -1 | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')"
+          test "$ACTUAL" = "$EXPECTED_CERT"
+          "$BUILD_TOOLS/aapt" dump badging "$OUT" | tee "$RUNNER_TEMP/badging-legacy-b.txt"
+          grep -F "package: name='com.aurum.nextrevised09' versionCode='123' versionName='2.0.0-r38-separate-economic'" "$RUNNER_TEMP/badging-legacy-b.txt"
+          sha256sum "$OUT" | tee "$RUNNER_TEMP/AurumB-Legacy-sha256.txt"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AurumB-Legacy-signed-fresh-candidate
+          path: |
+            app/build/outputs/apk/release/AurumB-Legacy-R38-fresh-install.apk
+            ${{ runner.temp }}/AurumB-Legacy-sha256.txt
+          if-no-files-found: error
+          retention-days: 30
+      - name: Back up newly bootstrapped signing key
+        if: always() && steps.signing.outputs.mode == 'bootstrap'
+        uses: actions/upload-artifact@v4
+        with:
+          name: AurumB-Legacy-key-BACKUP
+          path: |
+            ${{ steps.signing.outputs.keystore }}
+            ${{ steps.signing.outputs.meta }}
+          if-no-files-found: error
+          retention-days: 7

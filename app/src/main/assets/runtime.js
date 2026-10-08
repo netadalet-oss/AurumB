@@ -1190,22 +1190,74 @@ const R44_RESTORE_STORES=['settings','records','runs','meta','bars','actions','c
 function r44RestoreIndex(){const x=readLocal(R44_RESTORE_INDEX_KEY,[]);return Array.isArray(x)?x.slice(0,R44_RESTORE_MAX):[]}
 function r44WriteRestoreIndex(rows){writeLocal(R44_RESTORE_INDEX_KEY,(rows||[]).slice(0,R44_RESTORE_MAX))}
 async function r44Yield(){return new Promise(r=>setTimeout(r,0))}
+async function r44HashRows(rows){
+  const raw=new TextEncoder().encode(JSON.stringify(rows));
+  const digest=await crypto.subtle.digest('SHA-256',raw);
+  return Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
+}
 async function createRestorePoint(reason='MANUEL',options={}){
   if(!options?.skipConfirm&&String(reason).toUpperCase()==='MANUEL'&&!confirm('Mevcut veri/model durumu geri yükleme noktası olarak kaydedilsin mi?'))return false;
   if(!state.db)throw new Error('Veritabanı hazır değil');
   const id=`RP|${Date.now().toString(36)}|${Math.random().toString(36).slice(2,7)}`,createdAt=nowISO(),stored=[];
-  for(const name of R44_RESTORE_STORES){let rows=[];try{rows=await dbAll(name)}catch{}if(name==='meta')rows=rows.filter(x=>!String(x?.key||'').startsWith('restorePoint:'));await dbPut('meta',{key:`restorePoint:${id}:${name}`,value:rows,updatedAt:createdAt});stored.push({name,count:rows.length});await r44Yield();}
-  const manifest={id,createdAt,reason:String(reason||'MANUEL'),stored,version:AURUM_RUNTIME_VERSION};await dbPut('meta',{key:`restorePoint:${id}:manifest`,value:manifest,updatedAt:createdAt});
-  const prior=r44RestoreIndex(),next=[manifest,...prior.filter(x=>x.id!==id)].slice(0,R44_RESTORE_MAX);r44WriteRestoreIndex(next);
+  for(const name of R44_RESTORE_STORES){
+    if(!state.db.objectStoreNames.contains(name))continue;
+    let rows=await dbAll(name);
+    if(name==='meta')rows=rows.filter(x=>!String(x?.key||'').startsWith('restorePoint:'));
+    const sha256=await r44HashRows(rows);
+    await dbPut('meta',{key:`restorePoint:${id}:${name}`,value:rows,updatedAt:createdAt});
+    stored.push({name,count:rows.length,sha256});await r44Yield();
+  }
+  const manifest={id,createdAt,reason:String(reason||'MANUEL'),stored,version:AURUM_RUNTIME_VERSION};
+  await dbPut('meta',{key:`restorePoint:${id}:manifest`,value:manifest,updatedAt:createdAt});
+  const prior=r44RestoreIndex(),next=[manifest,...prior.filter(x=>x.id!==id)].slice(0,R44_RESTORE_MAX);
+  r44WriteRestoreIndex(next);
   for(const old of prior.filter(x=>!next.some(n=>n.id===x.id))){for(const name of [...R44_RESTORE_STORES,'manifest'])try{await dbDelete('meta',`restorePoint:${old.id}:${name}`)}catch{}}
   return manifest;
 }
 async function restoreRestorePoint(id){
-  const manifest=(await dbGet('meta',`restorePoint:${id}:manifest`))?.value;if(!manifest)throw new Error('Geri yükleme noktası bulunamadı');
+  const manifest=(await dbGet('meta',`restorePoint:${id}:manifest`))?.value;
+  if(!manifest)throw new Error('Geri yükleme noktası bulunamadı');
+  if(!state.db)throw new Error('Veritabanı hazır değil');
   if(!confirm(`${new Date(manifest.createdAt).toLocaleString('tr-TR')} geri yükleme noktasına dönülsün mü? Mevcut durumun üzerine yazılacaktır.`))return false;
+  const snapshots=new Map();
+  // Read and authenticate every snapshot BEFORE creating the safety checkpoint.
+  // Otherwise checkpoint pruning may delete the selected snapshot halfway through restore.
+  for(const item of manifest.stored||[]){
+    const name=String(item?.name||'');
+    if(!R44_RESTORE_STORES.includes(name)||!state.db.objectStoreNames.contains(name))
+      throw new Error('Geri yükleme tablo şeması uyumsuz: '+name);
+    const rows=(await dbGet('meta',`restorePoint:${id}:${name}`))?.value;
+    if(!Array.isArray(rows)||rows.length!==item.count ||
+      !/^[a-f0-9]{64}$/.test(String(item.sha256||'')) ||
+      (await r44HashRows(rows))!==item.sha256)
+      throw new Error('Geri yükleme bütünlük doğrulaması başarısız: '+name);
+    snapshots.set(name,rows);
+  }
+  if(snapshots.size===0||!snapshots.has('meta'))throw new Error('Geri yükleme eksik');
   await createRestorePoint('GERİ_YÜKLEME_ÖNCESİ_OTOMATİK',{skipConfirm:true});
-  for(const name of R44_RESTORE_STORES){const snap=(await dbGet('meta',`restorePoint:${id}:${name}`))?.value;if(!Array.isArray(snap))continue;await dbClear(name);if(snap.length)await bulkPut(name,snap);await r44Yield();}
-  showAurumNotice('Geri yükleme tamamlandı; uygulama yeniden açılıyor','success',2500);setTimeout(()=>location.reload(),350);return true;
+  // Keep the selected checkpoint and the pre-restore safety checkpoint reachable.
+  const retained=(await dbAll('meta')).filter(r=>String(r?.key||'').startsWith('restorePoint:'));
+  const metaRows=snapshots.get('meta').filter(r=>!String(r?.key||'').startsWith('restorePoint:'));
+  const names=Array.from(snapshots.keys());
+  // One IndexedDB readwrite transaction: either all tables commit or none do.
+  await new Promise((resolve,reject)=>{
+    const tx=state.db.transaction(names,'readwrite');
+    tx.oncomplete=()=>resolve();
+    tx.onabort=()=>reject(tx.error||new Error('RESTORE_TRANSACTION_ABORTED'));
+    tx.onerror=()=>reject(tx.error||new Error('RESTORE_TRANSACTION_FAILED'));
+    try {
+      for(const name of names){
+        const store=tx.objectStore(name);store.clear();
+        const rows=name==='meta'?[...metaRows,...retained]:snapshots.get(name);
+        for(const row of rows)store.put(row);
+      }
+    } catch(error) {
+      try{tx.abort()}catch{}
+      reject(error);
+    }
+  });
+  showAurumNotice('Geri yükleme tamamlandı; uygulama yeniden açılıyor','success',2500);
+  setTimeout(()=>location.reload(),350);return true;
 }
 async function clearFromSettings(scope){
   const labels={data:'Veriler',kn:'Kn',history:'K_Tarihsel',s:'S',all:'Tüm tablolar'};if(!confirm(`${labels[scope]||scope} temizlensin mi? Bu işlem öncesinde otomatik geri yükleme noktası oluşturulacaktır.`))return false;
@@ -1216,9 +1268,32 @@ async function clearFromSettings(scope){
 }
 async function resetApplicationR44(){
   if(!confirm('Uygulama yüklenebilir verilerden tamamen arındırılsın mı? Ayarlar dahil silinecektir. İşlem öncesinde geri yükleme noktası oluşturulur.'))return false;
-  await createRestorePoint('UYGULAMA_SIFIRLAMA_ÖNCESİ',{skipConfirm:true});
-  for(const s of ['settings','records','runs','logs','meta','bars','actions','criteria','backtests','snapshots','behaviorProfiles','genomeHistory','aiAudits','aiCandidates','aiEvents','universeHistory','jobs','stagingRecords','dataIssues','sourceHealth'])await dbClear(s);
-  localStorage.removeItem(RUNTIME_META_KEY);showAurumNotice('Uygulama sıfırlandı','success',2200);setTimeout(()=>location.reload(),420);return true;
+  if(!state.db)throw new Error('Veritabanı hazır değil');
+  const safety=await createRestorePoint('UYGULAMA_SIFIRLAMA_ÖNCESİ',{skipConfirm:true});
+  if(!safety)throw new Error('Sıfırlama için güvenlik yedeği oluşturulamadı');
+  const priorMeta=await dbAll('meta');
+  const preserved=priorMeta.filter(r=>String(r?.key||'').startsWith('restorePoint:'));
+  if(!preserved.some(r=>r.key===`restorePoint:${safety.id}:manifest`))
+    throw new Error('Sıfırlama için güvenlik yedeği doğrulanamadı');
+  const all=['settings','records','runs','logs','meta','bars','actions','criteria','backtests','snapshots','behaviorProfiles','genomeHistory','aiAudits','aiCandidates','aiEvents','universeHistory','jobs','stagingRecords','dataIssues','sourceHealth'];
+  const names=all.filter(name=>state.db.objectStoreNames.contains(name));
+  // Atomic wipe; never discard restore-point blobs or reset half the stores.
+  await new Promise((resolve,reject)=>{
+    const tx=state.db.transaction(names,'readwrite');
+    tx.oncomplete=()=>resolve();
+    tx.onabort=()=>reject(tx.error||new Error('RESET_TRANSACTION_ABORTED'));
+    tx.onerror=()=>reject(tx.error||new Error('RESET_TRANSACTION_FAILED'));
+    try{
+      for(const name of names){
+        const store=tx.objectStore(name);
+        store.clear();
+        if(name==='meta')for(const row of preserved)store.put(row);
+      }
+    }catch(error){try{tx.abort()}catch{}reject(error)}
+  });
+  localStorage.removeItem(RUNTIME_META_KEY);
+  showAurumNotice('Uygulama sıfırlandı; geri yükleme noktası korundu','success',2200);
+  setTimeout(()=>location.reload(),420);return true;
 }
 function restorePointsModule(){const rows=r44RestoreIndex();return aurumSettingsCard('Geri Yükleme Noktaları',`Son ${R44_RESTORE_MAX} veri/model durumu`,`<div class="actions"><button class="gold-btn" type="button" onclick="createRestorePoint('MANUEL').then(ok=>{if(ok)renderCurrentPagePreservingView()}).catch(e=>showAurumNotice(e.message,'error',4200))">Şimdi Nokta Oluştur</button></div><div class="card list" style="margin-top:8px">${rows.map((x,i)=>`<div class="list-row"><div><strong>${i+1}. ${html(new Date(x.createdAt).toLocaleString('tr-TR'))}</strong><small>${html(x.reason||'MANUEL')} · ${html(x.version||'')}</small></div><button class="ghost-btn compact-btn" type="button" onclick="restoreRestorePoint('${html(x.id)}').catch(e=>showAurumNotice(e.message,'error',4200))">Geri Yükle</button></div>`).join('')||'<p class="muted">Henüz geri yükleme noktası yok.</p>'}</div><small class="muted">Her uygulama güncellemesi etkinleştirilmeden önce otomatik nokta oluşturulur. En yeni toplam 10 nokta tutulur; manuel noktalar ve başarılı güncelleme sonrası otomatik noktalar aynı güvenli listede saklanır.</small>`,'r44RestorePoints')}
 function dataManagementModule(){return aurumSettingsCard('Veri Yönetimi ve Sıfırlama','Tablo bazlı temizleme · tam sıfırlama',`<div class="actions"><button class="ghost-btn" onclick="clearFromSettings('data')">Veriler’i Temizle</button><button class="ghost-btn" onclick="clearFromSettings('kn')">Kn’yi Temizle</button><button class="ghost-btn" onclick="clearFromSettings('history')">K_Tarihsel’i Temizle</button><button class="ghost-btn" onclick="clearFromSettings('s')">S’yi Temizle</button><button class="danger-btn" onclick="clearFromSettings('all')">Tüm Tabloları Temizle</button><button class="danger-btn" onclick="resetApplicationR44()">Uygulamayı Sıfırla</button></div><small class="muted">Temizleme/sıfırlama öncesinde otomatik geri yükleme noktası oluşturulur. Çalışan iş varsa önce ilgili modülden iptal edilmelidir.</small>`,'r44DataManagement')}
