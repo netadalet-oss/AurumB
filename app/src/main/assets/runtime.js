@@ -1268,9 +1268,32 @@ async function clearFromSettings(scope){
 }
 async function resetApplicationR44(){
   if(!confirm('Uygulama yüklenebilir verilerden tamamen arındırılsın mı? Ayarlar dahil silinecektir. İşlem öncesinde geri yükleme noktası oluşturulur.'))return false;
-  await createRestorePoint('UYGULAMA_SIFIRLAMA_ÖNCESİ',{skipConfirm:true});
-  for(const s of ['settings','records','runs','logs','meta','bars','actions','criteria','backtests','snapshots','behaviorProfiles','genomeHistory','aiAudits','aiCandidates','aiEvents','universeHistory','jobs','stagingRecords','dataIssues','sourceHealth'])await dbClear(s);
-  localStorage.removeItem(RUNTIME_META_KEY);showAurumNotice('Uygulama sıfırlandı','success',2200);setTimeout(()=>location.reload(),420);return true;
+  if(!state.db)throw new Error('Veritabanı hazır değil');
+  const safety=await createRestorePoint('UYGULAMA_SIFIRLAMA_ÖNCESİ',{skipConfirm:true});
+  if(!safety)throw new Error('Sıfırlama için güvenlik yedeği oluşturulamadı');
+  const priorMeta=await dbAll('meta');
+  const preserved=priorMeta.filter(r=>String(r?.key||'').startsWith('restorePoint:'));
+  if(!preserved.some(r=>r.key===`restorePoint:${safety.id}:manifest`))
+    throw new Error('Sıfırlama için güvenlik yedeği doğrulanamadı');
+  const all=['settings','records','runs','logs','meta','bars','actions','criteria','backtests','snapshots','behaviorProfiles','genomeHistory','aiAudits','aiCandidates','aiEvents','universeHistory','jobs','stagingRecords','dataIssues','sourceHealth'];
+  const names=all.filter(name=>state.db.objectStoreNames.contains(name));
+  // Atomic wipe; never discard restore-point blobs or reset half the stores.
+  await new Promise((resolve,reject)=>{
+    const tx=state.db.transaction(names,'readwrite');
+    tx.oncomplete=()=>resolve();
+    tx.onabort=()=>reject(tx.error||new Error('RESET_TRANSACTION_ABORTED'));
+    tx.onerror=()=>reject(tx.error||new Error('RESET_TRANSACTION_FAILED'));
+    try{
+      for(const name of names){
+        const store=tx.objectStore(name);
+        store.clear();
+        if(name==='meta')for(const row of preserved)store.put(row);
+      }
+    }catch(error){try{tx.abort()}catch{}reject(error)}
+  });
+  localStorage.removeItem(RUNTIME_META_KEY);
+  showAurumNotice('Uygulama sıfırlandı; geri yükleme noktası korundu','success',2200);
+  setTimeout(()=>location.reload(),420);return true;
 }
 function restorePointsModule(){const rows=r44RestoreIndex();return aurumSettingsCard('Geri Yükleme Noktaları',`Son ${R44_RESTORE_MAX} veri/model durumu`,`<div class="actions"><button class="gold-btn" type="button" onclick="createRestorePoint('MANUEL').then(ok=>{if(ok)renderCurrentPagePreservingView()}).catch(e=>showAurumNotice(e.message,'error',4200))">Şimdi Nokta Oluştur</button></div><div class="card list" style="margin-top:8px">${rows.map((x,i)=>`<div class="list-row"><div><strong>${i+1}. ${html(new Date(x.createdAt).toLocaleString('tr-TR'))}</strong><small>${html(x.reason||'MANUEL')} · ${html(x.version||'')}</small></div><button class="ghost-btn compact-btn" type="button" onclick="restoreRestorePoint('${html(x.id)}').catch(e=>showAurumNotice(e.message,'error',4200))">Geri Yükle</button></div>`).join('')||'<p class="muted">Henüz geri yükleme noktası yok.</p>'}</div><small class="muted">Her uygulama güncellemesi etkinleştirilmeden önce otomatik nokta oluşturulur. En yeni toplam 10 nokta tutulur; manuel noktalar ve başarılı güncelleme sonrası otomatik noktalar aynı güvenli listede saklanır.</small>`,'r44RestorePoints')}
 function dataManagementModule(){return aurumSettingsCard('Veri Yönetimi ve Sıfırlama','Tablo bazlı temizleme · tam sıfırlama',`<div class="actions"><button class="ghost-btn" onclick="clearFromSettings('data')">Veriler’i Temizle</button><button class="ghost-btn" onclick="clearFromSettings('kn')">Kn’yi Temizle</button><button class="ghost-btn" onclick="clearFromSettings('history')">K_Tarihsel’i Temizle</button><button class="ghost-btn" onclick="clearFromSettings('s')">S’yi Temizle</button><button class="danger-btn" onclick="clearFromSettings('all')">Tüm Tabloları Temizle</button><button class="danger-btn" onclick="resetApplicationR44()">Uygulamayı Sıfırla</button></div><small class="muted">Temizleme/sıfırlama öncesinde otomatik geri yükleme noktası oluşturulur. Çalışan iş varsa önce ilgili modülden iptal edilmelidir.</small>`,'r44DataManagement')}
