@@ -30,12 +30,14 @@ class MainActivity : AppCompatActivity() {
 
     private val folderPicker = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) {
-            runCatching {
+            val granted=runCatching {
                 contentResolver.takePersistableUriPermission(
                     uri,
                     android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION
                 )
-            }
+                true
+            }.getOrDefault(false)
+            if(!granted)return@registerForActivityResult
             exportFolder = uri
             getSharedPreferences("aurum_export_folder", MODE_PRIVATE).edit()
                 .putString("uri", uri.toString()).apply()
@@ -274,55 +276,65 @@ class MainActivity : AppCompatActivity() {
     fun currentFolderUri(): Uri? = exportFolder
 
     fun exportBytes(name: String, mime: String, data: String, encoding: String, target: String): String {
-        val safeName = name.replace(Regex("""[\\/:*?"<>|]"""), "_").take(120)
+        if (target != "custom" && target != "downloads" && target.isNotBlank()) return "ERR:INVALID_TARGET"
+        val safeName = name.replace(Regex("""[\\/:*?"<>|]"""), "_").trim().take(120)
             .ifBlank { "aurum_export" }
         val bytes = try {
-            if (encoding.equals("base64", ignoreCase = true)) {
-                android.util.Base64.decode(data, android.util.Base64.DEFAULT)
-            } else data.toByteArray(Charsets.UTF_8)
-        } catch (_: IllegalArgumentException) {
-            return "ERR:INVALID_DATA"
-        }
+            if (encoding.equals("base64",ignoreCase=true))
+                android.util.Base64.decode(data,android.util.Base64.DEFAULT)
+            else data.toByteArray(Charsets.UTF_8)
+        } catch (_: IllegalArgumentException) { return "ERR:INVALID_DATA" }
 
-        var mediaUri: Uri? = null
+        var created: Uri? = null
+        var media = false
+        var committed = false
         return try {
-            val outUri = if (target == "custom") {
+            val targetUri = if (target == "custom") {
                 val tree = currentFolderUri() ?: return "ERR:NO_FOLDER"
-                val docId = android.provider.DocumentsContract.getTreeDocumentId(tree)
-                val parent = android.provider.DocumentsContract.buildDocumentUriUsingTree(tree, docId)
+                val granted=contentResolver.persistedUriPermissions.any {
+                    it.uri==tree && it.isWritePermission
+                }
+                if(!granted)return "ERR:NO_FOLDER_PERMISSION"
+                val parent=android.provider.DocumentsContract.buildDocumentUriUsingTree(
+                    tree,android.provider.DocumentsContract.getTreeDocumentId(tree))
                 android.provider.DocumentsContract.createDocument(
-                    contentResolver, parent,
-                    mime.ifBlank { "application/octet-stream" }, safeName
-                ) ?: return "ERR:CREATE_FILE"
+                    contentResolver,parent,mime.ifBlank{"application/octet-stream"},safeName)
+                    ?: return "ERR:CREATE_FILE"
             } else {
-                if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q) {
-                    return "ERR:ANDROID_10_REQUIRED"
+                if(android.os.Build.VERSION.SDK_INT<29)return "ERR:ANDROID_10_REQUIRED"
+                val values=android.content.ContentValues().apply {
+                    put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME,safeName)
+                    put(android.provider.MediaStore.MediaColumns.MIME_TYPE,mime.ifBlank{"application/octet-stream"})
+                    put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH,
+                        android.os.Environment.DIRECTORY_DOWNLOADS+"/Aurum")
+                    put(android.provider.MediaStore.MediaColumns.IS_PENDING,1)
                 }
-                val values = android.content.ContentValues().apply {
-                    put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, safeName)
-                    put(android.provider.MediaStore.MediaColumns.MIME_TYPE, mime.ifBlank { "application/octet-stream" })
-                    put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS + "/Aurum")
-                    put(android.provider.MediaStore.MediaColumns.IS_PENDING, 1)
-                }
-                contentResolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
-                    ?.also { mediaUri = it } ?: return "ERR:CREATE_FILE"
+                media=true
+                contentResolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI,values)
+                    ?: return "ERR:CREATE_FILE"
             }
-
-            val out = contentResolver.openOutputStream(outUri, "w") ?: return "ERR:OPEN_FILE"
-            out.use { it.write(bytes) }
-            mediaUri?.let { uri ->
-                val done = android.content.ContentValues().apply {
-                    put(android.provider.MediaStore.MediaColumns.IS_PENDING, 0)
+            created=targetUri
+            val output=contentResolver.openOutputStream(targetUri,"w") ?: return "ERR:OPEN_FILE"
+            output.use { it.write(bytes);it.flush() }
+            if(media){
+                val values=android.content.ContentValues().apply {
+                    put(android.provider.MediaStore.MediaColumns.IS_PENDING,0)
                 }
-                contentResolver.update(uri, done, null, null)
+                if(contentResolver.update(targetUri,values,null,null)!=1)return "ERR:PUBLISH_FILE"
             }
+            committed=true
             "OK"
         } catch (_: SecurityException) {
             "ERR:PERMISSION"
-        } catch (_: java.io.IOException) {
-            "ERR:WRITE_FILE"
         } catch (_: Throwable) {
             "ERR:WRITE_FILE"
+        } finally {
+            if(!committed)created?.let{uri->
+                runCatching {
+                    if(media)contentResolver.delete(uri,null,null)
+                    else android.provider.DocumentsContract.deleteDocument(contentResolver,uri)
+                }
+            }
         }
     }
 
