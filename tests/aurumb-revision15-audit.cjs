@@ -190,7 +190,7 @@ console.log('PASS AurumB 15-revision preservation, logs, scheduler, Nederland an
      assert.ok(html.includes('>'+n+' Gün Yükle</button>'),'missing manual '+n+' day control');
      assert.ok(html.includes('AurumHistoryGapFill.fill('+n+')'),'gap action must be wired');
    }
-   assert.equal((html.match(/\bdisabled\b/g)||[]).length,busy?3:0,'busy state must disable every action');
+   assert.equal((html.match(/\bdisabled\b/g)||[]).length,busy?4:0,'busy state must disable every action');
  }
  assert.ok(source.includes('new MutationObserver(ensureHistoryGapControls)'), 'cached WebView page slots need a live DOM repair hook');
  assert.ok(source.includes("target.insertAdjacentHTML('afterbegin',gapToolbar())"), 'cached history slot must gain controls without destroying other page DOM');
