@@ -491,8 +491,8 @@ function liveTemporalAudit(records){const times=(records||[]).filter(r=>r?.marke
 function cloneForCalculation(rec){try{return structuredClone(rec)}catch{return JSON.parse(JSON.stringify(rec));}}
 function maskIncompleteColumn(rec,key){
   const s=rec.series||{},n=s.date?.length||0,ix=n-1,setSeries=(name,i)=>{if(Array.isArray(s[name])&&i>=0&&i<s[name].length)s[name][i]=null;};
-  if(key==='Anlik')rec.livePrice=null;else if(key==='AnlikDegisim%'||key==='FiyatDegisim%_T0')rec.dayChange=null;else if(key==='Kapanis_T0')rec.price=null;else if(key==='Min_T0')rec.low=null;else if(key==='Max_T0')rec.high=null;else if(key==='Hacim_T0')rec.volume=null;else if(key==='HacimDegisim%_T0')rec.volumeChange=null;
-  const hist=key.match(/^(FiyatDegisim%|Kapanis|Min|Max|Hacim|HacimDegisim%)_T(\d+)$/);if(hist){const i=ix-Number(hist[2]);if(hist[1]==='Kapanis'||hist[1]==='FiyatDegisim%')setSeries('close',i);if(hist[1]==='Min')setSeries('low',i);if(hist[1]==='Max')setSeries('high',i);if(hist[1]==='Hacim'||hist[1]==='HacimDegisim%')setSeries('volume',i);}
+  if(key==='Anlik')rec.livePrice=null;else if(key==='AnlikDegisim%'||key==='FiyatDegisim%_T0')rec.dayChange=null;else if(key==='Kapanis_T0'){rec.price=null;setSeries('close',ix);setSeries('calcClose',ix);}else if(key==='Min_T0')rec.low=null;else if(key==='Max_T0')rec.high=null;else if(key==='Hacim_T0')rec.volume=null;else if(key==='HacimDegisim%_T0')rec.volumeChange=null;
+  const hist=key.match(/^(FiyatDegisim%|Kapanis|Min|Max|Hacim|HacimDegisim%)_T(\d+)$/);if(hist){const i=ix-Number(hist[2]);if(hist[1]==='Kapanis'||hist[1]==='FiyatDegisim%'){setSeries('close',i);setSeries('calcClose',i);}if(hist[1]==='Min')setSeries('low',i);if(hist[1]==='Max')setSeries('high',i);if(hist[1]==='Hacim'||hist[1]==='HacimDegisim%')setSeries('volume',i);}
   const direct={EMA20_T0:'ema20',EMA50_T0:'ema50',EMA200_T0:'ema200',MACD_T0:'macd',MACDSignal_T0:'macdSignal',MACDHist_T0:'macdHist',RSI14_T0:'rsi14',Momentum10_T0:'momentum10',Volatilite5G_T0:'vol5',Volatilite21G_T0:'vol21',Volatilite63G_T0:'vol63',Boll_Orta_T0:'bollMid',Boll_Std_T0:'bollStd',Boll_Alt_T0:'bollLow',Boll_Ust_T0:'bollHigh',Beta_T0:'beta','Davranış Skoru':'behaviorScore','DNA Skoru':'genomeScore','ATR%':'atrPct','Hacim Kırılımı':'volumeBreakout','Tahmini Maliyet%':'estimatedCostPct','Kalite':'quality'};if(direct[key])rec[direct[key]]=null;
   const fund={PD_T0:'marketCap',SERMAYE_T0:'capital',FD_T0:'enterpriseValue',FAVOK_T0:'ebitda',FD_FAVOK_T0:'evEbitda',F_K_T0:'pe',PD_DD_T0:'pb',ROE_Yaklasik_T0:'roe'};if(fund[key]){rec.fundamentals={...(rec.fundamentals||{})};rec.fundamentals[fund[key]]=null;rec[fund[key]]=null;}
   const rets={Getiri_TL_1A_T0:['retTL1','retTL21'],Getiri_TL_3A_T0:['retTL3','retTL63'],Getiri_TL_6A_T0:['retTL6','retTL126'],Getiri_USD_1A_T0:['retUSD1','retUSD21'],Getiri_USD_3A_T0:['retUSD3','retUSD63'],Getiri_USD_6A_T0:['retUSD6','retUSD126'],Getiri_XU_1A_T0:['retXU1','retXU21'],Getiri_XU_3A_T0:['retXU3','retXU63'],Getiri_XU_6A_T0:['retXU6','retXU126']};for(const k of rets[key]||[])rec[k]=null;
@@ -541,9 +541,13 @@ function calculationRecords(){const status=calculationGateStatus();if(!status.ga
   const out=[];for(const source of state.records||[]){
     const row=classification.bySymbol.get(source.sym);
     if(source?.calculationEligible===false||!row?.eligible)continue;
-    const rec=cloneForCalculation(source);normalizeCalculationRecord(rec);
-    // Every low-fill column is retained in Veriler (source), but its known
-    // financial/technical fields are hidden only from the derived clone.
+    const rec=cloneForCalculation(source);
+    // Mask BEFORE normalization so derived returns cannot consume raw bars
+    // from a column explicitly disqualified by the completeness gate.
+    for(const field of classification.below70Columns)maskIncompleteColumn(rec,field);
+    normalizeCalculationRecord(rec);
+    // Mask AGAIN: normalization may reconstruct a forbidden derived metric.
+    // The source Veriler record is never modified.
     for(const field of classification.below70Columns)maskIncompleteColumn(rec,field);
     rec.calculationExcludedFields=classification.below70Columns.slice();
     rec.calculationEligible=true;out.push(rec);
