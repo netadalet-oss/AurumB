@@ -129,3 +129,37 @@ console.log('PASS AurumB 15-revision preservation, logs, scheduler, Nederland an
  assert.ok(result[0].calculationExcludedFields.includes('X7'));
  console.log('PASS standalone B quality: 70% row excluded, 80% row eligible, immutable Veriler');
 }
+
+
+/* Verified 12/15 calculation isolation: historical/adjusted bars are removed
+ * only from the cloned calculation input, both before and after normalization. */
+{
+ const src=fs.readFileSync('app/src/main/assets/runtime.js','utf8');
+ const maskStart=src.indexOf('function maskIncompleteColumn(');
+ const maskEnd=src.indexOf('function repairCriticalFundamentals(',maskStart);
+ const calcStart=src.indexOf('function calculationRecords()');
+ const calcEnd=src.indexOf('globalThis.calculationRecords=calculationRecords;',calcStart);
+ assert.ok(maskStart>=0&&maskEnd>maskStart&&calcStart>=0&&calcEnd>calcStart);
+ const scope={};
+ vm.runInNewContext(src.slice(maskStart,maskEnd),scope,{timeout:1000});
+ const source={price:30,series:{date:['D1','D2','D3'],
+   close:[10,20,30],calcClose:[11,21,31]}};
+ const row=JSON.parse(JSON.stringify(source));
+ scope.maskIncompleteColumn(row,'Kapanis_T1');
+ assert.equal(row.series.close[1],null);
+ assert.equal(row.series.calcClose[1],null,
+   'disqualified old close may not survive as adjusted series');
+ scope.maskIncompleteColumn(row,'Kapanis_T0');
+ assert.equal(row.series.close[2],null);
+ assert.equal(row.series.calcClose[2],null);
+ assert.equal(row.price,null);
+ assert.equal(source.series.calcClose[1],21,
+   'original Veriler adjusted-price bar must remain untouched');
+ const calc=src.slice(calcStart,calcEnd);
+ const first=calc.indexOf('maskIncompleteColumn(rec,field)');
+ const normalize=calc.indexOf('normalizeCalculationRecord(rec)');
+ const second=calc.lastIndexOf('maskIncompleteColumn(rec,field)');
+ assert.ok(first>=0&&first<normalize&&normalize<second,
+   'no forbidden value may enter normalization or survive reconstruction');
+ console.log('PASS B price-mask regression: old/T0 prices, adjusted close, no source mutation');
+}
