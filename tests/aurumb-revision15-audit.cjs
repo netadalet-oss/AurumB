@@ -187,14 +187,29 @@ console.log('PASS AurumB 15-revision preservation, logs, scheduler, Nederland an
    const html=vm.runInNewContext(script+'\ngapToolbar()', {state:{syncing:busy,calculating:false}}, {timeout:1000});
    assert.equal((html.match(/<button\b/g)||[]).length,4,'must expose exactly four gap buttons');
    for(const n of [1,5,10,30]){
-     assert.ok(html.includes('>'+n+' Gün Yükle</button>'),'missing manual '+n+' day control');
+     assert.ok(html.includes('>'+n+' Gün</button>'),'missing manual '+n+' day control');
      assert.ok(html.includes('AurumHistoryGapFill.fill('+n+')'),'gap action must be wired');
    }
    assert.equal((html.match(/\bdisabled\b/g)||[]).length,busy?4:0,'busy state must disable every action');
  }
  assert.ok(source.includes('new MutationObserver(ensureHistoryGapControls)'), 'cached WebView page slots need a live DOM repair hook');
- assert.ok(source.includes("target.insertAdjacentHTML('afterbegin',gapToolbar())"), 'cached history slot must gain controls without destroying other page DOM');
- console.log('PASS AurumB K_Tarihsel 1/5/10 controls visible on cached page slots');
+ assert.ok(source.includes("mini.insertAdjacentHTML('beforebegin',gapToolbar())"), 'cached history slot must gain controls without destroying other page DOM');
+ const mock='K_Tarihsel’i Çalıştır<div class="aurum-mini-ops" data-mini-scope="history">Baştan başlat · Eksikleri tamamla</div>';
+ const sandbox={
+   state:{syncing:false,calculating:false,page:'history'},
+   historyPage:()=>mock, globalThis:{}
+ };
+ const wrapped=source.slice(start,source.indexOf('  if(typeof document!==',start));
+ vm.runInNewContext(wrapped,sandbox,{timeout:1000});
+ const rendered=sandbox.historyPage();
+ assert.ok(rendered.indexOf('K_Tarihsel’i Çalıştır')>=0);
+ assert.ok(rendered.indexOf('K_Tarihsel’i Çalıştır')<rendered.indexOf('aurum-khist-gap-actions'));
+ assert.ok(rendered.indexOf('aurum-khist-gap-actions')<rendered.indexOf('Baştan başlat'),
+   'four day controls must be between Run and Restart');
+ assert.ok(rendered.includes('grid-template-columns:repeat(4,minmax(0,1fr))!important'),
+   'four buttons must fit on one row even with older WebView CSS');
+ assert.ok(!rendered.includes('Gün Yükle'),'button labels must not contain Yükle');
+ console.log('PASS AurumB K_Tarihsel 1/5/10/30 controls visible on cached page slots');
 }
 
 assert.ok(r.includes('const remaining=last30.filter(d=>!keptAfter.has(d)).length;')&&
