@@ -6730,7 +6730,7 @@ globalThis.AurumNotifications=Object.freeze({version:'R225.0',open:openJournal,r
 (function installAurumHistoryGapFill(){
   'use strict';
   if(globalThis.AurumHistoryGapFill)return;
-  const counts=new Set([1,5,10]);
+  const counts=new Set([1,5,10,30]);
   function plan(amount){
     const archive=kh117ArchiveState(),rows=Array.isArray(archive.rows)?archive.rows:[];
     const existing=new Set(rows.map(x=>String(x?.date||'')));
@@ -6753,7 +6753,7 @@ globalThis.AurumNotifications=Object.freeze({version:'R225.0',open:openJournal,r
   }
   async function fill(requested){
     const count=Number(requested);
-    if(!counts.has(count))throw new Error('Yalnız 1, 5 veya 10 boş satır seçilebilir');
+    if(!counts.has(count))throw new Error('Yalnız 1, 5, 10 veya 30 boş satır seçilebilir');
     if(state.syncing||state.calculating)throw new Error('Devam eden işlem tamamlanmalı');
     const {dates,records,reason}=plan(count);
     if(reason)throw new Error(reason);
@@ -6791,8 +6791,8 @@ globalThis.AurumNotifications=Object.freeze({version:'R225.0',open:openJournal,r
   // the controls visible both on first render and on a reused history slot.
   function gapToolbar(){
     const busy=state.syncing||state.calculating;
-    return '<div class="actions aurum-khist-gap-actions"><small class="muted">Yalnız boş T1–T30 satırları</small>'+
-      [1,5,10].map(n=>'<button type="button" class="ghost-btn" '+
+    return '<div class="actions aurum-khist-gap-actions" role="group" aria-label="Yalnız boş T1–T30 günlerini yükle">'+
+      [1,5,10,30].map(n=>'<button type="button" class="ghost-btn" '+
         (busy?'disabled ':'')+'onclick="AurumHistoryGapFill.fill('+n+
         ').catch(e=>showAurumNotice(e.message,\'error\',4400))">'+n+' Gün Yükle</button>').join('')+'</div>';
   }
