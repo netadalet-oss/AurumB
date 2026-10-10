@@ -29,6 +29,7 @@ jobs:
           node --check app/src/main/assets/final-hardening.js
           node --check app/src/main/assets/native-market-http.js
           node --check app/src/main/assets/market-rebuilt.js
+          node tests/aurumb-revision15-audit.cjs
       - name: Test manual T1–T30 archive preservation
         run: node tests/aurumb-revision15-history.cjs
       - name: Verify persistent AL/SAT mail and retry behavior
