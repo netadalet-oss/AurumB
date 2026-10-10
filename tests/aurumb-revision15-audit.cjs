@@ -219,7 +219,7 @@ assert.ok(r.includes('const remaining=last30.filter(d=>!keptAfter.has(d)).length
  for(const action of ['AurumLegacyTransfer.inspect()','AurumLegacyTransfer.exportEncrypted()',
                        'AurumLegacyTransfer.restoreEncrypted()'])
    assert.ok(card.body.includes(action),'missing backup action: '+action);
- assert.ok(card.body.includes('Native/Room')&&card.body.includes('TAM UYGULAMA YEDEĞİ'),
+ assert.ok(card.subtitle.includes('Native/Room')&&card.body.includes('TAM UYGULAMA YEDEĞİ'),
    'Legacy export must not be represented as a complete device backup');
  assert.ok(source.includes('aurumBackupSettingsModule()}'),'backup must be inserted into settings page');
  for(const required of ["FORMAT='AURUMB_ENCRYPTED_LEGACY_V1'","ITERATIONS=210000",
