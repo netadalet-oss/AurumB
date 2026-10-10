@@ -6766,3 +6766,62 @@ globalThis.AurumNotifications=Object.freeze({version:'R225.0',open:openJournal,r
   historyPage=historyGapPage;globalThis.historyPage=historyGapPage;
   globalThis.AurumHistoryGapFill=Object.freeze({fill,available:n=>plan(n).dates.length});
 })();
+
+/*
+ * 2026-10-10 — full-backup prerequisite: enumerate Legacy owners without
+ * reading secret values, mutating records or silently declaring success.
+ * Native Room backup does NOT capture WebView's IndexedDB/localStorage.
+ * No restore or destructive operation is exposed from this inspector.
+ */
+(function installAurumLegacyBackupInventory(){
+  'use strict';
+  if(globalThis.AurumLegacyBackupInventory)return;
+  const requiredStores=['records','meta','settings','runs','logs','aiAudits'];
+  async function inspect(){
+    const database=state?.db;
+    if(!database || database.name==null)
+      throw new Error('LEGACY_BACKUP_DB_NOT_READY');
+    const names=Array.from(database.objectStoreNames).sort();
+    if(!names.length)throw new Error('LEGACY_BACKUP_STORES_EMPTY');
+    // Snapshot all store counts in one read-only transaction, not only the
+    // handful of tables listed in documentation.
+    const counts=await new Promise((resolve,reject)=>{
+      let done=false;const result={};
+      const tx=database.transaction(names,'readonly');
+      tx.onabort=()=>{if(!done){done=true;reject(tx.error||new Error('BACKUP_INVENTORY_ABORTED'))}};
+      tx.onerror=()=>{if(!done){done=true;reject(tx.error||new Error('BACKUP_INVENTORY_FAILED'))}};
+      tx.oncomplete=()=>{if(!done){done=true;resolve(result)}};
+      for(const name of names){
+        const req=tx.objectStore(name).count();
+        req.onsuccess=()=>{result[name]=req.result};
+        req.onerror=()=>{if(!done){done=true;reject(req.error||new Error('BACKUP_COUNT_FAILED:'+name))}};
+      }
+    });
+    // Enumerate all localStorage keys (not their potentially sensitive
+    // contents) and reject access errors instead of reporting fake coverage.
+    const storageKeys=[];
+    try{
+      for(let i=0;i<localStorage.length;i++){
+        const key=localStorage.key(i);
+        if(key==null)throw new Error('LEGACY_BACKUP_LOCALSTORAGE_KEY_MISSING');
+        storageKeys.push(key);
+      }
+    }catch(error){
+      throw new Error('LEGACY_BACKUP_LOCALSTORAGE_UNAVAILABLE:'+String(error?.message||error));
+    }
+    const missingRequired=requiredStores.filter(name=>!names.includes(name));
+    return Object.freeze({
+      schema:'AURUMB_LEGACY_BACKUP_INVENTORY_V1',
+      inspectedAt:new Date().toISOString(),
+      database:database.name,
+      databaseVersion:database.version,
+      indexedDbStores:Object.freeze(names.map(name=>({name,rows:counts[name]}))),
+      localStorageKeyCount:storageKeys.length,
+      localStorageKeys:Object.freeze(storageKeys.sort()),
+      missingRequiredStores:Object.freeze(missingRequired),
+      readyForCompleteBackup:false,
+      reason:'LEGACY_TO_NATIVE_ATOMIC_BACKUP_AND_RESTORE_NOT_CONNECTED'
+    });
+  }
+  globalThis.AurumLegacyBackupInventory=Object.freeze({inspect});
+})();
