@@ -86,3 +86,46 @@ console.log('PASS AurumB 15-revision preservation, logs, scheduler, Nederland an
  assert.equal(context.historyFingerprint('error','  AL/SAT  ASELS 12.34 '),a,
    'whitespace-only duplicates may still be grouped');
 }
+
+
+/* 12/15: standalone B must exclude a 70%-filled row and low-fill columns
+ * from calculations without mutating the original Veriler source records. */
+{
+ const start=r.indexOf('function classifyDataCompleteness(');
+ const end=r.indexOf('function dataSummary(',start);
+ const calcStart=r.indexOf('function calculationRecords()');
+ const calcEnd=r.indexOf('globalThis.calculationRecords=calculationRecords;',calcStart);
+ assert.ok(start>=0&&end>start&&calcStart>=0&&calcEnd>calcStart,
+   'standalone completeness gate and derived clone function must exist');
+ const fields=Array.from({length:10},(_,i)=>'X'+i);
+ const records=[7,8].map((n,i)=>{
+   const row={sym:i?'R80':'R70',jobDataStatus:'FRESH',marketWindowEligible:true};
+   fields.forEach((k,j)=>{row[k]=j<n?j+100:null;});
+   return row;
+ });
+ const scope={
+   state:{records,settings:{}},V141225_ALL_HEADERS:['Hisse',...fields],
+   currentSymbols:()=>records.map(x=>x.sym),
+   v141225ValuePresent:(rec,field)=>field==='Hisse'?true:rec[field]!==null&&rec[field]!==undefined,
+   v141225Raw:(rec,field)=>rec[field],
+   vRecordCompleteness:()=>100,
+   v141225NumericZero:()=>false,
+   calculationGateStatus:()=>({gate:{ok:true}}),
+   cloneForCalculation:rec=>JSON.parse(JSON.stringify(rec)),
+   normalizeCalculationRecord:rec=>rec,
+   maskIncompleteColumn:(rec,key)=>{rec[key]=null}
+ };
+ scope.globalThis=scope;
+ vm.runInNewContext(r.slice(start,end)+'\n'+r.slice(calcStart,calcEnd),scope,{timeout:2000});
+ const classified=scope.classifyDataCompleteness();
+ assert.equal(classified.bySymbol.get('R70').eligible,false,'70% row must remain Veriler-only');
+ assert.equal(classified.bySymbol.get('R80').eligible,true,'80% row can enter calculations');
+ assert.ok(classified.below70Columns.includes('X7'),'half-filled column excluded globally');
+ const result=scope.calculationRecords();
+ assert.equal(result.length,1);
+ assert.equal(result[0].sym,'R80');
+ assert.equal(result[0].X7,null,'half-filled source column masked only on derived clone');
+ assert.equal(records[1].X7,107,'original persisted source record must not be modified');
+ assert.ok(result[0].calculationExcludedFields.includes('X7'));
+ console.log('PASS standalone B quality: 70% row excluded, 80% row eligible, immutable Veriler');
+}
