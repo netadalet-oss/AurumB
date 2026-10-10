@@ -437,11 +437,21 @@ function classifyDataCompleteness(records=state.records,universe=currentSymbols(
   // A numeric column containing only zero placeholders in at least five rows is not accepted as populated data.
   // Once a real non-zero value is recovered the column falls back to the ordinary blank-cell rule.
   const zeroPlaceholderColumns=fields.filter(f=>f!=='Hisse'&&columnNonZeroNumericCounts[f]===0&&columnZeroCounts[f]>0);
-  const zeroBad=new Set(zeroPlaceholderColumns),incompleteColumns=fields.filter(f=>f!=='Hisse'&&columnBlankCounts[f]>0),usableFields=fields.filter(f=>f!=='Hisse'),rowFields=fields.filter(f=>f!=='Hisse'),bySymbol=new Map();
+  const zeroBad=new Set(zeroPlaceholderColumns),incompleteColumns=fields.filter(f=>f!=='Hisse'&&columnBlankCounts[f]>0),
+    rowFields=fields.filter(f=>f!=='Hisse'&&f!=='Veri Tamlık'),
+    denominator=Math.max(rows.length,1),columnCompletionPct={};
+  for(const field of rowFields){
+    const valid=Math.max(0,rows.length-columnBlankCounts[field]-(zeroBad.has(field)?columnZeroCounts[field]:0));
+    columnCompletionPct[field]=100*valid/denominator;
+  }
+  const below70Columns=rowFields.filter(field=>columnCompletionPct[field]<=70);
+  const excludedFields=new Set(below70Columns),usableFields=rowFields.filter(field=>!excludedFields.has(field)),bySymbol=new Map();
   // Satır ve sütun kuralları bağımsızdır: bir sütunun global olarak eksik sayılması,
   // o satırdaki eksik/placeholder hücreyi hisse eksikliği hesabından düşürmez.
-  for(const r of rows){let emptyCells=0;for(const f of rowFields){const missing=!v141225ValuePresent(r,f)||(zeroBad.has(f)&&v141225NumericZero(r,f));if(missing)emptyCells++;}const reasons=[];if(r?.marketWindowEligible===false)reasons.push(`MARKET_TIME_OUTSIDE_${Math.max(30,Math.min(180,Number(state.settings?.marketFreshMinutes||90)))}M`);if(r?.jobDataStatus!=='FRESH')reasons.push('CURRENT_JOB_NOT_FRESH');bySymbol.set(r.sym,{emptyCells,eligible:reasons.length===0,reasons});}
-  return {incompleteColumns,zeroPlaceholderColumns,columnBlankCounts,columnZeroCounts,columnNonZeroNumericCounts,usableFields,bySymbol};
+  for(const r of rows){let emptyCells=0;for(const f of rowFields){const missing=!v141225ValuePresent(r,f)||(zeroBad.has(f)&&v141225NumericZero(r,f));if(missing)emptyCells++;}const fillPct=rowFields.length?100*(rowFields.length-emptyCells)/rowFields.length:0;
+    const reasons=[];if(fillPct<=70)reasons.push('ROW_COMPLETENESS_AT_OR_BELOW_70');
+    if(r?.marketWindowEligible===false)reasons.push(`MARKET_TIME_OUTSIDE_${Math.max(30,Math.min(180,Number(state.settings?.marketFreshMinutes||90)))}M`);if(r?.jobDataStatus!=='FRESH')reasons.push('CURRENT_JOB_NOT_FRESH');bySymbol.set(r.sym,{emptyCells,fillPct,eligible:reasons.length===0,reasons});}
+  return {incompleteColumns,below70Columns,columnCompletionPct,zeroPlaceholderColumns,columnBlankCounts,columnZeroCounts,columnNonZeroNumericCounts,usableFields,bySymbol};
 }
 function dataSummary(records=state.records){
   const universe=currentSymbols(),rows=records||[],fields=V141225_ALL_HEADERS,classification=classifyDataCompleteness(rows,universe),zeroBad=new Set(classification.zeroPlaceholderColumns||[]);let filled=0;const sourceCounts={},present=new Set(),fresh=new Set();
@@ -527,7 +537,17 @@ function normalizeCalculationRecord(rec){
   return rec;
 }
 function calculationGateStatus(){const summary=dataSummary(state.records),fillPct=Number(summary.fillPct||0),ok=fillPct>70,gate={ok,missingSymbols:Number(summary.missingSymbolCount||0),missingColumns:(summary.incompleteColumns||summary.missingColumns||[]).length,rows:Number(summary.loadedSymbols||0),eligibleRows:Number(summary.calculationEligibleRows||0),fillPct,minFillPct:70,reason:ok?null:`Türev hesaplama kapısı: Veriler doluluğu %${fillPct.toFixed(2)} < %70; önceki Kn/K_Tarihsel/S/AL-SAT korunuyor`};return {summary,gate,reason:gate.reason};}
-function calculationRecords(){const status=calculationGateStatus();if(!status.gate.ok)return [];const out=[];for(const source of state.records||[]){if(source?.calculationEligible===false)continue;const rec=cloneForCalculation(source);normalizeCalculationRecord(rec);rec.calculationEligible=true;out.push(rec);}return out;}
+function calculationRecords(){const status=calculationGateStatus();if(!status.gate.ok)return [];const classification=classifyDataCompleteness(state.records,currentSymbols());
+  const out=[];for(const source of state.records||[]){
+    const row=classification.bySymbol.get(source.sym);
+    if(source?.calculationEligible===false||!row?.eligible)continue;
+    const rec=cloneForCalculation(source);normalizeCalculationRecord(rec);
+    // Every low-fill column is retained in Veriler (source), but its known
+    // financial/technical fields are hidden only from the derived clone.
+    for(const field of classification.below70Columns)maskIncompleteColumn(rec,field);
+    rec.calculationExcludedFields=classification.below70Columns.slice();
+    rec.calculationEligible=true;out.push(rec);
+  }return out;}
 globalThis.calculationRecords=calculationRecords;
 
 const LOCAL_REPAIR_V117_KEY='aurum.runtime.localRepair.v117';
