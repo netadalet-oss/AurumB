@@ -5650,6 +5650,45 @@ try{AurumUpdateAPI.state.r239={version:'REV20.39-STRICT-CADENCE-SAME-SOURCE-MARK
     }catch{return false}
   }
   async function relay(row){
+    // Native Apps Script transport is GET-only; a complete list may not fit
+    // a 7200-character URL. Persist per-part acknowledgements before continuing.
+    if(row?.listVersion && !row?._relayPart){
+      const descriptors=[];
+      for(const item of (Array.isArray(row.buyList)?row.buyList:[]))descriptors.push({kind:'BUY',item});
+      for(const item of (Array.isArray(row.sellList)?row.sellList:[]))descriptors.push({kind:'SELL',item});
+      const fields=['addedBuys','removedBuys','addedSells','removedSells'];
+      for(const kind of fields)for(const item of (Array.isArray(row.changes?.[kind])?row.changes[kind]:[]))descriptors.push({kind,item});
+      // Small bounded packets keep even percent-encoded URLs within native GET
+      // constraints for normal BIST ticker/time/price records.
+      const chunks=[];
+      for(let i=0;i<descriptors.length;i+=8)chunks.push(descriptors.slice(i,i+8));
+      if(!chunks.length)chunks.push([]);
+      let start=Math.max(0,Math.min(chunks.length,Math.trunc(Number(row.delivery?.nextPart)||0)));
+      for(let i=start;i<chunks.length;i++){
+        const block=chunks[i],buys=block.filter(x=>x.kind==='BUY').map(x=>x.item),
+          sells=block.filter(x=>x.kind==='SELL').map(x=>x.item),
+          changes={};
+        for(const name of fields)changes[name]=block.filter(x=>x.kind===name).map(x=>x.item);
+        const part={...row,id:row.id+'|part:'+String(i+1)+'/'+String(chunks.length),
+          buys:buys.map(x=>x.code),sells:sells.map(x=>x.code),
+          buyList:buys,sellList:sells,changes,part:i+1,parts:chunks.length,
+          _relayPart:true,delivery:{...(row.delivery||{})}};
+        const result=await relay(part);
+        if(!result.ok)return {...result,part:i+1,parts:chunks.length};
+        row.delivery=row.delivery||{};
+        row.delivery.nextPart=i+1;
+        const latest=readOutbox(),stored=latest.find(x=>x.id===row.id);
+        if(stored){
+          stored.delivery=stored.delivery||{};
+          stored.delivery.nextPart=i+1;
+          await persistOutbox(latest);
+        }
+        if(i-start>=7 && i+1<chunks.length){
+          return {ok:false,status:'RELAY_PARTIAL_PENDING',part:i+1,parts:chunks.length};
+        }
+      }
+      return {ok:true,status:'SENT',parts:chunks.length,transport:'native-get'};
+    }
     const url=String(state?.settings?.tradeAlertWebhookUrl||'').trim();
     if(!url)return {ok:false,status:'NO_RELAY'};
     let endpoint;
@@ -5677,6 +5716,7 @@ try{AurumUpdateAPI.state.r239={version:'REV20.39-STRICT-CADENCE-SAME-SOURCE-MARK
       buyList:Array.isArray(row?.buyList)?row.buyList:[],
       sellList:Array.isArray(row?.sellList)?row.sellList:[],
       changes:row?.changes||null,listVersion:row?.listVersion||null,
+      part:row?.part||null,parts:row?.parts||null,
       test:row?.test===true
     };
     const payload={type:'AURUM_AL_SAT',recipient:String(state?.settings?.tradeAlertEmail||DEFAULT_RECIPIENT),event:compactEvent,portfolio:compactPortfolio};
