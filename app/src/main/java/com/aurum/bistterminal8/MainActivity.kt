@@ -27,6 +27,21 @@ import java.io.OutputStreamWriter
 class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
     private var exportFolder: Uri? = null
+
+    // The export stream contains only AES-GCM encrypted Legacy JSON.
+    // It never receives unencrypted IndexedDB rows or password material.
+    private var encryptedBackupStream: java.io.OutputStream? = null
+    private var encryptedBackupUri: Uri? = null
+    private var encryptedBackupPending: Boolean = false
+    private var encryptedBackupBytes: Long = 0L
+    private var backupFileChooserCallback: android.webkit.ValueCallback<Array<Uri>>? = null
+    private val backupFilePicker = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        val callback = backupFileChooserCallback
+        backupFileChooserCallback = null
+        callback?.onReceiveValue(uri?.let { arrayOf(it) })
+    }
+
+
     private var dataOperationOwner: String? = null
 
     private val folderPicker = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
@@ -75,11 +90,36 @@ class MainActivity : AppCompatActivity() {
         webView.descendantFocusability = android.view.ViewGroup.FOCUS_AFTER_DESCENDANTS
         webView.addJavascriptInterface(NativeBridge(), "AurumNativeBridge")
         webView.webChromeClient = object : WebChromeClient() {
+            override fun onShowFileChooser(
+                view: WebView?, filePathCallback: android.webkit.ValueCallback<Array<Uri>>?,
+                fileChooserParams: WebChromeClient.FileChooserParams?
+            ): Boolean {
+                val trusted = view?.url?.startsWith("https://appassets.androidplatform.net/assets/") == true
+                if (!trusted || filePathCallback == null) return false
+                backupFileChooserCallback?.onReceiveValue(null)
+                backupFileChooserCallback = filePathCallback
+                return try {
+                    backupFilePicker.launch("application/json")
+                    true
+                } catch (_: Throwable) {
+                    backupFileChooserCallback?.onReceiveValue(null)
+                    backupFileChooserCallback = null
+                    false
+                }
+            }
             override fun onJsPrompt(
                 view: WebView?, url: String?, message: String?, defaultValue: String?, result: JsPromptResult?
             ): Boolean {
                 if (message?.startsWith("aurum://native?") == true) {
-                    result?.confirm(handleNative(message, defaultValue.orEmpty()))
+                    val source = runCatching { Uri.parse(url.orEmpty()) }.getOrNull()
+                    val appOrigin = source?.scheme == "https" &&
+                        source.host == "appassets.androidplatform.net" &&
+                        source.path?.startsWith("/assets/") == true
+                    val trustedTop = view?.url?.startsWith(
+                        "https://appassets.androidplatform.net/assets/") == true
+                    result?.confirm(if (appOrigin && trustedTop)
+                        handleNative(message, defaultValue.orEmpty(), true)
+                        else "ERR:UNTRUSTED_ORIGIN")
                     return true
                 }
                 return super.onJsPrompt(view, url, message, defaultValue, result)
@@ -115,10 +155,19 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
-    fun handleNative(message: String, body: String): String {
+    fun handleNative(message: String, body: String, trustedPrompt: Boolean = false): String {
         if (!message.startsWith("aurum://native?")) return "ERR:INVALID_NATIVE_URI"
         val uri = runCatching { Uri.parse(message) }.getOrNull() ?: return "ERR:INVALID_NATIVE_URI"
         return when (uri.getQueryParameter("cmd").orEmpty()) {
+            "backup_export_begin" -> if (trustedPrompt)
+                beginEncryptedBackupExport(uri.getQueryParameter("name").orEmpty())
+                else "ERR:UNTRUSTED_ORIGIN"
+            "backup_export_chunk" -> if (trustedPrompt)
+                writeEncryptedBackupChunk(body) else "ERR:UNTRUSTED_ORIGIN"
+            "backup_export_finish" -> if (trustedPrompt)
+                finishEncryptedBackupExport() else "ERR:UNTRUSTED_ORIGIN"
+            "backup_export_abort" -> if (trustedPrompt)
+                cancelEncryptedBackupExport() else "ERR:UNTRUSTED_ORIGIN"
             "secret_status" -> if (SecureSecretStore.configured(this)) "1" else "0"
             "secret_set" -> {
                 val secret = body.trim()
@@ -273,6 +322,111 @@ class MainActivity : AppCompatActivity() {
 
     fun currentFolderUri(): Uri? = exportFolder
 
+
+    // For WebView, a blob: download is not supported without a DownloadListener.
+    // Stream small chunks through trusted JS prompts into Android's Downloads.
+    // On Android 26-28 use an explicitly selected SAF folder.
+    private fun cancelEncryptedBackupExport(): String {
+        runCatching { encryptedBackupStream?.close() }
+        encryptedBackupStream = null
+        encryptedBackupUri?.let { uri ->
+            runCatching {
+                if (encryptedBackupPending) contentResolver.delete(uri, null, null)
+                else android.provider.DocumentsContract.deleteDocument(contentResolver, uri)
+            }
+        }
+        encryptedBackupUri = null
+        encryptedBackupPending = false
+        encryptedBackupBytes = 0L
+        return "OK"
+    }
+
+    private fun beginEncryptedBackupExport(rawName: String): String {
+        if (encryptedBackupStream != null) return "ERR:BACKUP_EXPORT_BUSY"
+        val name = rawName.replace(Regex("""[\\/:*?"<>|]"""), "_")
+            .take(100).let { if (it.endsWith(".json")) it else it + ".json" }
+        var uri: Uri? = null
+        var pending = false
+        return try {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                val values = android.content.ContentValues().apply {
+                    put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, name)
+                    put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "application/json")
+                    put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH,
+                        android.os.Environment.DIRECTORY_DOWNLOADS + "/Aurum")
+                    put(android.provider.MediaStore.MediaColumns.IS_PENDING, 1)
+                }
+                uri = contentResolver.insert(
+                    android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                pending = true
+            } else {
+                val tree = currentFolderUri() ?: return "ERR:NO_FOLDER_ANDROID_8_9"
+                val parent = android.provider.DocumentsContract.buildDocumentUriUsingTree(
+                    tree, android.provider.DocumentsContract.getTreeDocumentId(tree))
+                uri = android.provider.DocumentsContract.createDocument(
+                    contentResolver, parent, "application/json", name)
+            }
+            val document = uri ?: return "ERR:BACKUP_CREATE_FAILED"
+            val out = contentResolver.openOutputStream(document, "w")
+                ?: return "ERR:BACKUP_WRITE_UNAVAILABLE"
+            encryptedBackupStream = out
+            encryptedBackupUri = document
+            encryptedBackupPending = pending
+            encryptedBackupBytes = 0L
+            "OK"
+        } catch (_: Throwable) {
+            encryptedBackupStream = null
+            uri?.let { runCatching { contentResolver.delete(it, null, null) } }
+            encryptedBackupUri = null
+            encryptedBackupPending = false
+            "ERR:BACKUP_EXPORT_START"
+        }
+    }
+
+    private fun writeEncryptedBackupChunk(text: String): String {
+        val stream = encryptedBackupStream ?: return "ERR:BACKUP_EXPORT_NOT_STARTED"
+        if (text.isEmpty() || text.length > 24576) return "ERR:BACKUP_CHUNK_LENGTH"
+        if (text.any { it.code > 127 }) return "ERR:BACKUP_CHUNK_NOT_ASCII"
+        return try {
+            val bytes = text.toByteArray(Charsets.US_ASCII)
+            stream.write(bytes)
+            encryptedBackupBytes += bytes.size
+            "OK"
+        } catch (_: Throwable) {
+            cancelEncryptedBackupExport()
+            "ERR:BACKUP_CHUNK_WRITE"
+        }
+    }
+
+    private fun finishEncryptedBackupExport(): String {
+        val stream = encryptedBackupStream ?: return "ERR:BACKUP_EXPORT_NOT_STARTED"
+        val uri = encryptedBackupUri ?: return "ERR:BACKUP_EXPORT_NO_URI"
+        if (encryptedBackupBytes < 100L) {
+            cancelEncryptedBackupExport()
+            return "ERR:BACKUP_EMPTY"
+        }
+        return try {
+            stream.flush()
+            stream.close()
+            encryptedBackupStream = null
+            if (encryptedBackupPending) {
+                val done = android.content.ContentValues().apply {
+                    put(android.provider.MediaStore.MediaColumns.IS_PENDING, 0)
+                }
+                if (contentResolver.update(uri, done, null, null) < 1)
+                    throw java.io.IOException("Failed to publish encrypted backup")
+            }
+            encryptedBackupUri = null
+            encryptedBackupPending = false
+            encryptedBackupBytes = 0L
+            "OK"
+        } catch (_: Throwable) {
+            cancelEncryptedBackupExport()
+            "ERR:BACKUP_FINISH"
+        }
+    }
+
+
     fun exportBytes(name: String, mime: String, data: String, encoding: String, target: String): String {
         val safeName = name.replace(Regex("""[\\/:*?"<>|]"""), "_").take(120)
             .ifBlank { "aurum_export" }
@@ -392,6 +546,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        cancelEncryptedBackupExport()
+        backupFileChooserCallback?.onReceiveValue(null)
+        backupFileChooserCallback = null
         stopService(android.content.Intent(this, TransferKeepaliveService::class.java))
         dataOperationOwner?.let { OperationLock.release("data", it) }
         dataOperationOwner = null
