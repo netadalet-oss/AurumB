@@ -7120,8 +7120,33 @@ globalThis.AurumNotifications=Object.freeze({version:'R225.0',open:openJournal,r
         '\nNative/Room verileri ve Android ayarları BU DOSYADA YOK.'+
         '\nMevcut Legacy verileri değiştirilecek. Devam edilsin mi?'))return false;
       status('Geri yükleme öncesi kurtarma noktası hazırlanıyor...',false);
-      await createRestorePoint('LEGACY_YEDEK_GERİ_YÜKLEME_ÖNCESİ',{skipConfirm:true});
+      const recovery=await createRestorePoint('LEGACY_YEDEK_GERİ_YÜKLEME_ÖNCESİ',{skipConfirm:true});
       const previousDatabase=await snapshotDatabase(),previousStorage=snapshotStorage();
+      // The imported meta store would otherwise erase the newly created
+      // recovery point and localStorage would hide its index. Preserve both
+      // as part of the destination snapshot BEFORE the atomic IDB write.
+      const priorMeta=previousDatabase.stores.find(s=>s.name==='meta');
+      const destinationMeta=payload.indexedDb.stores.find(s=>s.name==='meta');
+      if(!recovery?.id||!priorMeta||!destinationMeta)
+        throw new Error('Geri yükleme öncesi kurtarma noktası güvence altına alınamadı');
+      const prefix='restorePoint:'+recovery.id+':';
+      let copied=0;
+      for(let i=0;i<priorMeta.keys.length;i++){
+        const savedKey=String(priorMeta.keys[i]);
+        if(!savedKey.startsWith(prefix))continue;
+        if(destinationMeta.keys.some(k=>String(k)===savedKey))
+          throw new Error('Kurtarma noktası kimlik çakışması');
+        destinationMeta.keys.push(priorMeta.keys[i]);
+        destinationMeta.rows.push(priorMeta.rows[i]);
+        copied++;
+      }
+      if(copied!==R44_RESTORE_STORES.length+1)
+        throw new Error('Kurtarma noktasının tüm kayıtları doğrulanamadı');
+      const oldIndex=JSON.parse(savedPrefs[R44_RESTORE_INDEX_KEY]||'[]');
+      savedPrefs[R44_RESTORE_INDEX_KEY]=JSON.stringify([recovery,
+        ...(Array.isArray(oldIndex)?oldIndex:[]).filter(x=>x?.id!==recovery.id)
+      ].slice(0,R44_RESTORE_MAX));
+      validateDatabase(payload.indexedDb);
       try{
         await restoreDatabase(payload.indexedDb);
         restoreStorage(savedPrefs);
