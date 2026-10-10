@@ -27,8 +27,8 @@ const ctx={
 };
 vm.runInNewContext(code,ctx,{timeout:5000});
 assert.equal(ctx.AurumHistoryGapFill.available(1),1,'first missing verified date planned');
-assert.ok(ctx.historyPage().includes('AurumHistoryGapFill.fill(10)'), '1/5/10 UI present');
-for(const days of [1,5,10])assert.ok(ctx.historyPage().includes(days+' Gün Yükle'),
+assert.ok(ctx.historyPage().includes('AurumHistoryGapFill.fill(30)'), '1/5/10/30 UI present');
+for(const days of [1,5,10,30])assert.ok(ctx.historyPage().includes(days+' Gün Yükle'),
   'Manual history load button '+days+' must be visible by name');
 (async()=>{
   assert.equal(await ctx.AurumHistoryGapFill.fill(1),1);
@@ -40,7 +40,7 @@ for(const days of [1,5,10])assert.ok(ctx.historyPage().includes(days+' Gün Yük
   ctx.kh117PitRowForAnchor=()=>({ok:false,reason:'NO_SOURCE'});
   await assert.rejects(ctx.AurumHistoryGapFill.fill(10),/doldurulamadı/);
   assert.deepEqual(state.khArchive,saved,'failed fill rolls back without changing archive');
-  await assert.rejects(ctx.AurumHistoryGapFill.fill(4),/Yalnız 1, 5 veya 10/);
+  await assert.rejects(ctx.AurumHistoryGapFill.fill(4),/Yalnız 1, 5, 10 veya 30/);
   // A full 30-record archive can include stale T31 data while recent T1-T30
   // sessions are missing. Never claim there are zero gaps or delete originals.
   const fullArchive=Array.from({length:30},(_,i)=>({
