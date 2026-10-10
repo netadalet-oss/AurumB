@@ -32,6 +32,8 @@ jobs:
           node tests/aurumb-revision15-audit.cjs
       - name: Test manual T1–T30 archive preservation
         run: node tests/aurumb-revision15-history.cjs
+      - name: Verify Legacy backup coverage inventory without modifying data
+        run: node tests/aurumb-legacy-backup-inventory.cjs
       - name: Verify persistent AL/SAT mail and retry behavior
         run: node scripts/test-trade-mail-delivery.cjs
       - name: Verify AL/SAT list delivery and retry
