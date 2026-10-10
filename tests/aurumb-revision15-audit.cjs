@@ -185,8 +185,8 @@ console.log('PASS AurumB 15-revision preservation, logs, scheduler, Nederland an
  const script=source.slice(start,end);
  for(const busy of [false,true]){
    const html=vm.runInNewContext(script+'\ngapToolbar()', {state:{syncing:busy,calculating:false}}, {timeout:1000});
-   assert.equal((html.match(/<button\b/g)||[]).length,3,'must expose exactly three gap buttons');
-   for(const n of [1,5,10]){
+   assert.equal((html.match(/<button\b/g)||[]).length,4,'must expose exactly four gap buttons');
+   for(const n of [1,5,10,30]){
      assert.ok(html.includes('>'+n+' Gün Yükle</button>'),'missing manual '+n+' day control');
      assert.ok(html.includes('AurumHistoryGapFill.fill('+n+')'),'gap action must be wired');
    }
@@ -200,3 +200,33 @@ console.log('PASS AurumB 15-revision preservation, logs, scheduler, Nederland an
 assert.ok(r.includes('const remaining=last30.filter(d=>!keptAfter.has(d)).length;')&&
   r.includes("'Doldurulan: '")&&r.includes("' gün · Kalan: '"),
   'manual T1–T30 history must report filled and remaining session counts');
+
+
+/* Responsive 30-day action and actual backup UI, without false Native claims. */
+{
+ const source=r;
+ assert.ok(source.includes('const counts=new Set([1,5,10,30]);'));
+ const start=source.indexOf('function aurumBackupSettingsModule(){');
+ const end=source.indexOf('\nfunction restorePointsModule(){',start);
+ assert.ok(start>=0&&end>start,'settings must declare backup section');
+ const markup=vm.runInNewContext(source.slice(start,end)+
+   '\naurumBackupSettingsModule()',{
+     aurumSettingsCard:(title,subtitle,body,id)=>JSON.stringify({title,subtitle,body,id})
+   },{timeout:1000});
+ const card=JSON.parse(markup);
+ assert.equal(card.title,'Yedekleme ve Geri Yükleme');
+ assert.equal(card.id,'aurumEncryptedLegacyBackup');
+ for(const action of ['AurumLegacyTransfer.inspect()','AurumLegacyTransfer.exportEncrypted()',
+                       'AurumLegacyTransfer.restoreEncrypted()'])
+   assert.ok(card.body.includes(action),'missing backup action: '+action);
+ assert.ok(card.body.includes('Native/Room')&&card.body.includes('TAM UYGULAMA YEDEĞİ'),
+   'Legacy export must not be represented as a complete device backup');
+ assert.ok(source.includes('aurumBackupSettingsModule()}'),'backup must be inserted into settings page');
+ for(const required of ["FORMAT='AURUMB_ENCRYPTED_LEGACY_V1'","ITERATIONS=210000",
+     "crypto.subtle.encrypt({name:'AES-GCM',iv}","crypto.subtle.decrypt(",
+     "snapshotDatabase()","snapshotStorage()","validateDatabase(payload.indexedDb)",
+     "createRestorePoint('LEGACY_YEDEK_GERİ_YÜKLEME_ÖNCESİ'"])
+   assert.ok(source.includes(required),'encrypted Legacy transfer missing '+required);
+ console.log('PASS AurumB encrypted Legacy backup UI, safety disclosure and 30-day option');
+}
+
