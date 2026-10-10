@@ -29,6 +29,8 @@ jobs:
           node --check app/src/main/assets/final-hardening.js
           node --check app/src/main/assets/native-market-http.js
           node --check app/src/main/assets/market-rebuilt.js
+      - name: Test manual T1–T30 archive preservation
+        run: node tests/aurumb-revision15-history.cjs
       - name: Validate quality-gate contract
         run: |
           set -euo pipefail
