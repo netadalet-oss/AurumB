@@ -411,7 +411,18 @@ async function loadState(){
      persistence migration out of the critical startup path. */
   if(!readLocal('aurum.runtime.runSanitize.persisted.startupfix1',false))state.__pendingSanitizedRuns=state.runs.slice();
 
-  state.logs=logRows.sort((a,b)=>String(b.ts||'').localeCompare(String(a.ts||''))).slice(0,300);
+  const importantLogs=logRows.filter(x=>aurumImportantLog(x.level,x.message))
+    .sort((a,b)=>String(b.ts||'').localeCompare(String(a.ts||'')));
+  state.logs=importantLogs.slice(0,20);
+  // Existing versions stored hundreds of routine events. Prune their old DB
+  // records in a single background IndexedDB transaction after state loading.
+  const retained=new Set(state.logs.map(x=>x.id));
+  queueMicrotask(()=>{try{
+    const obsolete=logRows.filter(x=>!retained.has(x.id));
+    if(!obsolete.length)return;
+    const tx=state.db.transaction('logs','readwrite'),table=tx.objectStore('logs');
+    for(const row of obsolete)if(row.id!=null)table.delete(row.id);
+  }catch(e){console.warn('Aurum log retention migration',e)}});
   state.lastSuccessfulSync=lastSuccessfulSyncMeta?.value||null;
   state.lastDerivedUpdate=lastDerivedUpdateMeta?.value||null;
   state.backtest=backtestRow?.value||null;
@@ -467,7 +478,22 @@ async function persistSanitizedRunsAfterStartup(){
 
 async function saveSettings(){await dbPut('settings',{key:'main',value:state.settings,updatedAt:nowISO()});state.settingsDirty=false;}
 
-async function log(level,message,meta={}){const rec={id:uid(),ts:nowISO(),at:nowTR(),level,message,meta};state.logs.unshift(rec);state.logs=state.logs.slice(0,300);try{await dbPut('logs',rec)}catch{}return rec;}
+function aurumImportantLog(level,message){
+  if(['ERROR','WARN','WARNING','CRITICAL'].includes(String(level||'').toUpperCase()))return true;
+  return /(AL[/]SAT|ZARAR.?KES|JOKER|PORTF[ÖO]Y|YEDEK|BACKUP|RESTORE|GER[İI] Y[ÜU]K|G[ÜU]VEN|SECURITY|B[ÜU]T[ÜU]NL[ÜU]K|SCHEDULE|ZAMANLAYICI|ALARM|İŞLEM BAŞARISIZ|MODEL ETKİN|AI KARAR)/i
+    .test(String(message||''));
+}
+async function log(level,message,meta={}){
+  const rec={id:uid(),ts:nowISO(),at:nowTR(),level,message,meta};
+  if(!aurumImportantLog(level,message))return rec;
+  state.logs.unshift(rec);
+  const evicted=state.logs.splice(20);
+  try{
+    await dbPut('logs',rec);
+    for(const x of evicted)if(x.id!=null)await dbDelete('logs',x.id);
+  }catch(e){console.warn('Important log retention',e)}
+  return rec;
+}
 
 function parseDate(v){
   if(v==null)return null;if(v instanceof Date)return isNaN(v)?null:v;

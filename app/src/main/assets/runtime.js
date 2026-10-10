@@ -2428,10 +2428,10 @@ try{AurumUpdateAPI.state.cleanREV20={version:'REV20.0-CLEAN',activatedAt:new Dat
   async function reconcile(reason='AL_SAT_UPDATE',{initial=false}={}){
     if(vpBusy)return false;vpBusy=true;
     try{
-      const qs=globalThis.AurumQualifiedBuySell?.state?.()||{items:{}},items=qs.items||{},active=Object.values(items).filter(x=>x?.status==='BUY'),curr=active.map(x=>String(x.sym||'').toUpperCase()).filter(Boolean),set=new Set(curr),prev=new Set(VP.lastSelection||[]);
+      const qs=globalThis.AurumQualifiedBuySell?.state?.()||{items:{}},items=qs.items||{},active=Object.values(items).filter(x=>x?.status==='BUY'&&!globalThis.AurumBlockedUniverse?.has?.(x.sym)),curr=active.map(x=>String(x.sym||'').toUpperCase()).filter(Boolean),set=new Set(curr),prev=new Set(VP.lastSelection||[]);
       /* Portfolio membership is now defined only by the qualified AL/SAT lifecycle. */
       for(const sym of Object.keys(VP.excluded))if(!set.has(sym))delete VP.excluded[sym];
-      for(const sym of Object.keys(VP.holdings))if(!set.has(sym)){
+      for(const sym of Object.keys(VP.holdings))if(!globalThis.AurumBlockedUniverse?.has?.(sym)&&!set.has(sym)){
         const q=items[sym]||null;
         sell(sym,q?.status==='SELL'?'AL_SAT_SAT':'AL_SAT_CIKIS',false,q?.sellPrice,q?.sellAt);
       }
@@ -4097,51 +4097,19 @@ try{AurumUpdateAPI.state.cleanREV20={version:'REV20.0-CLEAN',activatedAt:new Dat
   }
 
   async function purgeBlockedUniverse({reason="USER"}={}){
-    const b=blocked();
-    sanitizeMemory();
-    if(!b.size){
-      try{globalThis.renderCurrentPagePreservingView?.()}catch{}
-      return {blocked:0,deleted:0};
-    }
-
-    let deleted=0;
-    const directStores=["records","behaviorProfiles","stagingRecords","dataIssues","bars","actions","criteria","genomeHistory","aiCandidates","aiEvents","universeHistory","snapshots"];
-    for(const store of directStores){
-      try{
-        deleted+=await txDeleteWhere(store,(v,k)=>{
-          const sym=norm(v?.sym??v?.symbol??v?.code??v?.record?.sym??"");
-          if(sym&&b.has(sym))return true;
-          if(store==="records"||store==="behaviorProfiles")return b.has(norm(k));
-          return false;
-        });
-      }catch{}
-    }
-    try{await txRewriteRuns(b)}catch{}
-    try{await purgeMeta(b)}catch{}
-    try{await purgeRawDB(b)}catch{}
-    purgeKnLocalLedger(b);
-    for(const sym of b){try{await globalThis.AurumQualifiedBuySell?.purgeSymbol?.(sym)}catch{}try{await globalThis.AurumPortfolio?.purgeSymbol?.(sym)}catch{}}
-
-    /* Re-apply memory sanitation after persistent purge. */
-    sanitizeMemory();
-
-    try{
-      await A.dbPut("meta",{key:"blockedUniverseState",value:{
-        version:VERSION,blocked:[...b],reason,updatedAt:apiNow(),
-        rule:"HARD_UNIVERSE_EXCLUSION_BEFORE_FETCH_STAGE_DB_MODEL_LEARNING_AI"
-      },updatedAt:apiNow()});
-    }catch{}
-
-    try{globalThis.renderCurrentPagePreservingView?.()}catch{
-      try{globalThis.render?.()}catch{}
-    }
-    return {blocked:b.size,deleted};
+    const b=blocked();sanitizeMemory();
+    try{await A.dbPut("meta",{key:"blockedUniverseState",value:{
+      version:VERSION,blocked:[...b],reason,updatedAt:apiNow(),
+      rule:"REVERSIBLE_ACTIVE_EXCLUSION_PRESERVE_USER_HISTORY"
+    },updatedAt:apiNow()})}catch(e){console.warn('Blocked universe state',e)}
+    try{globalThis.renderCurrentPagePreservingView?.()}catch{try{globalThis.render?.()}catch{}}
+    return {blocked:b.size,deleted:0};
   }
 
   async function addBlocked(raw){
     const list=uniq(String(raw??"").split(/[\s,;]+/));
     if(!list.length)throw new Error("En az bir hisse kodu girin");
-    if(!confirm(`${list.join(", ")} yasaklansın, hisse evreninden ve mevcut analitik kayıtlardan kaldırılsın mı?`))return false;
+    if(!confirm(`${list.join(", ")} etkin evrenden çıkarılsın mı? Geçmiş AL/SAT, portföy, AI ve piyasa kayıtları silinmeyecektir.`))return false;
     const cur=new Set(uniq(S.settings[SETTING_KEY]||[]));
     for(const s of list)cur.add(s);
     S.settings[SETTING_KEY]=[...cur].sort((a,b)=>a.localeCompare(b,"tr"));
@@ -4621,11 +4589,11 @@ try{AurumUpdateAPI.state.cleanREV20={version:'REV20.0-CLEAN',activatedAt:new Dat
         if(joker){Object.assign(e,{status:'SELL',sellTradeDate:td,sellAt:now,sellPrice:p,sellPriceBasis:'SOURCE_OBSERVED_MARKET_PRICE',observedPriceAtExit:p,observedMarketAt:marketAt(sym)||null,exitReason:joker,sellEventId:`QBS|${token}|SAT:${sym}`,provenance:'AUTO_PIPELINE'});sells.push(sym);continue}
       }
     }
-    for(const [sym,e] of Object.entries(q.items||{})){if(set.has(sym))continue;if(e?.status==='WATCHING'){delete q.items[sym];continue}if(e?.status!=='BUY')continue;if(e.lastProcessedToken===token)continue;e.lastProcessedToken=token;e.sExited=true;e.sExitedAt=e.sExitedAt||now;e.sExitedMarketAt=e.sExitedMarketAt||marketAt(sym)||now;const p=price(sym);if(p){e.maxPrice=Math.max(Number(e.maxPrice)||p,p);e.aboveEntrySeen=e.aboveEntrySeen||p>Number(e.buyPrice)+EPS;e.maxReturnPct=100*(e.maxPrice/Number(e.buyPrice)-1);const armed=highestArmedLock(e.maxReturnPct);if(Number.isFinite(armed)&&(e.activeProfitLockPct==null||armed>e.activeProfitLockPct))e.activeProfitLockPct=armed;const stop=Number(e.stopLossPrice),ret=100*(p/Number(e.buyPrice)-1);if(stop>0&&p<=stop+EPS){Object.assign(e,{status:'SELL',sellTradeDate:td,sellAt:now,sellPrice:stop,sellPriceBasis:'ASSUMED_STOP_LEVEL',observedPriceAtExit:p,observedMarketAt:marketAt(sym)||null,exitReason:'ZARAR_KES',sellEventId:`QBS|${token}|SAT:${sym}`,provenance:'AUTO_PIPELINE'});sells.push(sym)}else if(Number.isFinite(e.activeProfitLockPct)&&ret+EPS<e.activeProfitLockPct){Object.assign(e,{status:'SELL',sellTradeDate:td,sellAt:now,sellPrice:p,exitReason:'KAR_KILIDI',sellEventId:`QBS|${token}|SAT:${sym}`,provenance:'AUTO_PIPELINE'});sells.push(sym)}else {const joker=jokerExitReason(e,sym,p);if(joker){Object.assign(e,{status:'SELL',sellTradeDate:td,sellAt:now,sellPrice:p,sellPriceBasis:'SOURCE_OBSERVED_MARKET_PRICE',observedPriceAtExit:p,observedMarketAt:marketAt(sym)||null,exitReason:joker,sellEventId:`QBS|${token}|SAT:${sym}`,provenance:'AUTO_PIPELINE'});sells.push(sym)}else if(e.aboveEntrySeen&&sessionMinutesBetween(e.sExitedMarketAt,marketAt(sym),'IN_SESSION')>=960&&p<=Number(e.buyPrice)+EPS){Object.assign(e,{status:'SELL',sellTradeDate:td,sellAt:now,sellPrice:p,exitReason:'S_CIKIS_AL_FIYAT_DONUS',sellEventId:`QBS|${token}|SAT:${sym}`,provenance:'AUTO_PIPELINE'});sells.push(sym)}}}}
+    for(const [sym,e] of Object.entries(q.items||{})){if(globalThis.AurumBlockedUniverse?.has?.(sym))continue;if(set.has(sym))continue;if(e?.status==='WATCHING'){delete q.items[sym];continue}if(e?.status!=='BUY')continue;if(e.lastProcessedToken===token)continue;e.lastProcessedToken=token;e.sExited=true;e.sExitedAt=e.sExitedAt||now;e.sExitedMarketAt=e.sExitedMarketAt||marketAt(sym)||now;const p=price(sym);if(p){e.maxPrice=Math.max(Number(e.maxPrice)||p,p);e.aboveEntrySeen=e.aboveEntrySeen||p>Number(e.buyPrice)+EPS;e.maxReturnPct=100*(e.maxPrice/Number(e.buyPrice)-1);const armed=highestArmedLock(e.maxReturnPct);if(Number.isFinite(armed)&&(e.activeProfitLockPct==null||armed>e.activeProfitLockPct))e.activeProfitLockPct=armed;const stop=Number(e.stopLossPrice),ret=100*(p/Number(e.buyPrice)-1);if(stop>0&&p<=stop+EPS){Object.assign(e,{status:'SELL',sellTradeDate:td,sellAt:now,sellPrice:stop,sellPriceBasis:'ASSUMED_STOP_LEVEL',observedPriceAtExit:p,observedMarketAt:marketAt(sym)||null,exitReason:'ZARAR_KES',sellEventId:`QBS|${token}|SAT:${sym}`,provenance:'AUTO_PIPELINE'});sells.push(sym)}else if(Number.isFinite(e.activeProfitLockPct)&&ret+EPS<e.activeProfitLockPct){Object.assign(e,{status:'SELL',sellTradeDate:td,sellAt:now,sellPrice:p,exitReason:'KAR_KILIDI',sellEventId:`QBS|${token}|SAT:${sym}`,provenance:'AUTO_PIPELINE'});sells.push(sym)}else {const joker=jokerExitReason(e,sym,p);if(joker){Object.assign(e,{status:'SELL',sellTradeDate:td,sellAt:now,sellPrice:p,sellPriceBasis:'SOURCE_OBSERVED_MARKET_PRICE',observedPriceAtExit:p,observedMarketAt:marketAt(sym)||null,exitReason:joker,sellEventId:`QBS|${token}|SAT:${sym}`,provenance:'AUTO_PIPELINE'});sells.push(sym)}else if(e.aboveEntrySeen&&sessionMinutesBetween(e.sExitedMarketAt,marketAt(sym),'IN_SESSION')>=960&&p<=Number(e.buyPrice)+EPS){Object.assign(e,{status:'SELL',sellTradeDate:td,sellAt:now,sellPrice:p,exitReason:'S_CIKIS_AL_FIYAT_DONUS',sellEventId:`QBS|${token}|SAT:${sym}`,provenance:'AUTO_PIPELINE'});sells.push(sym)}}}}
     save(q);if(buys.length||sells.length){const body=`${buys.length?`AL: ${buys.join(', ')}`:''}${buys.length&&sells.length?' · ':''}${sells.length?`SAT: ${sells.join(', ')}`:''}`;try{const qp=new URLSearchParams({cmd:'notification',title:'Aurum B · AL/SAT',body,tag:`aurum-qbs-v2-${td}-${token}`,channel:'aurum_pipeline'});window.prompt(`aurum://native?${qp.toString()}`,'')}catch{}try{showAurumNotice(`Aurum B · AL/SAT: ${body}`,'info',5200)}catch{}try{await dbPut('meta',{key:'qualifiedBuySellLastEventV2',value:{at:now,tradeDate:td,jobToken:token,buy:buys,sell:sells},updatedAt:now})}catch{}}return {buys,sells,state:q}
   }
   async function purgeSymbol(raw){const sym=norm(raw),q=load();if(!sym)return false;delete q.items[sym];save(q);return true}
-  function card(){const q=load(),items=Object.values(q.items||{}),buys=items.filter(x=>x.status==='BUY').sort((a,b)=>a.sym.localeCompare(b.sym)),sells=items.filter(x=>x.status==='SELL').sort((a,b)=>String(b.sellAt||'').localeCompare(String(a.sellAt||''))).slice(0,20);const row=x=>{const m=metrics(x),stamp=x.status==='SELL'?x.sellAt:x.buyAt,at=stamp&&Number.isFinite(Date.parse(stamp))?new Date(stamp).toLocaleString('tr-TR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',timeZone:'Europe/Istanbul'}):'',symbol=/^[A-Z0-9.]+$/.test(x.sym)?x.sym:'';return `<div class="qbs-row" role="button" tabindex="0" aria-label="${html(symbol)} hisse kartını aç" onclick="showDetail('${symbol}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showDetail('${symbol}')}"><strong class="symbol">${html(x.sym)}</strong><div class="qbs-metrics"><span><small>AF</small><b>${html(tradeFmt(x.buyPrice))}</b></span><span><small>ZK</small><b>${html(tradeFmt(m.stop))}</b></span><span><small>HF</small><b>${html(tradeFmt(m.hfPrice))}</b></span><span><small>${x.status==='SELL'?'SAT':'SON'}</small><b>${html(tradeFmt(m.last))} ${Number.isFinite(Number(m.ret))&&Number(m.ret)!==0?`<i class="aurum-trade-dir ${Number(m.ret)>0?'up':'down'}" aria-hidden="true">${Number(m.ret)>0?'↑':'↓'}</i>`:""}${html(pctFmt(m.ret))}</b></span></div>${at?`<small class="qbs-event-time">${html(at)}</small>`:''}${x.status==='SELL'?`<small class="qbs-exit">${html(x.exitReason||'SAT')}</small>`:''}</div>`};return `<div class="section-head aurum-qbs-head"><div class="section-title"><h2>Al / Sat Listesi</h2></div><div class="aurum-r222-head-tools"><small>S yeterlilik · bağımsız stop · dinamik kâr kilidi</small><button type="button" class="aurum-r222-mini-refresh" title="AL/SAT ve sanal portföy görünümünü yenile" aria-label="AL/SAT ve sanal portföy görünümünü yenile" onclick="refreshAurumTradePanels(event)">↻</button></div></div><div class="grid two-col aurum-qbs-grid"><div class="card list gold-edge"><b class="green">Al</b>${buys.length?buys.map(row).join(''):'<p class="muted">Aktif al sinyali yok.</p>'}</div><div class="card list"><b class="red">Sat</b>${sells.length?sells.map(row).join(''):'<p class="muted">Yeni sat sinyali yok.</p>'}</div></div>`}
+  function card(){const q=load(),items=Object.values(q.items||{}).filter(x=>!globalThis.AurumBlockedUniverse?.has?.(x.sym)),buys=items.filter(x=>x.status==='BUY').sort((a,b)=>a.sym.localeCompare(b.sym)),sells=items.filter(x=>x.status==='SELL').sort((a,b)=>String(b.sellAt||'').localeCompare(String(a.sellAt||''))).slice(0,20);const row=x=>{const m=metrics(x),stamp=x.status==='SELL'?x.sellAt:x.buyAt,at=stamp&&Number.isFinite(Date.parse(stamp))?new Date(stamp).toLocaleString('tr-TR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',timeZone:'Europe/Istanbul'}):'',symbol=/^[A-Z0-9.]+$/.test(x.sym)?x.sym:'';return `<div class="qbs-row" role="button" tabindex="0" aria-label="${html(symbol)} hisse kartını aç" onclick="showDetail('${symbol}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showDetail('${symbol}')}"><strong class="symbol">${html(x.sym)}</strong><div class="qbs-metrics"><span><small>AF</small><b>${html(tradeFmt(x.buyPrice))}</b></span><span><small>ZK</small><b>${html(tradeFmt(m.stop))}</b></span><span><small>HF</small><b>${html(tradeFmt(m.hfPrice))}</b></span><span><small>${x.status==='SELL'?'SAT':'SON'}</small><b>${html(tradeFmt(m.last))} ${Number.isFinite(Number(m.ret))&&Number(m.ret)!==0?`<i class="aurum-trade-dir ${Number(m.ret)>0?'up':'down'}" aria-hidden="true">${Number(m.ret)>0?'↑':'↓'}</i>`:""}${html(pctFmt(m.ret))}</b></span></div>${at?`<small class="qbs-event-time">${html(at)}</small>`:''}${x.status==='SELL'?`<small class="qbs-exit">${html(x.exitReason||'SAT')}</small>`:''}</div>`};return `<div class="section-head aurum-qbs-head"><div class="section-title"><h2>Al / Sat Listesi</h2></div><div class="aurum-r222-head-tools"><small>S yeterlilik · bağımsız stop · dinamik kâr kilidi</small><button type="button" class="aurum-r222-mini-refresh" title="AL/SAT ve sanal portföy görünümünü yenile" aria-label="AL/SAT ve sanal portföy görünümünü yenile" onclick="refreshAurumTradePanels(event)">↻</button></div></div><div class="grid two-col aurum-qbs-grid"><div class="card list gold-edge"><b class="green">Al</b>${buys.length?buys.map(row).join(''):'<p class="muted">Aktif al sinyali yok.</p>'}</div><div class="card list"><b class="red">Sat</b>${sells.length?sells.map(row).join(''):'<p class="muted">Yeni sat sinyali yok.</p>'}</div></div>`}
   async function removeLifecycleEvent(eventId){const eid=String(eventId||'').trim(),q=load();if(!eid)return {ok:false,code:'MISSING_EVENT_ID'};if(q.lifecycleTombstones?.[eid])return {ok:true,idempotent:true,eventId:eid};const e=Object.values(q.items||{}).find(x=>x?.buyEventId===eid||x?.sellEventId===eid);if(!e)return {ok:false,code:'UNLINKED_OR_LEGACY_EVENT'};const pr=await globalThis.AurumPortfolio?.removeLifecycleEvent?.(eid);if(!pr?.ok)return pr;q.lifecycleTombstones[eid]={eventId:eid,removedAt:new Date().toISOString(),reason:'USER_KALDIR'};if(e.sellEventId===eid){e.status='BUY';delete e.sellEventId;delete e.sellAt;delete e.sellTradeDate;delete e.sellPrice;delete e.exitReason}else if(e.buyEventId===eid){delete q.items[e.sym]}save(q);return {ok:true,eventId:eid}}
   async function manualBuy(raw){const sym=norm(raw),q=load(),p=price(sym),now=new Date().toISOString(),td=currentTradingDate();if(globalThis.AurumBlockedUniverse?.has?.(sym))return {ok:false,code:'BLOCKED'};if(q.items?.[sym]?.status==='BUY')return {ok:false,code:'DUPLICATE_ACTIVE_BUY'};if(!(p>0))return {ok:false,code:'NO_PERSISTED_PRICE_EVIDENCE'};const token=`MANUAL_PRODUCT_CARD:${Date.now()}`,e=q.items[sym]={sym,status:'WATCHING'};buyEntry(e,sym,td,now,p,token);e.provenance='MANUAL_PRODUCT_CARD';save(q);await globalThis.AurumPortfolio?.reconcile?.('MANUAL_PRODUCT_CARD');return {ok:true,eventId:e.buyEventId,state:q}}
   async function manualSell(raw){const sym=norm(raw),q=load(),e=q.items?.[sym],p=price(sym),now=new Date().toISOString(),td=currentTradingDate();if(!e||e.status!=='BUY')return {ok:false,code:'NO_ACTIVE_BUY'};if(!(p>0))return {ok:false,code:'NO_PERSISTED_PRICE_EVIDENCE'};const token=`MANUAL_PRODUCT_CARD:${Date.now()}`;Object.assign(e,{status:'SELL',sellTradeDate:td,sellAt:now,sellPrice:p,exitReason:'MANUAL_PRODUCT_CARD',sellEventId:`QBS|${token}|SAT:${sym}`,provenance:'MANUAL_PRODUCT_CARD'});save(q);await globalThis.AurumPortfolio?.reconcile?.('MANUAL_PRODUCT_CARD');return {ok:true,eventId:e.sellEventId,state:q}}

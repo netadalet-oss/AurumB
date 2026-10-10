@@ -66,7 +66,7 @@
    // Persistence keeps every important event inside the weekly retention window.
    // The visible list is capped by read20(); the 20-row UI limit must not delete
    // other important events from persistent history.
-   return (Array.isArray(a)?a:[]).filter(x=>Number.isFinite(Date.parse(x?.at))&&Date.parse(x.at)>=cutoff)
+   return (Array.isArray(a)?a:[]).filter(x=>Number.isFinite(Date.parse(x?.at))&&Date.parse(x.at)>=cutoff).slice(-20)
  }
  function cleanupHistory(manual=false){
    try{
@@ -123,7 +123,22 @@
  function add(kind){const t=String(document.getElementById('aurumScheduleAdd_'+kind)?.value||'');if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(t))return;sync(kind,[...new Set([...times(kind),t])].sort());rerender()}
  function remove(kind,t){sync(kind,times(kind).filter(x=>x!==t));rerender()}
  function saveOne(kind){const cap=kind==='data'?'Data':'Market',on=document.getElementById('aurum'+cap+'ScheduleEnabled')?.checked!==false,xs=times(kind);set(kind==='data'?DATA_ON:MARKET_ON,on?'1':'0');return call('schedule',{kind,enabled:on?'1':'0',times:xs.join(',')})}
- function saveAll(){const a=saveOne('data'),b=saveOne('market'),ok=a==='OK'&&b==='OK';log(ok?'success':'error',ok?'Zamanlayıcı ayarları kaydedildi':'Zamanlayıcı kurulumu başarısız · Veriler: '+String(a||'yanıt yok')+' · Piyasa: '+String(b||'yanıt yok'));report();return {ok,data:a,market:b}}
+ function saveAll(){
+   const a=saveOne('data'),b=saveOne('market');let st=null;
+   try{st=JSON.parse(call('schedule_status')||'null')}catch{}
+   const verified=!!st&&['data','market'].every(kind=>
+     st[kind+'Enabled']===enabled(kind) &&
+     sameTimes(st[kind+'Times'],times(kind)));
+   const ok=a==='OK'&&b==='OK'&&verified;
+   const message=ok?'Android alarm kayıtları doğrulandı · Veriler ve Piyasa zamanlayıcıları kuruldu':
+     'Zamanlayıcı kurulumu doğrulanamadı · Veriler: '+String(a||'yanıt yok')+' · Piyasa: '+String(b||'yanıt yok')+
+     (st?' · Kaydedilen zaman/etkinlik durumu eşleşmiyor':' · Android durum yanıtı yok');
+   log(ok?'success':'error',message);
+   notice(ok?'success':'error',message);
+   try{globalThis.showAurumNotice?.(message,ok?'success':'error',ok?2500:5200)}catch{}
+   report();
+   return {ok,data:a,market:b,verified};
+ }
  function sameTimes(a,b){const x=[...(a||[])].map(String).sort(),y=[...(b||[])].map(String).sort();return x.length===y.length&&x.every((v,i)=>v===y[i])}
  function ensureNativeParity(reason='STARTUP'){
    migrate();
@@ -141,8 +156,23 @@
    return {ok,reason,results};
  }
  function defaults(){sync('data',DATA_DEF.split(','));sync('market',DATA_DEF.split(',').map(plus30));set(DATA_ON,'1');set(MARKET_ON,'1');log('info','Zamanlayıcı varsayılanları geri yüklendi');rerender()}
- function report(){const h=document.getElementById('aurumSchedulerHealth'),r=document.getElementById('aurumSchedulerRows'),s=document.getElementById('aurumSchedulerSummary');if(!h||!r)return;const raw=call('schedule_status');let st=null;try{st=JSON.parse(raw)}catch{}const ok=!!st,exact=st?.exactAllowed===true,rows=[['Veriler',enabled('data'),times('data')],['Piyasa',enabled('market'),times('market')]],anyOn=rows.some(x=>x[1]);h.innerHTML=!ok?'Android alarm katmanı durum yanıtı alınamadı':!anyOn?'Zamanlayıcı devre dışı · Veriler ve Piyasa profilleri kapalı':exact?'Android alarm katmanı hazır · kesin alarm izni AÇIK':'Kesin alarm izni KAPALI · yaklaşık alarm kullanılacak <button class="ghost-btn" type="button" onclick="AurumDualScheduler.exactSettings()">İzni Aç</button>';r.innerHTML=rows.flatMap(([n,on,x])=>x.map(t=>'<div class="aurum-scheduler-row"><b>'+esc(t)+'</b><small>'+esc(n)+'</small><em class="'+(on&&ok&&exact?'ok':'warn')+'">'+(on?(ok?(exact?'Kesin':'Yaklaşık'):'Kontrol'):'Kapalı')+'</em></div>')).join('');if(s)s.textContent=!ok?'Durum kontrolü':!anyOn?'Devre dışı':exact?'Kesin alarm hazır':'Yaklaşık alarm'}
- function install(){style();const old=globalThis.settingsPage;if(typeof old!=='function'||old.__dualOldScheduler)return;const fn=function(...a){let out=String(old.apply(this,a));out=out.replace(/<details[^>]*id="aurumSchedulerModule"[\s\S]*?<\/details>/,'');queueMicrotask(()=>document.querySelectorAll('.aurum-settings-details').forEach(x=>{if(x.id!=='aurumDualSchedulerSettings'&&x.querySelector('summary strong')?.textContent?.trim()==='Otomatik Güncelleme Zamanlayıcısı')x.remove()}));return block()+healthBlock()+historyBlock()+out};fn.__dualOldScheduler=true;globalThis.settingsPage=fn}
+ function report(){const h=document.getElementById('aurumSchedulerHealth'),r=document.getElementById('aurumSchedulerRows'),s=document.getElementById('aurumSchedulerSummary');if(!h||!r)return;const raw=call('schedule_status');let st=null;try{st=JSON.parse(raw)}catch{}const ok=!!st,exact=st?.exactAllowed===true,rows=[['Veriler',enabled('data'),times('data')],['Piyasa',enabled('market'),times('market')]],anyOn=rows.some(x=>x[1]);h.innerHTML=!ok?'Android alarm katmanı durum yanıtı alınamadı':!anyOn?'Zamanlayıcı devre dışı · Veriler ve Piyasa profilleri kapalı':exact?'Android alarm katmanı hazır · kesin alarm izni AÇIK':'Kesin alarm izni KAPALI · yaklaşık alarm kullanılacak <button class="ghost-btn" type="button" onclick="AurumDualScheduler.exactSettings()">İzni Aç</button>';const slot=(name,on,t)=>'<div class="aurum-scheduler-row"><b>'+esc(t)+'</b><small>'+esc(name)+'</small><em class="'+(on&&ok&&exact?'ok':'warn')+'">'+(on?(ok?(exact?'Kesin':'Yaklaşık'):'Kontrol'):'Kapalı')+'</em></div>';
+ r.innerHTML=rows.map(([name,on,slots])=>{
+   const list=on?slots:[],main=list.slice(0,6),rest=list.slice(6);
+   return '<section class="aurum-scheduler-group"><div class="aurum-scheduler-group-head"><strong>'+esc(name)+'</strong><small>'+esc(on?String(slots.length)+' saat · '+(ok?(exact?'Kesin':'Yaklaşık'):'Doğrulanamadı'):'Kapalı')+'</small></div>'+
+     '<div class="aurum-scheduler-group-slots">'+(main.map(t=>slot(name,on,t)).join('')||'<small class="muted">Bu profil kapalı.</small>')+'</div>'+
+     (rest.length?'<details class="aurum-scheduler-extra"><summary>Diğer '+rest.length+' saat</summary><div class="aurum-scheduler-group-slots">'+rest.map(t=>slot(name,on,t)).join('')+'</div></details>':'')+
+     '</section>';
+ }).join('');if(s)s.textContent=!ok?'Durum kontrolü':!anyOn?'Devre dışı':exact?'Kesin alarm hazır':'Yaklaşık alarm'}
+ function install(){style();const old=globalThis.settingsPage;if(typeof old!=='function'||old.__dualOldScheduler)return;const fn=function(...a){let out=String(old.apply(this,a));out=out.replace(/<details[^>]*id="aurumSchedulerModule"[\s\S]*?<\/details>/,'');queueMicrotask(()=>document.querySelectorAll('.aurum-settings-details').forEach(x=>{if(x.id!=='aurumDualSchedulerSettings'&&x.querySelector('summary strong')?.textContent?.trim()==='Otomatik Güncelleme Zamanlayıcısı')x.remove()}));const repair=out.indexOf('id="r44RepairCenter"');
+    const inner=repair>=0?out.indexOf('<div class="aurum-settings-details-body">',repair):-1;
+    // All repair/audit/continuity tools live in the one existing repair card.
+    // The original compact 20+20 log panel is not duplicated.
+    if(inner>=0){
+      const insertion=inner+'<div class="aurum-settings-details-body">'.length;
+      out=out.slice(0,insertion)+healthBlock()+out.slice(insertion);
+    }else out+=healthBlock(); // fail-open presentation only; no diagnostic is lost
+    return block()+out};fn.__dualOldScheduler=true;globalThis.settingsPage=fn}
  globalThis.AurumDualScheduler={add,remove,saveAll,reinstall:saveAll,defaults,report,log,notice,ensureNativeParity,exactSettings:()=>{const r=call('schedule_exact_settings');if(r==='OPENED')notice('info','Kesin alarm izin ekranı açıldı');else if(r==='OK')notice('success','Kesin alarm izni zaten açık');else notice('error','Kesin alarm izin ekranı açılamadı');setTimeout(report,300);return r}};
  globalThis.AurumReadOnlyHealth=Object.freeze({refresh:renderHealth,read:healthRead});
  globalThis.AurumSettingsHistory20={log,notice,render:renderHistory,clear:()=>cleanupHistory(true),cleanup:()=>cleanupHistory(false)};
