@@ -6928,8 +6928,8 @@ globalThis.AurumNotifications=Object.freeze({version:'R225.0',open:openJournal,r
     if(value===null||typeof value==='string'||typeof value==='boolean')return;
     if(typeof value==='number'&&Number.isFinite(value))return;
     if(Array.isArray(value)){value.forEach((v,i)=>assertSafeValue(v,path+'['+i+']'));return}
-    if(typeof value==='object'&&
-      (Object.getPrototypeOf(value)===Object.prototype||Object.getPrototypeOf(value)===null)){
+    if(typeof value==='object'&&Object.prototype.toString.call(value)==='[object Object]'&&
+      (Object.getPrototypeOf(value)===null||Object.getPrototypeOf(Object.getPrototypeOf(value))===null)){
       for(const key of Object.keys(value))assertSafeValue(value[key],path+'.'+key);
       return;
     }
