@@ -34,3 +34,38 @@ console.log('PASS AurumB 15-revision preservation, logs, scheduler, Nederland an
  assert.ok(k.includes('PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE'));
  assert.ok(s.includes("(st[kind+'Enabled']!==true || st[kind+'Registered']===true)"));
 }
+
+
+// Isolated execution of the actual Joker decision function.  A saved
+// maximum is NOT proof of the timestamp at which that tier was reached.
+{
+ const start=r.indexOf('function jokerExitReason(e,sym,lastPrice){');
+ const end=r.indexOf('  function tradeFmt(',start);
+ assert.ok(start>=0&&end>start,'Joker decision must remain discoverable');
+ const scope={
+   Date,EPS:1e-9,observed:'2026-10-09T08:00:00Z',
+   marketAt(){return this.observed;},
+   trp(){return {date:'2026-10-09',mins:660};},
+   fullHoliday(){return false;},
+   bistSessionCloseMinutes(){return 1080;},
+   completedSessionBoundaries(){return {opens:0,closes:0}}
+ };
+ // A normal function avoids dependence on the this-binding of marketAt.
+ scope.marketAt=()=>scope.observed;scope.globalThis=scope;
+ vm.runInNewContext(r.slice(start,end),scope,{timeout:1000});
+ const position={buyPrice:100,buyAt:'2026-10-05T07:30:00Z',
+   buyMarketAt:'2026-10-05T07:30:00Z',
+   maxReturnPct:10.5,profitStagePct:0,profitStageReachedAt:null};
+ assert.equal(scope.jokerExitReason(position,'TEST',101),null);
+ assert.equal(position.profitStageReachedAt,null,
+   'An inherited 10% high must not fabricate a crossing at a 1% market quote');
+ scope.observed='2026-10-09T08:01:00Z';
+ assert.equal(scope.jokerExitReason(position,'TEST',110.5),null);
+ assert.equal(position.profitStagePct,10);
+ assert.equal(position.profitStageReachedAt,scope.observed,
+   'Actual quote must establish the 10% crossing timestamp');
+ scope.observed='2026-10-14T08:01:00Z';
+ scope.completedSessionBoundaries=()=>({opens:3,closes:2});
+ assert.equal(scope.jokerExitReason(position,'TEST',110),'JOKER_KAR_KADEMESI');
+ console.log('PASS standalone B Joker: no invented historical crossing, actual quote clock');
+}
