@@ -1012,3 +1012,33 @@ input[type="range"][id^="aurumScaleVal_"]{height:3px;accent-color:currentColor;v
 
 
 /* AURUMB_MARKET_EXACT_PRESENTATION_END */
+
+/* 2026-10-10: Four K_Tarihsel manual buttons, always one responsive row. */
+.aurum-khist-gap-actions{
+  display:grid!important;
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  align-items:stretch!important;
+  gap:6px!important;
+  width:100%!important;
+  max-width:100%!important;
+  box-sizing:border-box!important;
+  margin:7px 0 8px!important;
+  padding:0!important;
+}
+.aurum-khist-gap-actions>button{
+  display:block!important;
+  min-width:0!important;
+  width:100%!important;
+  max-width:100%!important;
+  margin:0!important;
+  padding:10px 2px!important;
+  font-size:clamp(10px,2.7vw,12px)!important;
+  line-height:1.16!important;
+  letter-spacing:0!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:clip!important;
+  text-align:center!important;
+  border-radius:11px!important;
+  touch-action:manipulation;
+}
