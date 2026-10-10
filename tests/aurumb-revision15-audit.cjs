@@ -163,3 +163,14 @@ console.log('PASS AurumB 15-revision preservation, logs, scheduler, Nederland an
    'no forbidden value may enter normalization or survive reconstruction');
  console.log('PASS B price-mask regression: old/T0 prices, adjusted close, no source mutation');
 }
+
+/* Regression: audit summaries must expose both the masked fields and their
+ * pre-normalization coverage percentages to preserve 70% gate observability. */
+{
+ const source=fs.readFileSync('app/src/main/assets/runtime.js','utf8');
+ assert.ok(source.includes('below70Columns:classification.below70Columns'),
+   'audit must identify columns excluded from derived calculations');
+ assert.ok(source.includes('columnCompletionPct:classification.columnCompletionPct'),
+   'audit must retain original column coverage for user-visible diagnostics');
+ console.log('PASS B completeness audit reports excluded fields and coverage');
+}
