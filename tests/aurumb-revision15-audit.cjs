@@ -174,3 +174,25 @@ console.log('PASS AurumB 15-revision preservation, logs, scheduler, Nederland an
    'audit must retain original column coverage for user-visible diagnostics');
  console.log('PASS B completeness audit reports excluded fields and coverage');
 }
+
+
+/* Regression: cached R61 page slots must show all manual gap controls. */
+{
+ const source=r;
+ const start=source.indexOf('  function gapToolbar(){',source.indexOf('(function installAurumHistoryGapFill(){'));
+ const end=source.indexOf('  const prev=globalThis.historyPage||historyPage;',start);
+ assert.ok(start>=0&&end>start,'standalone gap toolbar renderer must exist');
+ const script=source.slice(start,end);
+ for(const busy of [false,true]){
+   const html=vm.runInNewContext(script+'\ngapToolbar()', {state:{syncing:busy,calculating:false}}, {timeout:1000});
+   assert.equal((html.match(/<button\b/g)||[]).length,3,'must expose exactly three gap buttons');
+   for(const n of [1,5,10]){
+     assert.ok(html.includes('>'+n+' Gün Yükle</button>'),'missing manual '+n+' day control');
+     assert.ok(html.includes('AurumHistoryGapFill.fill('+n+')'),'gap action must be wired');
+   }
+   assert.equal((html.match(/\bdisabled\b/g)||[]).length,busy?3:0,'busy state must disable every action');
+ }
+ assert.ok(source.includes('new MutationObserver(ensureHistoryGapControls)'), 'cached WebView page slots need a live DOM repair hook');
+ assert.ok(source.includes("target.insertAdjacentHTML('afterbegin',gapToolbar())"), 'cached history slot must gain controls without destroying other page DOM');
+ console.log('PASS AurumB K_Tarihsel 1/5/10 controls visible on cached page slots');
+}
