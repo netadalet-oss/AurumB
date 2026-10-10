@@ -261,7 +261,7 @@ jobs:
           emulator-boot-timeout: 900
           script: |
             set -eu
-            APK="$(find apk -type f -name '*.apk' | head -1)"
+            APK="$(find "$GITHUB_WORKSPACE/apk" -type f -name '*.apk' | head -1)"
             test -s "$APK"
             adb wait-for-device
             adb install -r "$APK"
