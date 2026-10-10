@@ -5725,21 +5725,27 @@ try{AurumUpdateAPI.state.r239={version:'REV20.39-STRICT-CADENCE-SAME-SOURCE-MARK
     deliveryInFlight=(async()=>{
       const url=String(state?.settings?.tradeAlertWebhookUrl||'').trim();
       if(!url)return {sent:0,pending:readOutbox().filter(x=>!x?.delivery?.emailAt).length};
-      const rows=readOutbox();
+      const snapshot=readOutbox();
       let sent=0;
-      for(const row of rows){
-        if(row?.delivery?.emailAt)continue;
+      for(const queued of snapshot){
+        if(queued?.delivery?.emailAt)continue;
+        const row=readOutbox().find(x=>x.id===queued.id);
+        if(!row||row.delivery?.emailAt)continue;
         const r=await relay(row);
-        row.delivery=row.delivery||{};
-        row.delivery.email=r.status;
-        row.delivery.lastAttemptAt=now();
-        row.delivery.attempts=Number(row.delivery.attempts||0)+1;
-        row.delivery.emailAt=r.ok?now():null;
-        await persistOutbox(rows);
-        if(!r.ok)break; // Preserve chronological delivery on transient failures.
+        // Re-read after HTTPS: pending new events must not be overwritten.
+        const latest=readOutbox(),current=latest.find(x=>x.id===row.id);
+        if(current){
+          current.delivery=current.delivery||{};
+          current.delivery.email=r.status;
+          current.delivery.lastAttemptAt=now();
+          current.delivery.attempts=Number(current.delivery.attempts||0)+1;
+          current.delivery.emailAt=r.ok?now():null;
+          await persistOutbox(latest);
+        }
+        if(!r.ok)break;
         sent++;
       }
-      return {sent,pending:rows.filter(x=>!x?.delivery?.emailAt).length};
+      return {sent,pending:readOutbox().filter(x=>!x?.delivery?.emailAt).length};
     })().finally(()=>{deliveryInFlight=null});
     return deliveryInFlight;
   }
@@ -5767,11 +5773,18 @@ try{AurumUpdateAPI.state.r239={version:'REV20.39-STRICT-CADENCE-SAME-SOURCE-MARK
         addedSells:afterS.filter(x=>!beforeS.includes(x)),
         removedSells:beforeS.filter(x=>!afterS.includes(x))
       };
-      const rows=readOutbox(),id='QBS_LIST|'+Date.now()+'|'+(job?.dataSnapshotId||job?.id||'USER');
+      const rows=readOutbox();
+      // Recover idempotently if process stopped between enqueue and baseline save.
+      const duplicate=rows.find(x=>x.listSignature===serial&&x.recipient===recipient);
+      if(duplicate){
+        localStorage.setItem(LIST_KEY,JSON.stringify({snapshot:current,signature:serial,recipient}));
+        await flush();return duplicate;
+      }
+      const id='QBS_LIST|'+Date.now()+'|'+(job?.dataSnapshotId||job?.id||'USER');
       const row={id,at:now(),tradeDate:now().slice(0,10),
         jobId:String(job?.id||''),snapshotId:String(job?.dataSnapshotId||''),
         buys:afterB,sells:afterS,buyList:current.buys,sellList:current.sells,
-        changes,listVersion:'AURUM_TRADE_LIST_V2',recipient,
+        changes,listVersion:'AURUM_TRADE_LIST_V2',listSignature:serial,recipient,
         delivery:{device:false,email:'PENDING',attempts:0,emailAt:null}};
       rows.push(row);
       await persistOutbox(rows);
