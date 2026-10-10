@@ -6783,18 +6783,43 @@ globalThis.AurumNotifications=Object.freeze({version:'R225.0',open:openJournal,r
     }catch(e){state.khArchive=prior;throw e}
     finally{state.calculating=false;state.progress=null;try{renderCurrentPagePreservingView()}catch{}}
   }
-  const prev=globalThis.historyPage||historyPage;
-  const historyGapPage=function historyGapPage(){
-    const original=String(prev.apply(this,arguments));
+  // The R61 page-slot cache can retain a renderer's original DOM. Keep
+  // the controls visible both on first render and on a reused history slot.
+  function gapToolbar(){
     const busy=state.syncing||state.calculating;
-    const toolbar='<div class="actions aurum-khist-gap-actions"><small class="muted">Yalnız boş T1–T30 satırları</small>'+
+    return '<div class="actions aurum-khist-gap-actions"><small class="muted">Yalnız boş T1–T30 satırları</small>'+
       [1,5,10].map(n=>'<button type="button" class="ghost-btn" '+
         (busy?'disabled ':'')+'onclick="AurumHistoryGapFill.fill('+n+
-        ').catch(e=>showAurumNotice(e.message,\'error\',4400))">+'+n+' Gün Yükle</button>').join('')+'</div>';
-    const label='K_Tarihsel’i Çalıştır</button>';
-    return original.includes(label)?original.replace(label,label+toolbar):toolbar+original;
+        ').catch(e=>showAurumNotice(e.message,\'error\',4400))">'+n+' Gün Yükle</button>').join('')+'</div>';
+  }
+  const prev=globalThis.historyPage||historyPage;
+  const historyGapPage=function historyGapPage(){
+    return gapToolbar()+String(prev.apply(this,arguments));
   };
   historyPage=historyGapPage;globalThis.historyPage=historyGapPage;
+  function ensureHistoryGapControls(){
+    try{
+      const root=document.getElementById('content');
+      if(!root)return;
+      let target=root.querySelector('.aurum-r61-page-slot.page-history');
+      if(!target){if(state.page!=='history')return;target=root}
+      if(!target.querySelector('.aurum-khist-gap-actions'))
+        target.insertAdjacentHTML('afterbegin',gapToolbar());
+    }catch(e){try{console.warn('K_Tarihsel controls:',e)}catch{}}
+  }
+  if(typeof document!=='undefined'&&typeof MutationObserver==='function'){
+    const watchHistorySlot=()=>{
+      const root=document.getElementById('content');
+      if(!root)return;
+      const watcher=new MutationObserver(ensureHistoryGapControls);
+      watcher.observe(root,{childList:true,subtree:true,attributes:true,
+        attributeFilter:['style','class','data-page']});
+      ensureHistoryGapControls();
+    };
+    if(document.readyState==='loading')
+      document.addEventListener('DOMContentLoaded',watchHistorySlot,{once:true});
+    else queueMicrotask(watchHistorySlot);
+  }
   globalThis.AurumHistoryGapFill=Object.freeze({fill,available:n=>plan(n).dates.length});
 })();
 
