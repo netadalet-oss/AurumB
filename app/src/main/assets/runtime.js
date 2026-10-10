@@ -6914,7 +6914,10 @@ globalThis.AurumNotifications=Object.freeze({version:'R225.0',open:openJournal,r
   'use strict';
   if(globalThis.AurumLegacyTransfer)return;
   const FORMAT='AURUMB_ENCRYPTED_LEGACY_V1',ITERATIONS=210000;
-  const encoder=new TextEncoder(),decoder=new TextDecoder();
+  // Lazy construction keeps old-WebView startup and isolated VM tests safe;
+  // unsupported encoders fail only on an explicit export/import request.
+  const encoder={encode:value=>new TextEncoder().encode(value)};
+  const decoder={decode:value=>new TextDecoder().decode(value)};
   const byId=id=>document.getElementById(id);
   function status(message,error){
     const el=byId('aurumBackupStatus');
