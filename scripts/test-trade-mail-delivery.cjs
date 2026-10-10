@@ -38,6 +38,9 @@ const delivery=sandbox.AurumTradeAlerts;
 assert.ok(delivery?.sync&&delivery?.flush&&delivery?.outbox);
 const state=x=>({items:x}),buy={sym:'AAA',status:'BUY',buyAt:'2026-10-10T09:00:00Z',buyPrice:100};
 const sell={sym:'AAA',status:'SELL',sellAt:'2026-10-10T10:00:00Z',sellPrice:95};
+const newerBuy={sym:'BBB',status:'BUY',buyAt:'2026-10-10T11:20:00Z',buyPrice:25};
+const newerSell={sym:'CCC',status:'SELL',sellAt:'2026-10-10T11:21:00Z',sellPrice:30};
+const watchdog=setTimeout(()=>{console.error('FAILED mail test timed out');process.exitCode=1},10000);
 (async()=>{
   await delivery.sync(state({AAA:buy}));
   assert.equal(delivery.outbox().length,1);
@@ -75,18 +78,19 @@ const sell={sym:'AAA',status:'SELL',sellAt:'2026-10-10T10:00:00Z',sellPrice:95};
   assert.equal(buyCodes.size,45,'no symbols may be dropped while chunking');
   // HTTPS suspension: subsequent list changes must survive old queue flush.
   settings.tradeAlertWebhookUrl='';
-  await delivery.sync(state({AAA:buy}));
+  await delivery.sync(state({BBB:newerBuy}));
   settings.tradeAlertWebhookUrl=hook;
   let release;
   gate=new Promise(resolve=>release=resolve);
   const entered=new Promise(resolve=>started=resolve);
   const sending=delivery.flush();
   await entered;
-  const next=delivery.sync(state({AAA:sell}));
+  const next=delivery.sync(state({CCC:newerSell}));
   release();
   await Promise.all([sending,next]);
-  assert.ok(delivery.outbox().some(x=>x.sellList?.some(y=>y.code==='AAA')
+  assert.ok(delivery.outbox().some(x=>x.sellList?.some(y=>y.code==='CCC')
     &&!x.delivery.emailAt),'concurrent new event must remain queued');
   await delivery.flush();
+  clearTimeout(watchdog);
   console.log('PASS B AL/SAT real list and delta, crash dedupe, retry, large payload, concurrent queue retention');
-})().catch(e=>{console.error(e);process.exitCode=1});
+})().catch(e=>{clearTimeout(watchdog);console.error(e);process.exitCode=1});
