@@ -33,6 +33,8 @@ jobs:
         run: node tests/aurumb-revision15-history.cjs
       - name: Verify persistent AL/SAT mail and retry behavior
         run: node scripts/test-trade-mail-delivery.cjs
+      - name: Verify AL/SAT list delivery and retry
+        run: node scripts/test-trade-mail-roundtrip.cjs
       - name: Validate quality-gate contract
         run: |
           set -euo pipefail
