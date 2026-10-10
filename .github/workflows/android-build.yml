@@ -264,7 +264,7 @@ jobs:
             test -s "$GITHUB_WORKSPACE/apk/AurumB-final-install.apk"
             adb wait-for-device
             adb install -r "$GITHUB_WORKSPACE/apk/AurumB-final-install.apk"
-            adb logcat -c
+            adb logcat -c || true
             adb shell am start -W -n com.aurum.nextrevised09/com.aurum.bistterminal8.MainActivity
             sleep 10
             adb shell pidof com.aurum.nextrevised09 >/dev/null
