@@ -1257,6 +1257,23 @@ async function resetApplicationR44(){
   for(const s of ['settings','records','runs','logs','meta','bars','actions','criteria','backtests','snapshots','behaviorProfiles','genomeHistory','aiAudits','aiCandidates','aiEvents','universeHistory','jobs','stagingRecords','dataIssues','sourceHealth'])await dbClear(s);
   localStorage.removeItem(RUNTIME_META_KEY);showAurumNotice('Uygulama sıfırlandı','success',2200);setTimeout(()=>location.reload(),420);return true;
 }
+function aurumBackupSettingsModule(){
+  return aurumSettingsCard('Yedekleme ve Geri Yükleme',
+    'Şifreli Legacy dosyası · Native/Room tam yedek henüz yok',
+    '<p class="muted"><strong>Önemli:</strong> Mevcut yedek yalnızca WebView IndexedDB/localStorage verilerini içerir. '+
+    'Native Room, Android izinleri ve uygulama-özel diğer Native veriler kapsam dışıdır. '+
+    'Bu özellik TAM UYGULAMA YEDEĞİ değildir. Yalnızca bu dosyaya güvenerek uygulamayı kaldırmayın.</p>'+
+    '<div class="field"><label for="aurumBackupPassword">Yedekleme parolası (en az 12 karakter; cihazda saklanmaz)</label>'+
+    '<input id="aurumBackupPassword" type="password" autocomplete="new-password" minlength="12" placeholder="Güçlü bir parola girin"></div>'+
+    '<div class="actions"><button type="button" class="ghost-btn" onclick="AurumLegacyTransfer.inspect()">Veri kapsamını denetle</button>'+
+    '<button type="button" class="gold-btn" onclick="AurumLegacyTransfer.exportEncrypted()">Şifreli Legacy yedeğini indir</button></div>'+
+    '<div class="field"><label for="aurumBackupInput">Şifreli Legacy dosyasını seç</label>'+
+    '<input id="aurumBackupInput" type="file" accept=".json,application/json"></div>'+
+    '<div class="actions"><button type="button" class="ghost-btn" onclick="AurumLegacyTransfer.restoreEncrypted()">Legacy yedeğini doğrula ve geri yükle</button></div>'+
+    '<p id="aurumBackupStatus" class="muted" role="status" aria-live="polite">Native + Legacy tam yedekleme henüz hazır değil. Başlamadan önce kapsamı denetleyin.</p>',
+    'aurumEncryptedLegacyBackup');
+}
+
 function restorePointsModule(){const rows=r44RestoreIndex();return aurumSettingsCard('Geri Yükleme Noktaları',`Son ${R44_RESTORE_MAX} veri/model durumu`,`<div class="actions"><button class="gold-btn" type="button" onclick="createRestorePoint('MANUEL').then(ok=>{if(ok)renderCurrentPagePreservingView()}).catch(e=>showAurumNotice(e.message,'error',4200))">Şimdi Nokta Oluştur</button></div><div class="card list" style="margin-top:8px">${rows.map((x,i)=>`<div class="list-row"><div><strong>${i+1}. ${html(new Date(x.createdAt).toLocaleString('tr-TR'))}</strong><small>${html(x.reason||'MANUEL')} · ${html(x.version||'')}</small></div><button class="ghost-btn compact-btn" type="button" onclick="restoreRestorePoint('${html(x.id)}').catch(e=>showAurumNotice(e.message,'error',4200))">Geri Yükle</button></div>`).join('')||'<p class="muted">Henüz geri yükleme noktası yok.</p>'}</div><small class="muted">Her uygulama güncellemesi etkinleştirilmeden önce otomatik nokta oluşturulur. En yeni toplam 10 nokta tutulur; manuel noktalar ve başarılı güncelleme sonrası otomatik noktalar aynı güvenli listede saklanır.</small>`,'r44RestorePoints')}
 function dataManagementModule(){return aurumSettingsCard('Veri Yönetimi ve Sıfırlama','Tablo bazlı temizleme · tam sıfırlama',`<div class="actions"><button class="ghost-btn" onclick="clearFromSettings('data')">Veriler’i Temizle</button><button class="ghost-btn" onclick="clearFromSettings('kn')">Kn’yi Temizle</button><button class="ghost-btn" onclick="clearFromSettings('history')">K_Tarihsel’i Temizle</button><button class="ghost-btn" onclick="clearFromSettings('s')">S’yi Temizle</button><button class="danger-btn" onclick="clearFromSettings('all')">Tüm Tabloları Temizle</button><button class="danger-btn" onclick="resetApplicationR44()">Uygulamayı Sıfırla</button></div><small class="muted">Temizleme/sıfırlama öncesinde otomatik geri yükleme noktası oluşturulur. Çalışan iş varsa önce ilgili modülden iptal edilmelidir.</small>`,'r44DataManagement')}
 async function r44RepairReport(){
@@ -1297,7 +1314,7 @@ function accuracySettingsModule(){const last=readLocal('aurumAccuracyUiLast',nul
 globalThis.aurumRunAccuracyAudit=aurumRunAccuracyAudit;
 
  /* Legacy AurumB UI scale module removed; AurumF presentation-settings.js is authoritative. */
-function settingsPage(){return `${globalThis.AurumPresentationSettings?.markup?.()||''}${generalSettingsModule()}${performanceControlSettingsModule()}${transferArchitectureModule()}${dataTransferSettingsModule()}${dataQualitySettingsModule()}${schedulerSettingsModule()}${executionSettingsModule()}${learningSettingsModule()}${behaviorGenomeSettingsModule()}${calendarSettingsModule()}${aiApiSettingsModule()}${accuracySettingsModule()}${tableAuditSettingsModule()}${repairCenterModule()}${globalThis.rev20UserRepairModule?.()||''}${dataManagementModule()}${restorePointsModule()}${aurumUpdateModule()}`}
+function settingsPage(){return `${globalThis.AurumPresentationSettings?.markup?.()||''}${generalSettingsModule()}${performanceControlSettingsModule()}${transferArchitectureModule()}${dataTransferSettingsModule()}${dataQualitySettingsModule()}${schedulerSettingsModule()}${executionSettingsModule()}${learningSettingsModule()}${behaviorGenomeSettingsModule()}${calendarSettingsModule()}${aiApiSettingsModule()}${accuracySettingsModule()}${tableAuditSettingsModule()}${repairCenterModule()}${globalThis.rev20UserRepairModule?.()||''}${dataManagementModule()}${aurumBackupSettingsModule()}${restorePointsModule()}${aurumUpdateModule()}`}
 
 function liveCollectionGate(){return {accepted:true,mayCollectLiveData:true,reason:null};}
 function generalSettingsModule(){const s=state.settings||{};return aurumSettingsCard('Veri ve Çalışma Ayarları','Tek pipeline · ağ · sağlayıcılar',`<div class="form-grid"><div class="field"><label>Tarihsel ay</label><input id="generalMonthsBack" type="number" min="6" max="120" value="${Number(s.monthsBack||14)}"></div><div class="field"><label>İstek zaman aşımı (ms)</label><input id="generalRequestTimeoutMs" type="number" min="3000" max="60000" value="${Number(s.requestTimeoutMs||12000)}"></div><div class="field"><label>Genel retry</label><input id="generalRetryCount" type="number" min="0" max="6" value="${Number(s.retryCount||3)}"></div><div class="field"><label>Kaynak retry</label><input id="generalSourceRetryCount" type="number" min="0" max="3" value="${Number(s.sourceRetryCount||0)}"></div><div class="field"><label>Anlık veri</label><select id="generalLiveEnabled"><option value="true" ${s.liveEnabled!==false?'selected':''}>Aktif</option><option value="false" ${s.liveEnabled===false?'selected':''}>Kapalı</option></select></div><div class="field"><label>Asgari veri kalitesi</label><input id="generalQualityMin" type="number" min="0" max="100" value="${Number(s.qualityMin||55)}"></div><div class="field"><label>İş sırası</label><input value="Adaptif paralellik · sağlayıcı bazlı eşzamanlılık" disabled></div><div class="field" style="grid-column:1/-1"><label>Kaynak önceliği</label><input id="generalProviderOrder" value="${html((s.providerOrder||[]).join(','))}"><small>Başarı, gecikme, rate-limit, tazelik ve circuit-breaker puanı çalışma anında bu sırayı dinamikleştirir.</small></div><div class="field" style="grid-column:1/-1"><label>Özel sağlayıcılar JSON</label><textarea id="generalCustomProvidersJson">${html(s.customProvidersJson||'[]')}</textarea><small>API anahtarı veya tokenı kaynak koda gömmeyin; gerekiyorsa kullanıcı yapılandırmasında tutun.</small></div><div class="actions" style="grid-column:1/-1"><button class="gold-btn" onclick="saveRuntimeSettings()">Kaydet</button></div></div>`) }
@@ -6885,3 +6902,240 @@ globalThis.AurumNotifications=Object.freeze({version:'R225.0',open:openJournal,r
   }
   globalThis.AurumLegacyBackupInventory=Object.freeze({inspect});
 })();
+
+
+/* AurumB encrypted, reversible LEGACY data transfer. This does NOT include
+ * Native Room/SharedPreferences and must never be labeled a full-device backup.
+ * All IndexedDB stores are read within a single transaction.
+ * Restore has strict preflight, an existing recovery point, atomic IDB writes,
+ * and best-effort localStorage rollback if the second storage system fails. */
+(function installAurumLegacyEncryptedTransfer(){
+  'use strict';
+  if(globalThis.AurumLegacyTransfer)return;
+  const FORMAT='AURUMB_ENCRYPTED_LEGACY_V1',ITERATIONS=210000;
+  const encoder=new TextEncoder(),decoder=new TextDecoder();
+  const byId=id=>document.getElementById(id);
+  function status(message,error){
+    const el=byId('aurumBackupStatus');
+    if(el){el.textContent=String(message);el.setAttribute('role',error?'alert':'status')}
+    if(error)showAurumNotice(String(message),'error',5000);
+  }
+  function assertSafeValue(value,path){
+    if(value===null||typeof value==='string'||typeof value==='boolean')return;
+    if(typeof value==='number'&&Number.isFinite(value))return;
+    if(Array.isArray(value)){value.forEach((v,i)=>assertSafeValue(v,path+'['+i+']'));return}
+    if(typeof value==='object'&&
+      (Object.getPrototypeOf(value)===Object.prototype||Object.getPrototypeOf(value)===null)){
+      for(const key of Object.keys(value))assertSafeValue(value[key],path+'.'+key);
+      return;
+    }
+    throw new Error('JSON ile kayıpsız taşınamayan kayıt: '+path);
+  }
+  function toBase64(bytes){
+    let chunks='';
+    for(let i=0;i<bytes.length;i+=16384)
+      chunks+=String.fromCharCode.apply(null,bytes.subarray(i,i+16384));
+    return btoa(chunks);
+  }
+  function fromBase64(value){
+    const raw=atob(String(value||'')),bytes=new Uint8Array(raw.length);
+    for(let i=0;i<raw.length;i++)bytes[i]=raw.charCodeAt(i);
+    return bytes;
+  }
+  async function hexSha(bytes){
+    const hash=new Uint8Array(await crypto.subtle.digest('SHA-256',bytes));
+    return Array.from(hash,x=>x.toString(16).padStart(2,'0')).join('');
+  }
+  async function key(password,salt,iterations){
+    if(!crypto?.subtle||!crypto.getRandomValues)throw new Error('Bu WebView güvenli şifrelemeyi desteklemiyor');
+    const material=await crypto.subtle.importKey('raw',encoder.encode(password),'PBKDF2',false,['deriveKey']);
+    return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations,hash:'SHA-256'},material,
+      {name:'AES-GCM',length:256},false,['encrypt','decrypt']);
+  }
+  function password(){
+    const el=byId('aurumBackupPassword'),value=String(el?.value||'');
+    if(el)el.value='';
+    if(value.length<12)throw new Error('Yedek için en az 12 karakterlik parola girin');
+    return value;
+  }
+  function getDatabase(){
+    const db=state.db;
+    if(!db||!db.name||!db.objectStoreNames?.length)
+      throw new Error('Legacy veritabanı henüz hazır değil');
+    return db;
+  }
+  function storeNames(db){return Array.from(db.objectStoreNames).sort()}
+  function snapshotDatabase(){
+    const db=getDatabase(),names=storeNames(db);
+    return new Promise((resolve,reject)=>{
+      const output={};
+      let tx;
+      try{tx=db.transaction(names,'readonly')}catch(e){reject(e);return}
+      tx.onerror=()=>reject(tx.error||new Error('Veritabanı okuma hatası'));
+      tx.onabort=()=>reject(tx.error||new Error('Veritabanı yedekleme iptal edildi'));
+      tx.oncomplete=()=>resolve({name:db.name,version:db.version,stores:names.map(n=>output[n])});
+      try{
+        for(const name of names){
+          const store=tx.objectStore(name);
+          const item={name,keyPath:store.keyPath,autoIncrement:store.autoIncrement,keys:null,rows:null};
+          output[name]=item;
+          store.getAllKeys().onsuccess=e=>{item.keys=e.target.result};
+          store.getAll().onsuccess=e=>{item.rows=e.target.result};
+        }
+      }catch(e){try{tx.abort()}catch{}reject(e)}
+    }).then(data=>{
+      for(const item of data.stores){
+        if(!Array.isArray(item.rows)||!Array.isArray(item.keys)||item.rows.length!==item.keys.length)
+          throw new Error('Yedeklemede anahtar/kayıt sayısı tutarsız: '+item.name);
+        item.rows.forEach((r,i)=>{
+          assertSafeValue(r,item.name+'['+i+']');
+          assertSafeValue(item.keys[i],item.name+'.key['+i+']');
+        });
+      }
+      return data;
+    });
+  }
+  function snapshotStorage(){
+    const entries={};
+    for(let i=0;i<localStorage.length;i++){
+      const name=localStorage.key(i);
+      if(name===null)throw new Error('localStorage anahtarı okunamadı');
+      entries[name]=localStorage.getItem(name);
+    }
+    return entries;
+  }
+  function validateDatabase(snapshot){
+    const db=getDatabase(),names=storeNames(db);
+    if(snapshot?.name!==db.name||snapshot.version!==db.version||
+       !Array.isArray(snapshot.stores)||snapshot.stores.length!==names.length)
+      throw new Error('Yedek veritabanı kimliği/sürümü bu uygulamayla uyumlu değil');
+    if(snapshot.stores.some((s,i)=>s?.name!==names[i]))
+      throw new Error('Yedek veritabanı tabloları uyuşmuyor');
+    const tx=db.transaction(names,'readonly');
+    try{
+      for(const item of snapshot.stores){
+        const store=tx.objectStore(item.name);
+        if(JSON.stringify(store.keyPath)!==JSON.stringify(item.keyPath)||
+           store.autoIncrement!==item.autoIncrement||
+           !Array.isArray(item.rows)||!Array.isArray(item.keys)||
+           item.rows.length!==item.keys.length)
+          throw new Error('Yedek tablo şeması/anahtarları geçersiz: '+item.name);
+        item.rows.forEach((v,i)=>{assertSafeValue(v,item.name);assertSafeValue(item.keys[i],item.name+'.key')});
+      }
+    }finally{try{tx.abort()}catch{}}
+  }
+  function restoreDatabase(snapshot){
+    const db=getDatabase(),names=storeNames(db);
+    return new Promise((resolve,reject)=>{
+      let tx;
+      try{tx=db.transaction(names,'readwrite')}catch(e){reject(e);return}
+      tx.onerror=()=>reject(tx.error||new Error('Veritabanı geri yükleme hatası'));
+      tx.onabort=()=>reject(tx.error||new Error('Veritabanı geri yükleme geri alındı'));
+      tx.oncomplete=()=>resolve();
+      try{
+        for(const item of snapshot.stores){
+          const store=tx.objectStore(item.name);
+          store.clear();
+          for(let i=0;i<item.rows.length;i++){
+            if(store.keyPath===null)store.put(item.rows[i],item.keys[i]);
+            else store.put(item.rows[i]);
+          }
+        }
+      }catch(e){try{tx.abort()}catch{}reject(e)}
+    });
+  }
+  function restoreStorage(entries){
+    if(!entries||typeof entries!=='object'||Array.isArray(entries))
+      throw new Error('Yedek localStorage alanı geçersiz');
+    for(const k of Object.keys(entries))if(typeof entries[k]!=='string')
+      throw new Error('Yedekte geçersiz localStorage değeri: '+k);
+    localStorage.clear();
+    for(const [name,value] of Object.entries(entries))localStorage.setItem(name,value);
+  }
+  async function inspect(){
+    try{
+      status('Legacy verileri salt okunur biçimde sayılıyor...',false);
+      const result=await globalThis.AurumLegacyBackupInventory.inspect();
+      status('Legacy: '+result.indexedDbStores.length+' tablo / '+
+        result.indexedDbStores.reduce((n,s)=>n+s.rows,0)+' kayıt / '+
+        result.localStorageKeyCount+' tercih anahtarı. Native/Room kapsam dışı; TAM YEDEK DEĞİL.',false);
+      return result;
+    }catch(e){status('Yedek kapsamı denetlenemedi: '+String(e.message||e),true);return null}
+  }
+  function checkIdle(){
+    if(state.syncing||state.calculating||state.sync)
+      throw new Error('Önce devam eden veri/hesaplama işlemini durdurun');
+  }
+  async function exportEncrypted(){
+    try{
+      checkIdle();const secret=password();
+      const inventory=await globalThis.AurumLegacyBackupInventory.inspect();
+      if(inventory.missingRequiredStores.length)
+        throw new Error('Zorunlu Legacy tabloları eksik: '+inventory.missingRequiredStores.join(', '));
+      status('Tutarlı Legacy görüntüsü alınıyor ve şifreleniyor...',false);
+      const payload={format:FORMAT,scope:'LEGACY_ONLY',capturedAt:new Date().toISOString(),
+        indexedDb:await snapshotDatabase(),localStorage:snapshotStorage()};
+      const plaintext=encoder.encode(JSON.stringify(payload));
+      const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12));
+      const aes=await key(secret,salt,ITERATIONS);
+      const cipher=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},aes,plaintext));
+      const envelope={format:FORMAT,scope:'LEGACY_ONLY',schema:1,iterations:ITERATIONS,
+        salt:toBase64(salt),iv:toBase64(iv),sha256:await hexSha(plaintext),
+        encryptedData:toBase64(cipher)};
+      const blob=new Blob([JSON.stringify(envelope)],{type:'application/json'});
+      const href=URL.createObjectURL(blob),a=document.createElement('a');
+      a.href=href;a.download='AurumB-Legacy-Sifreli-'+new Date().toISOString().slice(0,10)+'.json';
+      document.body.appendChild(a);a.click();a.remove();
+      setTimeout(()=>URL.revokeObjectURL(href),60000);
+      status('Şifreli Legacy yedeği indirme işlemi başlatıldı ('+payload.indexedDb.stores.length+
+        ' tablo). Native/Room dahil değil. Dosyayı ve parolayı güvenle saklayın.',false);
+      return true;
+    }catch(e){status('Yedek dışa aktarılamadı: '+String(e.message||e),true);return false}
+  }
+  async function restoreEncrypted(){
+    try{
+      checkIdle();const selected=byId('aurumBackupInput')?.files?.[0];
+      if(!selected)throw new Error('Önce .json yedek dosyası seçin');
+      if(selected.size>150*1024*1024)throw new Error('Yedek dosyası 150 MB sınırını aşıyor');
+      const secret=password(),envelope=JSON.parse(await selected.text());
+      if(envelope?.format!==FORMAT||envelope.schema!==1||
+        envelope.scope!=='LEGACY_ONLY'||envelope.iterations!==ITERATIONS)
+        throw new Error('Dosya desteklenen şifreli Legacy yedek biçiminde değil');
+      const aes=await key(secret,fromBase64(envelope.salt),ITERATIONS);
+      status('Yedek şifresi ve SHA-256 bütünlüğü doğrulanıyor...',false);
+      const plaintext=new Uint8Array(await crypto.subtle.decrypt(
+        {name:'AES-GCM',iv:fromBase64(envelope.iv)},aes,fromBase64(envelope.encryptedData)));
+      if(await hexSha(plaintext)!==envelope.sha256)
+        throw new Error('Yedek checksum uyuşmazlığı');
+      const payload=JSON.parse(decoder.decode(plaintext));
+      if(payload?.format!==FORMAT||payload.scope!=='LEGACY_ONLY')
+        throw new Error('Yedek içeriği geçersiz');
+      validateDatabase(payload.indexedDb);
+      const savedPrefs=payload.localStorage;
+      if(!savedPrefs||typeof savedPrefs!=='object'||Array.isArray(savedPrefs))
+        throw new Error('Yedek tercihleri eksik');
+      for(const [name,value] of Object.entries(savedPrefs))if(typeof value!=='string')
+        throw new Error('Yedekte geçersiz tercih değeri: '+name);
+      if(!confirm('Yedek doğrulandı. SADECE Legacy IndexedDB/localStorage geri yüklenecek.'+
+        '\nNative/Room verileri ve Android ayarları BU DOSYADA YOK.'+
+        '\nMevcut Legacy verileri değiştirilecek. Devam edilsin mi?'))return false;
+      status('Geri yükleme öncesi kurtarma noktası hazırlanıyor...',false);
+      await createRestorePoint('LEGACY_YEDEK_GERİ_YÜKLEME_ÖNCESİ',{skipConfirm:true});
+      const previousDatabase=await snapshotDatabase(),previousStorage=snapshotStorage();
+      try{
+        await restoreDatabase(payload.indexedDb);
+        restoreStorage(savedPrefs);
+      }catch(e){
+        status('Hata oluştu; eski Legacy durumu geri alınıyor...',true);
+        try{await restoreDatabase(previousDatabase);restoreStorage(previousStorage)}
+        catch(rollback){throw new Error('Geri alma başarısız: '+String(rollback.message||rollback)+
+          '. Uygulamada yeni işlem yapmayın; mevcut kurtarma noktasını kullanın.')}
+        throw e;
+      }
+      status('Legacy geri yükleme tamamlandı. Native veriler değiştirilmedi. Uygulama yeniden başlatılıyor.',false);
+      setTimeout(()=>location.reload(),800);return true;
+    }catch(e){status('Yedek geri yüklenemedi: '+String(e.message||e),true);return false}
+  }
+  globalThis.AurumLegacyTransfer=Object.freeze({inspect,exportEncrypted,restoreEncrypted});
+})();
+
