@@ -894,7 +894,13 @@ function kh117DisplayRows(){
   if(KH117_DISPLAY_CACHE.key===key&&Array.isArray(KH117_DISPLAY_CACHE.rows))return KH117_DISPLAY_CACHE.rows;
   const rows=kh117Rows().map(kh117EvaluationRow);KH117_DISPLAY_CACHE={key,rows};return rows;
 }
-function kh117TrendCell(row){const a=(row.trend||[]).filter(x=>KN_V117_TREND.includes(x.k)).slice().sort((x,y)=>(Number.isFinite(Number(y.hitCount))?Number(y.hitCount):-1)-(Number.isFinite(Number(x.hitCount))?Number(x.hitCount):-1)||KN_V117_TREND.indexOf(x.k)-KN_V117_TREND.indexOf(y.k)),hits=a.map(x=>Number(x.hitCount)).filter(Number.isFinite);return `<div class="kh-trend">${a.map(x=>`<span><b>${html(x.k)}:</b> ${Number(x.hitCount||0)}/${Number(x.total||20)}</span>`).join('')}<footer><small>İsabet ort: ${hits.length?kn117Fmt(mean(hits),2)+'/20':'—'}</small><small>Reel: ${html(row._reelDate||'—')} · ${html(kh117MarketStampForDate(row._reelDate,row))}</small></footer></div>`;}
+function kh117TrendCell(row){const a=(row.trend||[]).filter(x=>KN_V117_TREND.includes(x.k)).slice().sort((x,y)=>{
+  // Display order must use the Reel intersection arithmetic mean; hitCount
+  // is only a deterministic tie-breaker, never the primary ranking metric.
+  const avg=v=>v?.realAvg==null||!Number.isFinite(Number(v.realAvg))?-Infinity:Number(v.realAvg);
+  return avg(y)-avg(x)||(Number(y.hitCount)||0)-(Number(x.hitCount)||0)||
+    KN_V117_TREND.indexOf(x.k)-KN_V117_TREND.indexOf(y.k)
+}),hits=a.map(x=>Number(x.hitCount)).filter(Number.isFinite);return `<div class="kh-trend">${a.map(x=>`<span><b>${html(x.k)}:</b> ${Number(x.hitCount||0)}/${Number(x.total||20)}</span>`).join('')}<footer><small>İsabet ort: ${hits.length?kn117Fmt(mean(hits),2)+'/20':'—'}</small><small>Reel: ${html(row._reelDate||'—')} · ${html(kh117MarketStampForDate(row._reelDate,row))}</small></footer></div>`;}
 function kh117ReelCell(row){const a=(row.reelTop20||[]).slice(0,20);return `<div class="kh-cell kh-real">${a.map(x=>`<span class="kh-line"><b>${html(x.sym)}</b><em>(${html(kn117Pct(x.ret))})</em></span>`).join('')||'<span class="kh-line"><b>VERİ EKSİK</b></span>'}<footer><span>Reel Ort: ${html(kn117Pct(mean(a.map(x=>x.ret))))} · ${html(row._accuracyStatus||'')}</span><span>${html(row._reelDate||'—')} · ${html(kh117MarketStampForDate(row._reelDate,row))}</span></footer></div>`;}
 function kh117CriterionCell(row,k){const a=(row.criteria?.[k]||[]).slice(0,20),ss=row.summaries?.[k]||{};return `<div class="kh-cell kh-kn">${a.map(x=>`<span class="kh-line${x.realHit?' kh-real-hit':''}"><b>${html(x.sym)}</b><em>(${html(kn117Pct(x.dayReturn))} | ${html(kn117Pct(x.knReturn))})</em></span>`).join('')}<footer><span>İsabet: ${Number(ss.hitCount||0)}/${a.length||20} · Reel Ort: ${html(kn117Pct(ss.realAvg))}</span><span>Kn Ort: ${html(kn117Pct(ss.knAvg))} · Kn as-of ${html(row.date||'—')}</span></footer></div>`;}
 function kh117Render(){const rows=kh117DisplayRows();return `<div class="section-head"><h2 class="aurum-khist-daily-title">K_Tarihsel günlük karşılaştırma</h2><small>T0 canlı · T1–T30: Kn(d) → Reel(d+1) · fail-closed doğrulama</small></div><div class="table-wrap aurum-drive-table strict-history r51-history"><table><thead><tr><th>Gün</th><th>Kn_Trend</th><th>Reel TopN<br><small>SYM(REEL%)</small></th>${KN_V117_ORDER.map(k=>`<th>${k} TopN<br><small>SYM(REEL% | KN%)</small></th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr><td class="kh-day"><b>${r._label}</b><small>${html(r.date)}<br>${r._t0?'CANLI':'KESİN'}</small></td><td>${kh117TrendCell(r)}</td><td>${kh117ReelCell(r)}</td>${KN_V117_ORDER.map(k=>`<td>${kh117CriterionCell(r,k)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;}
@@ -6634,4 +6640,71 @@ globalThis.AurumNotifications=Object.freeze({version:'R225.0',open:openJournal,r
 
   globalThis.AurumPublicationContinuity=Object.freeze({version:'R244.0',reload:reloadPublishedState,signalKey:SIGNAL_KEY});
   try{AurumUpdateAPI.state.r244={version:'REV20.44',activatedAt:nowISO(),features:['CACHE_ONLY_FOREGROUND_RESYNC','DURABLE_TIMESTAMP_RELOAD','AL_SAT_AFTER_FINAL_S','BACKGROUND_PUBLISH_SIGNAL']}}catch{}
+})();
+
+
+/* Authorized non-destructive T1-T30 manual gap fill port from AurumB hybrid. */
+(function installAurumHistoryGapFill(){
+  'use strict';
+  if(globalThis.AurumHistoryGapFill)return;
+  const counts=new Set([1,5,10]);
+  function plan(amount){
+    const size=Math.min(Math.max(0,30-(kh117ArchiveState().rows||[]).length),amount);
+    const existing=new Set((kh117ArchiveState().rows||[]).map(x=>String(x?.date||'')));
+    const current=kh117T0();
+    if(!current?.date)return {dates:[],records:[],reason:'T0 tarihi henüz yok'};
+    const records=calculationRecords();
+    // T1–T30 means the latest thirty verified market-session dates, not
+    // thirty dates with already sufficient financial data. A missing recent
+    // session must NOT cause an older T31 date to be silently filled instead.
+    const timeline=(kh117CanonicalMarketCalendar().dates||[])
+      .filter(date=>date<current.date).slice(-30).reverse();
+    return {dates:timeline.filter(date=>!existing.has(date)).slice(0,size),
+      records,reason:timeline.length?'': 'K_Tarihsel işlem takvimi henüz doğrulanamadı'};
+  }
+  async function fill(requested){
+    const count=Number(requested);
+    if(!counts.has(count))throw new Error('Yalnız 1, 5 veya 10 boş satır seçilebilir');
+    if(state.syncing||state.calculating)throw new Error('Devam eden işlem tamamlanmalı');
+    const {dates,records,reason}=plan(count);
+    if(reason)throw new Error(reason);
+    if(!dates.length){showAurumNotice('T1–T30 içinde doldurulabilecek boş satır yok. Mevcut arşiv korundu.','info',3300);return 0}
+    state.calculating=true;state.progress={stage:'K_Tarihsel boşluk doldurma',done:0,total:dates.length,errors:0};
+    const prior=kh117CloneValue(kh117ArchiveState()),pending=[];
+    try{
+      for(const date of dates){
+        const r=kh117PitRowForAnchor(date,records);
+        if(!r?.ok)throw new Error('K_Tarihsel '+date+' doldurulamadı: '+String(r?.reason||'kanıt eksik'));
+        pending.push({...kh117CloneValue(r.row),source:'MANUAL_GAP_FILL',
+          archiveOrigin:'MANUAL',manualFill:true,frozen:true,immutable:true,
+          formulaDetached:true,at:nowISO()});
+        state.progress.done=pending.length;await new Promise(resolve=>setTimeout(resolve,0));
+      }
+      const current=kh117ArchiveState(),kept=new Set(current.rows.map(x=>x.date));
+      const newRows=pending.filter(x=>!kept.has(x.date));
+      if(newRows.length!==pending.length)throw new Error('Otomatik arşiv değişti; manuel işlem iptal edildi');
+      const candidate={...current,rows:[...current.rows,...newRows]};
+      const checked=kh117ValidateArchive(candidate,kh117T0().date);
+      if(!checked.ok||checked.rows.length!==candidate.rows.length)
+        throw new Error('K_Tarihsel arşiv bütünlüğü sağlanmadı');
+      state.khArchive=candidate;
+      await kh117PersistArchive();
+      showAurumNotice(newRows.length+' boş tarih satırı dolduruldu; otomatik arşiv satırları değiştirilmedi.','success',4200);
+      return newRows.length;
+    }catch(e){state.khArchive=prior;throw e}
+    finally{state.calculating=false;state.progress=null;try{renderCurrentPagePreservingView()}catch{}}
+  }
+  const prev=globalThis.historyPage||historyPage;
+  const historyGapPage=function historyGapPage(){
+    const original=String(prev.apply(this,arguments));
+    const busy=state.syncing||state.calculating;
+    const toolbar='<div class="actions aurum-khist-gap-actions"><small class="muted">Yalnız boş T1–T30 satırları</small>'+
+      [1,5,10].map(n=>'<button type="button" class="ghost-btn" '+
+        (busy?'disabled ':'')+'onclick="AurumHistoryGapFill.fill('+n+
+        ').catch(e=>showAurumNotice(e.message,\'error\',4400))">+'+n+' boş</button>').join('')+'</div>';
+    const label='K_Tarihsel’i Çalıştır</button>';
+    return original.includes(label)?original.replace(label,label+toolbar):toolbar+original;
+  };
+  historyPage=historyGapPage;globalThis.historyPage=historyGapPage;
+  globalThis.AurumHistoryGapFill=Object.freeze({fill,available:n=>plan(n).dates.length});
 })();
