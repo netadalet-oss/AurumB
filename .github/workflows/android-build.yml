@@ -158,6 +158,8 @@ jobs:
             :app:lintDebug \
             --stacktrace
           test -f app/build/outputs/apk/release/app-release-unsigned.apk
+      - name: Validate packaged APK K_Tarihsel controls and immutable archive
+        run: node tests/aurumb-packaged-apk-history.cjs
       - name: Upload Gradle-signed installable APK
         uses: actions/upload-artifact@v4
         with:
