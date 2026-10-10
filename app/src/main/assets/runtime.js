@@ -6778,7 +6778,11 @@ globalThis.AurumNotifications=Object.freeze({version:'R225.0',open:openJournal,r
         throw new Error('K_Tarihsel arşiv bütünlüğü sağlanmadı');
       state.khArchive=candidate;
       await kh117PersistArchive();
-      showAurumNotice(newRows.length+' boş tarih satırı dolduruldu; otomatik arşiv satırları değiştirilmedi.','success',4200);
+      const last30=(kh117CanonicalMarketCalendar().dates||[]).filter(d=>d<kh117T0().date).slice(-30);
+      const keptAfter=new Set((kh117ArchiveState().rows||[]).map(x=>String(x.date||'')));
+      const remaining=last30.filter(d=>!keptAfter.has(d)).length;
+      showAurumNotice('Doldurulan: '+newRows.length+' gün · Kalan: '+remaining+
+        ' gün (T1–T30). Otomatik arşiv satırları korunuyor.','success',4200);
       return newRows.length;
     }catch(e){state.khArchive=prior;throw e}
     finally{state.calculating=false;state.progress=null;try{renderCurrentPagePreservingView()}catch{}}
