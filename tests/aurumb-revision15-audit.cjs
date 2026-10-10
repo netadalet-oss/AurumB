@@ -199,7 +199,7 @@ console.log('PASS AurumB 15-revision preservation, logs, scheduler, Nederland an
    state:{syncing:false,calculating:false,page:'history'},
    historyPage:()=>mock, globalThis:{}
  };
- const wrapped=source.slice(start,source.indexOf('  if(typeof document!==',start));
+ const wrapped=source.slice(source.indexOf('  function gapToolbar(){',source.indexOf('(function installAurumHistoryGapFill(){')),source.indexOf('  if(typeof document!==',start));
  vm.runInNewContext(wrapped,sandbox,{timeout:1000});
  const rendered=sandbox.historyPage();
  assert.ok(rendered.indexOf('K_Tarihsel’i Çalıştır')>=0);
