@@ -196,3 +196,7 @@ console.log('PASS AurumB 15-revision preservation, logs, scheduler, Nederland an
  assert.ok(source.includes("target.insertAdjacentHTML('afterbegin',gapToolbar())"), 'cached history slot must gain controls without destroying other page DOM');
  console.log('PASS AurumB K_Tarihsel 1/5/10 controls visible on cached page slots');
 }
+
+assert.ok(r.includes('const remaining=last30.filter(d=>!keptAfter.has(d)).length;')&&
+  r.includes("'Doldurulan: '")&&r.includes("' gün · Kalan: '"),
+  'manual T1–T30 history must report filled and remaining session counts');
