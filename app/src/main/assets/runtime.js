@@ -6759,7 +6759,7 @@ globalThis.AurumNotifications=Object.freeze({version:'R225.0',open:openJournal,r
     const toolbar='<div class="actions aurum-khist-gap-actions"><small class="muted">Yalnız boş T1–T30 satırları</small>'+
       [1,5,10].map(n=>'<button type="button" class="ghost-btn" '+
         (busy?'disabled ':'')+'onclick="AurumHistoryGapFill.fill('+n+
-        ').catch(e=>showAurumNotice(e.message,\'error\',4400))">+'+n+' boş</button>').join('')+'</div>';
+        ').catch(e=>showAurumNotice(e.message,\'error\',4400))">+'+n+' Gün Yükle</button>').join('')+'</div>';
     const label='K_Tarihsel’i Çalıştır</button>';
     return original.includes(label)?original.replace(label,label+toolbar):toolbar+original;
   };
