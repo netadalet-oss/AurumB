@@ -51,5 +51,11 @@ for(const days of [1,5,10])assert.ok(ctx.historyPage().includes(days+' Gün Yük
   await assert.rejects(ctx.AurumHistoryGapFill.fill(1),/arşiv 30 kayıtla dolu/);
   assert.deepEqual(state.khArchive.rows,fullArchive,
     'capacity denial preserves every existing automatic record');
+  state.khArchive={rows:structuredClone([originalAuto])};
+  ctx.calculationRecords=()=>[];
+  await assert.rejects(ctx.AurumHistoryGapFill.fill(1),/Veriler bölümündeki doğrulanmış veri doluluğu %70 üstüne/,
+    'zero-source data must explain why PIT cannot run');
+  assert.deepEqual(state.khArchive.rows,[originalAuto],
+    'no-data PIT cannot mutate existing verified historical records');
   console.log('PASS manual T1-T30 plan; automatic archive precedence; rollback; UI; valid options');
 })().catch(e=>{console.error(e);process.exitCode=1});
