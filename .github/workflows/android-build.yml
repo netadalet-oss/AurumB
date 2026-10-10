@@ -229,3 +229,55 @@ jobs:
           name: AurumB-final-installable-apk
           path: app/build/outputs/apk/AurumB-final-install.apk
           if-no-files-found: error
+
+  emulator-smoke:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: assemble
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        api-level: [26, 35]
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: AurumB-final-installable-apk
+          path: apk
+      - name: Enable Android emulator KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          test -e /dev/kvm
+      - name: Android ${{ matrix.api-level }} launch and offline-restart smoke
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api-level }}
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            set -eu
+            APK="$(find apk -type f -name '*.apk' | head -1)"
+            test -s "$APK"
+            adb wait-for-device
+            adb install -r "$APK"
+            adb logcat -c
+            adb shell am start -W -n com.aurum.nextrevised09/com.aurum.bistterminal8.MainActivity
+            sleep 10
+            adb shell pidof com.aurum.nextrevised09 >/dev/null
+            adb shell am force-stop com.aurum.nextrevised09
+            adb shell svc wifi disable || true
+            adb shell svc data disable || true
+            adb shell am start -W -n com.aurum.nextrevised09/com.aurum.bistterminal8.MainActivity
+            sleep 8
+            adb shell pidof com.aurum.nextrevised09 >/dev/null
+            adb shell input keyevent KEYCODE_HOME
+            sleep 2
+            adb shell am start -W -n com.aurum.nextrevised09/com.aurum.bistterminal8.MainActivity
+            sleep 5
+            adb shell pidof com.aurum.nextrevised09 >/dev/null
+            ! adb logcat -d | grep -A10 -B3 'FATAL EXCEPTION' | grep -q 'Process: com.aurum.nextrevised09'
