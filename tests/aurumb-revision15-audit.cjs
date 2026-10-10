@@ -69,3 +69,20 @@ console.log('PASS AurumB 15-revision preservation, logs, scheduler, Nederland an
  assert.equal(scope.jokerExitReason(position,'TEST',110),'JOKER_KAR_KADEMESI');
  console.log('PASS standalone B Joker: no invented historical crossing, actual quote clock');
 }
+
+
+/* 15/09: distinct securities/prices must not collapse into one 20-log record. */
+{
+ const settingsSource=fs.readFileSync('app/src/main/assets/scheduler-settings.js','utf8');
+ const fp=settingsSource.match(/function historyFingerprint\(type,message\)\{[\s\S]*?\n \}/)?.[0];
+ assert.ok(fp,'history fingerprint implementation required');
+ const context={historyType:t=>String(t).toLowerCase()};
+ vm.runInNewContext(fp,context,{timeout:1200});
+ const a=context.historyFingerprint('error','AL/SAT ASELS 12.34');
+ const b=context.historyFingerprint('error','AL/SAT TUPRS 12.34');
+ const c=context.historyFingerprint('error','AL/SAT ASELS 12.35');
+ assert.notEqual(a,b,'distinct ticker alerts must remain separate');
+ assert.notEqual(a,c,'distinct trade prices must remain separate');
+ assert.equal(context.historyFingerprint('error','  AL/SAT  ASELS 12.34 '),a,
+   'whitespace-only duplicates may still be grouped');
+}
