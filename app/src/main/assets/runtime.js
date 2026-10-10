@@ -4547,13 +4547,22 @@ try{AurumUpdateAPI.state.cleanREV20={version:'REV20.0-CLEAN',activatedAt:new Dat
     const start=e.buyMarketAt||e.buyAt;
     if(!start||Date.parse(observedAt)<=Date.parse(start))return null;
     const highest=Number(e.maxReturnPct||0);
-    // Each newly observed 5% profit tier has its own three-session clock.
-    // Never invent historical crossing times for older saved positions.
-    const tier=Math.max(0,Math.floor((highest+EPS)/5)*5);
-    if(tier>=5 && tier!==Number(e.profitStagePct||0)){
-      e.profitStagePct=tier;e.profitStageReachedAt=observedAt;
+    // Never backdate a threshold crossing from a persisted maximum alone.
+    // Only the actual provider-timestamped quote can start a new session clock.
+    const highestTier=Math.max(0,Math.floor((highest+EPS)/5)*5);
+    const observedPct=100*(lastPrice/entry-1);
+    const observedTier=Math.max(0,Math.floor((observedPct+EPS)/5)*5);
+    const savedTier=Number(e.profitStagePct||0),savedAt=e.profitStageReachedAt;
+    const hasSavedTime=!!(savedAt&&Number.isFinite(Date.parse(savedAt)));
+    if(observedTier>=5&&observedTier>=highestTier&&
+       (observedTier>savedTier||!hasSavedTime)){
+      e.profitStagePct=observedTier;e.profitStageReachedAt=observedAt;
     }
-    if(tier>=5&&e.profitStageReachedAt){
+    const tier=Number(e.profitStagePct||0);
+    if(highestTier>=5){
+      if(!(tier>=5&&e.profitStageReachedAt&&
+           Number.isFinite(Date.parse(e.profitStageReachedAt))&&
+           Date.parse(e.profitStageReachedAt)<=Date.parse(observedAt)))return null;
       const passed=completedSessionBoundaries(e.profitStageReachedAt,observedAt);
       const threshold=entry*(1+tier/100);
       if((passed.opens>=3||passed.closes>=3)&&lastPrice<=threshold+EPS)
