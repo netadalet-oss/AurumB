@@ -6712,6 +6712,8 @@ globalThis.AurumNotifications=Object.freeze({version:'R225.0',open:openJournal,r
     const timeline=(kh117CanonicalMarketCalendar().dates||[])
       .filter(date=>date<current.date).slice(-30).reverse();
     const missing=timeline.filter(date=>!existing.has(date));
+    if(missing.length&&!records.length)return {dates:[],records,
+      reason:'K_Tarihsel geçmişi için önce Veriler bölümündeki doğrulanmış veri doluluğu %70 üstüne çıkarılmalı; eksik arşiv satırları değiştirilmedi.'};
     const capacity=Math.max(0,30-rows.length);
     // A stale T31 record must not silently disguise a missing T1/T30 date.
     // Deleting it to make room would violate automatic archive immutability.
