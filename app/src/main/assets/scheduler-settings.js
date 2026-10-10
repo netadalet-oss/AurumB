@@ -128,7 +128,8 @@
    try{st=JSON.parse(call('schedule_status')||'null')}catch{}
    const verified=!!st&&['data','market'].every(kind=>
      st[kind+'Enabled']===enabled(kind) &&
-     sameTimes(st[kind+'Times'],times(kind)));
+     sameTimes(st[kind+'Times'],times(kind)) &&
+     (st[kind+'Enabled']!==true || st[kind+'Registered']===true));
    const ok=a==='OK'&&b==='OK'&&verified;
    const message=ok?'Android alarm kayıtları doğrulandı · Veriler ve Piyasa zamanlayıcıları kuruldu':
      'Zamanlayıcı kurulumu doğrulanamadı · Veriler: '+String(a||'yanıt yok')+' · Piyasa: '+String(b||'yanıt yok')+
@@ -147,7 +148,7 @@
    const results={};
    for(const kind of ['data','market']){
      const wantEnabled=enabled(kind),wantTimes=times(kind),nativeEnabled=st?.[kind+'Enabled']===true,nativeTimes=Array.isArray(st?.[kind+'Times'])?st[kind+'Times']:[];
-     if(wantEnabled===nativeEnabled&&sameTimes(wantTimes,nativeTimes)){results[kind]='UNCHANGED';continue}
+     if(wantEnabled===nativeEnabled&&sameTimes(wantTimes,nativeTimes)&&(!wantEnabled||st?.[kind+'Registered']===true)){results[kind]='UNCHANGED';continue}
      const r=call('schedule',{kind,enabled:wantEnabled?'1':'0',times:wantTimes.join(',')});
      results[kind]=r||'NO_RESPONSE';
    }
@@ -156,7 +157,7 @@
    return {ok,reason,results};
  }
  function defaults(){sync('data',DATA_DEF.split(','));sync('market',DATA_DEF.split(',').map(plus30));set(DATA_ON,'1');set(MARKET_ON,'1');log('info','Zamanlayıcı varsayılanları geri yüklendi');rerender()}
- function report(){const h=document.getElementById('aurumSchedulerHealth'),r=document.getElementById('aurumSchedulerRows'),s=document.getElementById('aurumSchedulerSummary');if(!h||!r)return;const raw=call('schedule_status');let st=null;try{st=JSON.parse(raw)}catch{}const ok=!!st,exact=st?.exactAllowed===true,rows=[['Veriler',enabled('data'),times('data')],['Piyasa',enabled('market'),times('market')]],anyOn=rows.some(x=>x[1]);h.innerHTML=!ok?'Android alarm katmanı durum yanıtı alınamadı':!anyOn?'Zamanlayıcı devre dışı · Veriler ve Piyasa profilleri kapalı':exact?'Android alarm katmanı hazır · kesin alarm izni AÇIK':'Kesin alarm izni KAPALI · yaklaşık alarm kullanılacak <button class="ghost-btn" type="button" onclick="AurumDualScheduler.exactSettings()">İzni Aç</button>';const slot=(name,on,t)=>'<div class="aurum-scheduler-row"><b>'+esc(t)+'</b><small>'+esc(name)+'</small><em class="'+(on&&ok&&exact?'ok':'warn')+'">'+(on?(ok?(exact?'Kesin':'Yaklaşık'):'Kontrol'):'Kapalı')+'</em></div>';
+ function report(){const h=document.getElementById('aurumSchedulerHealth'),r=document.getElementById('aurumSchedulerRows'),s=document.getElementById('aurumSchedulerSummary');if(!h||!r)return;const raw=call('schedule_status');let st=null;try{st=JSON.parse(raw)}catch{}const ok=!!st&&['data','market'].every(kind=>st[kind+'Enabled']!==true||st[kind+'Registered']===true),exact=st?.exactAllowed===true,rows=[['Veriler',enabled('data'),times('data')],['Piyasa',enabled('market'),times('market')]],anyOn=rows.some(x=>x[1]);h.innerHTML=!ok?'Android alarm katmanı durum yanıtı alınamadı':!anyOn?'Zamanlayıcı devre dışı · Veriler ve Piyasa profilleri kapalı':exact?'Android alarm katmanı hazır · kesin alarm izni AÇIK':'Kesin alarm izni KAPALI · yaklaşık alarm kullanılacak <button class="ghost-btn" type="button" onclick="AurumDualScheduler.exactSettings()">İzni Aç</button>';const slot=(name,on,t)=>'<div class="aurum-scheduler-row"><b>'+esc(t)+'</b><small>'+esc(name)+'</small><em class="'+(on&&ok&&exact?'ok':'warn')+'">'+(on?(ok?(exact?'Kesin':'Yaklaşık'):'Kontrol'):'Kapalı')+'</em></div>';
  r.innerHTML=rows.map(([name,on,slots])=>{
    const list=on?slots:[],main=list.slice(0,6),rest=list.slice(6);
    return '<section class="aurum-scheduler-group"><div class="aurum-scheduler-group-head"><strong>'+esc(name)+'</strong><small>'+esc(on?String(slots.length)+' saat · '+(ok?(exact?'Kesin':'Yaklaşık'):'Doğrulanamadı'):'Kapalı')+'</small></div>'+

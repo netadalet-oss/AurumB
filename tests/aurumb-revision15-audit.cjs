@@ -25,3 +25,12 @@ ctx.globalThis=ctx;
 vm.runInNewContext(nl,ctx,{timeout:1500});ctx.AurumNLPortal.show('NL');
 assert.match(ctx.marketPage(),/aurum-country-tab active" data-country="NL"/);
 console.log('PASS AurumB 15-revision preservation, logs, scheduler, Nederland and blocked universe guards');
+
+// Native PendingIntent reality check supplements saved schedule state.
+{const fs=require('node:fs'),assert=require('node:assert/strict');
+ const k=fs.readFileSync('app/src/main/java/com/aurum/bistterminal8/AurumScheduler.kt','utf8');
+ const s=fs.readFileSync('app/src/main/assets/scheduler-settings.js','utf8');
+ assert.ok(k.includes('json.put(kind + "Registered", registered(context, kind))'));
+ assert.ok(k.includes('PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE'));
+ assert.ok(s.includes("(st[kind+'Enabled']!==true || st[kind+'Registered']===true)"));
+}

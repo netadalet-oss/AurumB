@@ -111,6 +111,7 @@ object AurumScheduler {
         for (kind in listOf("data", "market")) {
             json.put(kind + "Enabled", enabled(context, kind))
             json.put(kind + "Times", org.json.JSONArray(configuredTimes(context, kind)))
+            json.put(kind + "Registered", registered(context, kind))
             json.put(
                 kind + "Next",
                 org.json.JSONObject(prefs.all.filterKeys { it.startsWith("next_" + kind + "_") })
@@ -217,6 +218,15 @@ object AurumScheduler {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+    /** Read-only check that each active Android PendingIntent still exists. */
+    fun registered(context:Context,kind:String):Boolean {
+        if(!enabled(context,kind))return true
+        return configuredTimes(context,kind).all { time ->
+            PendingIntent.getBroadcast(context,requestCode(time,kind),
+              Intent(context,TriggerReceiver::class.java).setAction(ACTION_SLOT),
+              PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE)!=null
+        }
+    }
     private fun requestCode(time: String, kind: String) = (kind + "|" + time).hashCode()
     private fun plus30(time: String) = LocalTime.parse(time, fmt).plusMinutes(30).format(fmt)
 }
