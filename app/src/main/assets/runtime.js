@@ -5539,12 +5539,21 @@ try{AurumUpdateAPI.state.r239={version:'REV20.39-STRICT-CADENCE-SAME-SOURCE-MARK
   if(globalThis.__AURUM_REV210_TRADE_SAFETY)return;globalThis.__AURUM_REV210_TRADE_SAFETY=true;
   const OUTBOX_KEY='aurum.trade.alert.outbox.r210';
   const AUDIT_KEY='aurum.trade.integrity.r210';
+  const LIST_KEY='aurum.trade.alert.last-list.r221';
   const DEFAULT_RECIPIENT='netfnsm@gmail.com';
   const maxRows=300;
   const clone=x=>{try{return structuredClone(x)}catch{try{return JSON.parse(JSON.stringify(x))}catch{return x}}};
   const now=()=>new Date().toISOString();
   function readOutbox(){try{const x=JSON.parse(localStorage.getItem(OUTBOX_KEY)||'null');return Array.isArray(x)?x:[]}catch{return []}}
-  async function persistOutbox(rows){const v=(rows||[]).slice(-maxRows);try{localStorage.setItem(OUTBOX_KEY,JSON.stringify(v))}catch{};try{await dbPut('meta',{key:'tradeAlertOutboxR210',value:{rows:v,updatedAt:now()},updatedAt:now()})}catch{}return v}
+  async function persistOutbox(rows){
+    // Keep every undelivered event. Only acknowledged history may be pruned.
+    const pending=(rows||[]).filter(x=>!x?.delivery?.emailAt);
+    const done=(rows||[]).filter(x=>!!x?.delivery?.emailAt).slice(-maxRows);
+    const v=[...pending,...done].sort((a,b)=>String(a?.at||'').localeCompare(String(b?.at||'')));
+    localStorage.setItem(OUTBOX_KEY,JSON.stringify(v));
+    try{await dbPut('meta',{key:'tradeAlertOutboxR210',value:{rows:v,updatedAt:now()},updatedAt:now()})}catch{}
+    return v;
+  }
   function eventId(r,job){const b=(r?.buys||[]).slice().sort().join(','),s=(r?.sells||[]).slice().sort().join(','),t=String(job?.dataSnapshotId||job?.id||Date.now());return `QBS|${t}|AL:${b}|SAT:${s}`}
   function portfolioBrief(){try{const p=globalThis.AurumPortfolio?.state?.();if(!p)return null;const hs=Object.values(p.holdings||{});const cash=Number(p.startingCapital||0)+(p.transactions||[]).reduce((a,x)=>a+Number(x?.cashDelta||0),0);return {startingCapital:Number(p.startingCapital||0),activeHoldings:hs.map(x=>x.sym).sort(),holdingCount:hs.length,realizedPnL:Number(p.realizedPnL||0),cash:Number.isFinite(cash)?cash:null,lastUpdatedAt:p.lastUpdatedAt||null}}catch{return null}}
   function r216FormPost(url,payload){
@@ -5605,7 +5614,11 @@ try{AurumUpdateAPI.state.r239={version:'REV20.39-STRICT-CADENCE-SAME-SOURCE-MARK
       id:String(row?.id||''),at:row?.at||now(),tradeDate:String(row?.tradeDate||''),
       jobId:String(row?.jobId||''),snapshotId:String(row?.snapshotId||''),
       buys:Array.isArray(row?.buys)?row.buys.slice(0,12):[],
-      sells:Array.isArray(row?.sells)?row.sells.slice(0,12):[],test:row?.test===true
+      sells:Array.isArray(row?.sells)?row.sells:[],
+      buyList:Array.isArray(row?.buyList)?row.buyList:[],
+      sellList:Array.isArray(row?.sellList)?row.sellList:[],
+      changes:row?.changes||null,listVersion:row?.listVersion||null,
+      test:row?.test===true
     };
     const payload={type:'AURUM_AL_SAT',recipient:String(state?.settings?.tradeAlertEmail||DEFAULT_RECIPIENT),event:compactEvent,portfolio:compactPortfolio};
     endpoint.searchParams.set('mode','send');
@@ -5631,16 +5644,86 @@ try{AurumUpdateAPI.state.r239={version:'REV20.39-STRICT-CADENCE-SAME-SOURCE-MARK
       return {ok:false,status:'NATIVE_GET_FAILED',detail:String(e?.message||e||'').slice(0,260),transport:'native-get'};
     }
   }
-  async function enqueue(r,job){
-    const buys=[...new Set((r?.buys||[]).map(x=>String(x||'').toUpperCase()).filter(Boolean))],sells=[...new Set((r?.sells||[]).map(x=>String(x||'').toUpperCase()).filter(Boolean))];
-    if(!buys.length&&!sells.length)return null;
-    const id=eventId({buys,sells},job),rows=readOutbox();if(rows.some(x=>x.id===id))return rows.find(x=>x.id===id);
-    const row={id,at:now(),tradeDate:String(r?.state?.updatedAt||'').slice(0,10)||String(job?.completedAt||job?.createdAt||now()).slice(0,10),jobId:String(job?.id||''),snapshotId:String(job?.dataSnapshotId||''),buys,sells,recipient:String(state?.settings?.tradeAlertEmail||DEFAULT_RECIPIENT),delivery:{device:true,email:'PENDING'}};
-    rows.push(row);await persistOutbox(rows);
-    const sent=await relay(row);row.delivery.email=sent.status;row.delivery.emailAt=sent.ok?now():null;await persistOutbox(rows);
-    try{await dbPut('meta',{key:'tradeAlertLastR210',value:row,updatedAt:now()})}catch{}
-    return row;
+  let deliveryInFlight=null, syncInFlight=null;
+  const symbols=(xs)=>[...new Set(xs.map(x=>String(x||'').trim().toUpperCase()).filter(Boolean))].sort();
+  function snapshot(q){
+    const rows=Object.values(q?.items||{}),buys=[],sells=[];
+    for(const x of rows){
+      if(!x || (x.status!=='BUY'&&x.status!=='SELL'))continue;
+      const sym=String(x.sym||'').trim().toUpperCase();
+      if(!sym)continue;
+      const at=x.status==='BUY'?(x.buyAt||x.buyTradeDate||''):(x.sellAt||x.sellTradeDate||'');
+      const value=x.status==='BUY'?x.buyPrice:x.sellPrice;
+      const line={code:sym,at:String(at),price:Number.isFinite(Number(value))?Number(value):null};
+      (x.status==='BUY'?buys:sells).push(line);
+    }
+    buys.sort((a,b)=>a.code.localeCompare(b.code));
+    sells.sort((a,b)=>a.code.localeCompare(b.code));
+    return {buys,sells};
   }
+  async function flush(){
+    if(deliveryInFlight)return deliveryInFlight;
+    deliveryInFlight=(async()=>{
+      const url=String(state?.settings?.tradeAlertWebhookUrl||'').trim();
+      if(!url)return {sent:0,pending:readOutbox().filter(x=>!x?.delivery?.emailAt).length};
+      const rows=readOutbox();
+      let sent=0;
+      for(const row of rows){
+        if(row?.delivery?.emailAt)continue;
+        const r=await relay(row);
+        row.delivery=row.delivery||{};
+        row.delivery.email=r.status;
+        row.delivery.lastAttemptAt=now();
+        row.delivery.attempts=Number(row.delivery.attempts||0)+1;
+        row.delivery.emailAt=r.ok?now():null;
+        await persistOutbox(rows);
+        if(!r.ok)break; // Preserve chronological delivery on transient failures.
+        sent++;
+      }
+      return {sent,pending:rows.filter(x=>!x?.delivery?.emailAt).length};
+    })().finally(()=>{deliveryInFlight=null});
+    return deliveryInFlight;
+  }
+  async function syncList(q,job){
+    if(syncInFlight)return syncInFlight;
+    syncInFlight=(async()=>{
+      const current=snapshot(q||globalThis.AurumQualifiedBuySell?.state?.()||{items:{}});
+      const serial=JSON.stringify(current);
+      let previous=null;
+      try{previous=JSON.parse(localStorage.getItem(LIST_KEY)||'null')}catch{}
+      const prior=previous?.snapshot||{buys:[],sells:[]};
+      const previousSerial=previous?.signature||null;
+      const recipient=String(state?.settings?.tradeAlertEmail||DEFAULT_RECIPIENT).trim();
+      if(previousSerial===serial&&previous?.recipient===recipient)return flush();
+      // Empty first run is not a trade alert. Remember the baseline.
+      if(!previousSerial&&!current.buys.length&&!current.sells.length){
+        localStorage.setItem(LIST_KEY,JSON.stringify({snapshot:current,signature:serial,recipient}));
+        return flush();
+      }
+      const beforeB=symbols(prior.buys.map(x=>x.code)),beforeS=symbols(prior.sells.map(x=>x.code));
+      const afterB=symbols(current.buys.map(x=>x.code)),afterS=symbols(current.sells.map(x=>x.code));
+      const changes={
+        addedBuys:afterB.filter(x=>!beforeB.includes(x)),
+        removedBuys:beforeB.filter(x=>!afterB.includes(x)),
+        addedSells:afterS.filter(x=>!beforeS.includes(x)),
+        removedSells:beforeS.filter(x=>!afterS.includes(x))
+      };
+      const rows=readOutbox(),id='QBS_LIST|'+Date.now()+'|'+(job?.dataSnapshotId||job?.id||'USER');
+      const row={id,at:now(),tradeDate:now().slice(0,10),
+        jobId:String(job?.id||''),snapshotId:String(job?.dataSnapshotId||''),
+        buys:afterB,sells:afterS,buyList:current.buys,sellList:current.sells,
+        changes,listVersion:'AURUM_TRADE_LIST_V2',recipient,
+        delivery:{device:false,email:'PENDING',attempts:0,emailAt:null}};
+      rows.push(row);
+      await persistOutbox(rows);
+      // A crash after queuing may replay the same snapshot; dedupe from outbox.
+      localStorage.setItem(LIST_KEY,JSON.stringify({snapshot:current,signature:serial,recipient}));
+      await flush();
+      return row;
+    })().finally(()=>{syncInFlight=null});
+    return syncInFlight;
+  }
+  async function enqueue(r,job){return syncList(r?.state||null,job)}
   function audit(){
     const issues=[],warnings=[];let q={items:{}},p=null;
     try{q=globalThis.AurumQualifiedBuySell?.state?.()||q}catch{}
@@ -5663,13 +5746,18 @@ try{AurumUpdateAPI.state.r239={version:'REV20.39-STRICT-CADENCE-SAME-SOURCE-MARK
     return report;
   }
   globalThis.AurumTradeIntegrity=Object.freeze({run:audit,last:()=>{try{return JSON.parse(localStorage.getItem(AUDIT_KEY)||'null')}catch{return null}}});
-  globalThis.AurumTradeAlerts=Object.freeze({enqueue,outbox:()=>clone(readOutbox()),recipient:()=>String(state?.settings?.tradeAlertEmail||DEFAULT_RECIPIENT),relayUrl:()=>String(state?.settings?.tradeAlertWebhookUrl||'').trim(),relayConfigured:()=>/^https:\/\//i.test(String(state?.settings?.tradeAlertWebhookUrl||''))});
+  globalThis.AurumTradeAlerts=Object.freeze({enqueue,sync:syncList,flush,outbox:()=>clone(readOutbox()),recipient:()=>String(state?.settings?.tradeAlertEmail||DEFAULT_RECIPIENT),relayUrl:()=>String(state?.settings?.tradeAlertWebhookUrl||'').trim(),relayConfigured:()=>/^https:\/\//i.test(String(state?.settings?.tradeAlertWebhookUrl||''))});
   try{globalThis.__AURUM_TRADE_RELAY_URL__=String(state?.settings?.tradeAlertWebhookUrl||'').trim()}catch{}
 
   /* Wrap qualified AL/SAT without touching the strategy/ranking rules. */
   try{
     const oldQ=globalThis.AurumQualifiedBuySell;
-    if(oldQ?.advance){globalThis.AurumQualifiedBuySell=Object.freeze({...oldQ,advance:async job=>{const r=await oldQ.advance(job);try{await enqueue(r,job)}catch{};try{audit()}catch{};return r}})}
+    if(oldQ?.advance){
+      const wrap=(name)=>async(...args)=>{const result=await oldQ[name](...args);if(result?.ok!==false){try{await syncList(result?.state||null,{id:'MANUAL:'+name})}catch(e){console.warn('AL/SAT mail sync',e)}}return result};
+      globalThis.AurumQualifiedBuySell=Object.freeze({...oldQ,
+        advance:async job=>{const r=await oldQ.advance(job);try{await enqueue(r,job)}catch(e){console.warn('AL/SAT mail enqueue',e)};try{audit()}catch{};return r},
+        manualBuy:wrap('manualBuy'),manualSell:wrap('manualSell'),purgeSymbol:wrap('purgeSymbol')});
+    }
   }catch{}
   /* Re-audit after every portfolio reconciliation. */
   try{
@@ -5686,7 +5774,7 @@ try{AurumUpdateAPI.state.r239={version:'REV20.39-STRICT-CADENCE-SAME-SOURCE-MARK
     const ck=hookRaw?r214RelayUrlCheck(hookRaw):{ok:false,status:''};
     return baseSettings()+`<details class="card gold-edge aurum-settings-details" id="aurumTradeDeliverySettings"><summary class="aurum-settings-summary"><div><strong>AL/SAT Bildirim Teslimi</strong><small>Her değişiklik kalıcı outbox\'a yazılır</small></div><span class="aurum-details-chevron" aria-hidden="true">⌄</span></summary><div class="aurum-settings-details-body"><div class="field"><label>Alıcı e-posta</label><input id="r210TradeMail" type="email" value="${mail}" autocomplete="off"></div><div class="field"><label>Google Apps Script webhook URL</label><input id="r210TradeHook" type="url" value="${hook}" placeholder="https://script.google.com/macros/s/.../exec?token=..."></div><div class="actions"><button class="gold-btn" onclick="saveR210TradeNotifySettings()">Bildirim Ayarını Kaydet</button><button class="ghost-btn" onclick="testR210TradeNotify()">Relay Testi</button></div></div></details>`;
   };
-  globalThis.saveR210TradeNotifySettings=async function(){const mail=String(document.getElementById('r210TradeMail')?.value||DEFAULT_RECIPIENT).trim(),hook=String(document.getElementById('r210TradeHook')?.value||'').trim();if(hook){const ck=r214RelayUrlCheck(hook);if(!ck.ok){showAurumNotice(ck.status,'error',3400);return false}}state.settings.tradeAlertEmail=mail||DEFAULT_RECIPIENT;state.settings.tradeAlertWebhookUrl=hook;globalThis.__AURUM_TRADE_RELAY_URL__=hook;await saveSettings();state.settingsDirty=false;showAurumNotice('AL/SAT bildirim ayarı kaydedildi','success',2200);const st=document.querySelector('#r210TradeNotifyStatus');if(st)st.textContent=hook?r214RelayUrlCheck(hook).status:'';return true};
+  globalThis.saveR210TradeNotifySettings=async function(){const mail=String(document.getElementById('r210TradeMail')?.value||DEFAULT_RECIPIENT).trim(),hook=String(document.getElementById('r210TradeHook')?.value||'').trim();if(hook){const ck=r214RelayUrlCheck(hook);if(!ck.ok){showAurumNotice(ck.status,'error',3400);return false}}state.settings.tradeAlertEmail=mail||DEFAULT_RECIPIENT;state.settings.tradeAlertWebhookUrl=hook;globalThis.__AURUM_TRADE_RELAY_URL__=hook;await saveSettings();state.settingsDirty=false;showAurumNotice('AL/SAT bildirim ayarı kaydedildi','success',2200);const st=document.querySelector('#r210TradeNotifyStatus');if(st)st.textContent=hook?r214RelayUrlCheck(hook).status:'';try{await syncList();await flush()}catch(e){console.warn('AL/SAT mail delivery',e)}return true};
   globalThis.testR210TradeNotify=async function(){
     const hook=String(document.getElementById('r210TradeHook')?.value||state.settings?.tradeAlertWebhookUrl||'').trim(),ck=r214RelayUrlCheck(hook);
     if(!ck.ok){showAurumNotice(ck.status,'error',3600);return false}
@@ -5698,7 +5786,8 @@ try{AurumUpdateAPI.state.r239={version:'REV20.39-STRICT-CADENCE-SAME-SOURCE-MARK
     showAurumNotice(msg,r.ok?'success':'error',7600);return r.ok;
   };
 
-  queueMicrotask(()=>{try{if(!state.settings.tradeAlertEmail)state.settings.tradeAlertEmail=DEFAULT_RECIPIENT;saveSettings?.()}catch{};try{audit()}catch{};try{AurumUpdateAPI.state.r210={version:'REV20.14-RELAY-VERIFIED-MARKET-PORTAL',activatedAt:now(),features:['MARKET_3X2_COMPACT_STRIP','THIN_MARKET_TYPOGRAPHY','QBS_PERCENT_FORMAT_FIX','PORTFOLIO_TRANSACTION_DATE_FIX','TRADE_INTEGRITY_AUDIT','PERSISTENT_TRADE_ALERT_OUTBOX','OPTIONAL_HTTPS_EMAIL_RELAY_NO_EMBEDDED_CREDENTIALS','GOOGLE_APPS_SCRIPT_RELAY_ALLOWED_BY_EXACT_SAVED_URL','APPS_SCRIPT_CORS_SAFE_POST','DEDICATED_NATIVE_RELAY_TRANSPORT','OFFLINE_GUARD_RELAY_FALSE_POSITIVE_FIX','LEXICAL_STATE_RELAY_BRIDGE_FIX','EXACT_SAVED_URL_RUNTIME_GETTER','RELAY_JSON_SENT_VERIFICATION','RELAY_TOKEN_URL_VALIDATION','NO_FALSE_OPAQUE_SUCCESS','FINANCE_PORTAL_INSIDE_MARKET_SUMMARY_ONLY']}}catch{}});
+  setInterval(()=>{syncList().then(flush).catch(e=>console.warn('AL/SAT mail retry',e))},60000);
+  queueMicrotask(()=>{syncList().then(flush).catch(e=>console.warn('AL/SAT mail initial',e));try{if(!state.settings.tradeAlertEmail)state.settings.tradeAlertEmail=DEFAULT_RECIPIENT;saveSettings?.()}catch{};try{audit()}catch{};try{AurumUpdateAPI.state.r210={version:'REV20.14-RELAY-VERIFIED-MARKET-PORTAL',activatedAt:now(),features:['MARKET_3X2_COMPACT_STRIP','THIN_MARKET_TYPOGRAPHY','QBS_PERCENT_FORMAT_FIX','PORTFOLIO_TRANSACTION_DATE_FIX','TRADE_INTEGRITY_AUDIT','PERSISTENT_TRADE_ALERT_OUTBOX','OPTIONAL_HTTPS_EMAIL_RELAY_NO_EMBEDDED_CREDENTIALS','GOOGLE_APPS_SCRIPT_RELAY_ALLOWED_BY_EXACT_SAVED_URL','APPS_SCRIPT_CORS_SAFE_POST','DEDICATED_NATIVE_RELAY_TRANSPORT','OFFLINE_GUARD_RELAY_FALSE_POSITIVE_FIX','LEXICAL_STATE_RELAY_BRIDGE_FIX','EXACT_SAVED_URL_RUNTIME_GETTER','RELAY_JSON_SENT_VERIFICATION','RELAY_TOKEN_URL_VALIDATION','NO_FALSE_OPAQUE_SUCCESS','FINANCE_PORTAL_INSIDE_MARKET_SUMMARY_ONLY']}}catch{}});
 })();
 
 /* REV20.15 — Apps Script Android WebView sendBeacon POST fallback. */
