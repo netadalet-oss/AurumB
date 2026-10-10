@@ -785,8 +785,8 @@ function kh117SeriesDateIndex(rec){
 function kh117PriceForDailyReturn(rec,i,pi){const z=rec?.series||{},raw=z.close||[],adj=z.calcClose||[],fac=z.adjustmentFactor||[],f0=Number(fac[pi]),f1=Number(fac[i]),factorChanged=Number.isFinite(f0)&&Number.isFinite(f1)&&f0>0&&f1>0&&Math.abs(f1-f0)>1e-10;const src=factorChanged?adj:raw,a=Number(src[i]),b=Number(src[pi]);return Number.isFinite(a)&&Number.isFinite(b)&&a>0&&b>0?[a,b]:null;}
 function kh117DayReturn(rec,date){const d=String(date||''),prev=kh117ExpectedAdjacentSession(d,-1);if(!prev)return null;const index=kh117SeriesDateIndex(rec);if(!index)return null;const i=index.get(d),pi=index.get(prev);if(!Number.isInteger(i)||!Number.isInteger(pi))return null;const px=kh117PriceForDailyReturn(rec,i,pi);if(!px)return null;const r=100*(px[0]/px[1]-1);return Number.isFinite(r)&&r>-99.5?r:null;}
 function kh117CurrentReel(date){const d=String(date||''),cal=kh117CanonicalMarketCalendar(),fp=cal.fingerprint;if(KH117_REEL_CACHE.fingerprint!==fp)KH117_REEL_CACHE={fingerprint:fp,byDate:new Map()};if(KH117_REEL_CACHE.byDate.has(d))return KH117_REEL_CACHE.byDate.get(d);const out=(state.records||[]).map(r=>({sym:r.sym,ret:kh117DayReturn(r,d)})).filter(x=>x.sym&&Number.isFinite(x.ret)&&x.ret>-99.5).sort((a,b)=>b.ret-a.ret||String(a.sym).localeCompare(String(b.sym),'tr')).slice(0,20);KH117_REEL_CACHE.byDate.set(d,out);return out;}
-function kh117T0(){const cal=kh117CanonicalMarketCalendar(),date=cal.dates.at(-1)||null,reel=date?kh117CurrentReel(date):[],realSet=new Set(reel.map(x=>x.sym)),criteria={},summaries={};for(const k of KN_V117_ORDER){const list=(state.scores?.[k]||[]).slice(0,20).map(x=>{const r=x.record||state.recordMap.get(x.sym),e=kn117Entry(k,x.sym),dayReturn=kh117DayReturn(r,date)??kn117DayChange(r),knReturn=KN_V117_SEAT_ORDER.includes(k)&&Number.isFinite(Number(e?.currentReturn))&&Number(e.currentReturn)>-99.5?Number(e.currentReturn):null;return {sym:x.sym,score:x.score,dayReturn:Number.isFinite(dayReturn)?dayReturn:null,knReturn,realHit:realSet.has(x.sym)}});criteria[k]=list;summaries[k]={hitCount:list.filter(x=>x.realHit).length,total:list.length,realAvg:mean(list.map(x=>x.dayReturn)),knAvg:KN_V117_SEAT_ORDER.includes(k)?mean(list.map(x=>x.knReturn)):null};}const trend=KN_V117_TREND.map(k=>({k,...summaries[k]})).sort((a,b)=>b.hitCount-a.hitCount||(b.realAvg??-999)-(a.realAvg??-999)||a.k.localeCompare(b.k));return {date,provisional:true,reelTop20:reel,criteria,summaries,trend,marketTime:TABLE_META?.data?.market&&Number.isFinite(Date.parse(TABLE_META.data.market))?TABLE_META.data.market:null};}
-function kh117RunRow(run){const date=String(run.signalTradingDate||run.backfillAnchor||run.createdAt||'').slice(0,10),reel=kh117CurrentReel(date),realSet=new Set(reel.map(x=>x.sym)),criteria={},summaries={};for(const k of KN_V117_ORDER){const list=(run.criteria?.[k]||[]).slice(0,20).map(x=>{const rec=state.recordMap.get(x.sym),dayReturn=kh117DayReturn(rec,date);const maxRet=vFinite(x.maxNetReturn),closeRet=vFinite(x.closeNetReturn),knReturn=KN_V117_SEAT_ORDER.includes(k)?(maxRet!=null&&maxRet>-99.5?maxRet:closeRet!=null&&closeRet>-99.5?closeRet:null):null;return {sym:x.sym,dayReturn:Number.isFinite(dayReturn)?dayReturn:null,knReturn,realHit:realSet.has(x.sym)}});criteria[k]=list;summaries[k]={hitCount:list.filter(x=>x.realHit).length,total:list.length,realAvg:mean(list.map(x=>x.dayReturn)),knAvg:KN_V117_SEAT_ORDER.includes(k)?mean(list.map(x=>x.knReturn)):null};}const trend=KN_V117_TREND.map(k=>({k,...summaries[k]})).sort((a,b)=>b.hitCount-a.hitCount||(b.realAvg??-999)-(a.realAvg??-999)||a.k.localeCompare(b.k));return {date,provisional:false,reelTop20:reel,criteria,summaries,trend,marketTime:run.marketDataAt||run.createdAt||null,createdAt:run.createdAt||null};}
+function kh117T0(){const cal=kh117CanonicalMarketCalendar(),date=cal.dates.at(-1)||null,reel=date?kh117CurrentReel(date):[],realSet=new Set(reel.map(x=>x.sym)),criteria={},summaries={};for(const k of KN_V117_ORDER){const list=(state.scores?.[k]||[]).slice(0,20).map(x=>{const r=x.record||state.recordMap.get(x.sym),e=kn117Entry(k,x.sym),dayReturn=kh117DayReturn(r,date)??kn117DayChange(r),knReturn=KN_V117_SEAT_ORDER.includes(k)&&Number.isFinite(Number(e?.currentReturn))&&Number(e.currentReturn)>-99.5?Number(e.currentReturn):null;return {sym:x.sym,score:x.score,dayReturn:Number.isFinite(dayReturn)?dayReturn:null,knReturn,realHit:realSet.has(x.sym)}});criteria[k]=list;summaries[k]={hitCount:list.filter(x=>x.realHit).length,total:list.length,realAvg:mean(list.filter(x=>x.realHit===true).map(x=>x.dayReturn)),knAvg:KN_V117_SEAT_ORDER.includes(k)?mean(list.map(x=>x.knReturn)):null};}const trend=KN_V117_TREND.map(k=>({k,...summaries[k]})).sort((a,b)=>(b.realAvg??-Infinity)-(a.realAvg??-Infinity)||b.hitCount-a.hitCount||a.k.localeCompare(b.k));return {date,provisional:true,reelTop20:reel,criteria,summaries,trend,marketTime:TABLE_META?.data?.market&&Number.isFinite(Date.parse(TABLE_META.data.market))?TABLE_META.data.market:null};}
+function kh117RunRow(run){const date=String(run.signalTradingDate||run.backfillAnchor||run.createdAt||'').slice(0,10),reel=kh117CurrentReel(date),realSet=new Set(reel.map(x=>x.sym)),criteria={},summaries={};for(const k of KN_V117_ORDER){const list=(run.criteria?.[k]||[]).slice(0,20).map(x=>{const rec=state.recordMap.get(x.sym),dayReturn=kh117DayReturn(rec,date);const maxRet=vFinite(x.maxNetReturn),closeRet=vFinite(x.closeNetReturn),knReturn=KN_V117_SEAT_ORDER.includes(k)?(maxRet!=null&&maxRet>-99.5?maxRet:closeRet!=null&&closeRet>-99.5?closeRet:null):null;return {sym:x.sym,dayReturn:Number.isFinite(dayReturn)?dayReturn:null,knReturn,realHit:realSet.has(x.sym)}});criteria[k]=list;summaries[k]={hitCount:list.filter(x=>x.realHit).length,total:list.length,realAvg:mean(list.filter(x=>x.realHit===true).map(x=>x.dayReturn)),knAvg:KN_V117_SEAT_ORDER.includes(k)?mean(list.map(x=>x.knReturn)):null};}const trend=KN_V117_TREND.map(k=>({k,...summaries[k]})).sort((a,b)=>(b.realAvg??-Infinity)-(a.realAvg??-Infinity)||b.hitCount-a.hitCount||a.k.localeCompare(b.k));return {date,provisional:false,reelTop20:reel,criteria,summaries,trend,marketTime:run.marketDataAt||run.createdAt||null,createdAt:run.createdAt||null};}
 function kh117CloneValue(x){return JSON.parse(JSON.stringify(x));}
 function kh117LegacyRows(){const t0=kh117T0(),byDate=new Map();for(const run of (state.runs||[]).filter(r=>r?.signalTradingDate).sort((a,b)=>String(b.signalTradingDate).localeCompare(String(a.signalTradingDate)))){const d=String(run.signalTradingDate);if(d===t0.date||byDate.has(d))continue;const row=kh117RunRow(run);if(KN_V117_ORDER.every(k=>(row.criteria[k]||[]).length>=20)){byDate.set(d,kh117CloneValue(row));if(byDate.size>=30)break;}}return [...byDate.values()];}
 function kh117ArchiveState(){const a=state.khArchive&&typeof state.khArchive==='object'?state.khArchive:{schema:2,live:null,rows:[],seed:null,lastShift:null};if(!Array.isArray(a.rows))a.rows=[];a.schema=Math.max(2,Number(a.schema||1));return a;}
@@ -799,7 +799,14 @@ async function kh117AdvanceArchive(current){
   let shifted=false,shiftedDate=null;
   if(a.live&&a.live.date&&a.live.date!==currentDate){
     const anchor=String(a.live.anchorId||`live:${a.live.date}`),frozen={...kh117CloneValue(a.live),source:a.live.source||'LIVE_ARCHIVE',archiveOrigin:'AUTO',formulaVersion:a.live.formulaVersion||MODEL_VERSION,criteriaSchemaFingerprint:a.live.criteriaSchemaFingerprint||MODEL_SCHEMA_FINGERPRINT,provisional:false,frozen:true,archivedAt:nowISO(),anchorId:anchor};
-    if(!a.rows.some(x=>String(x.anchorId||'')===anchor||x.date===a.live.date)){a.rows.unshift(frozen);shifted=true;shiftedDate=a.live.date;}
+    const sameDateIndex=a.rows.findIndex(x=>String(x.date||'')===a.live.date);
+    if(sameDateIndex>=0&&a.rows[sameDateIndex]?.manualFill===true){
+      // The real automatic T0 archive always supersedes a manually computed
+      // placeholder for that exact date, never an already automatic archive.
+      a.rows.splice(sameDateIndex,1);a.rows.unshift(frozen);shifted=true;shiftedDate=a.live.date;
+    }else if(!a.rows.some(x=>String(x.anchorId||'')===anchor||x.date===a.live.date)){
+      a.rows.unshift(frozen);shifted=true;shiftedDate=a.live.date;
+    }
   }
   a.rows=kh117NormalizeArchiveRows(a.rows,currentDate);
   a.live={...kh117CloneValue(current),source:'LIVE_T0',archiveOrigin:'AUTO_LIVE',formulaVersion:MODEL_VERSION,criteriaSchemaFingerprint:MODEL_SCHEMA_FINGERPRINT,provisional:true,frozen:false,anchorId:`live:${currentDate}`,updatedAt:nowISO()};
@@ -817,8 +824,8 @@ function kh117PitRowForAnchor(anchor,calcRecords){
   const historicalBehavior=calculateBehaviorProfiles(truncated,{fingerprint:`KH_PIT|${anchor}|${MODEL_VERSION}`,includeArchive:false});truncated.forEach(r=>applyBehaviorProfile(r,historicalBehavior.map.get(r.sym)));
   const built=buildModels(truncated,{pool:truncated,weights:BASE_WEIGHTS,calibrate:false});for(const k of KN_V117_ORDER)if((built.scores?.[k]||[]).length<20)return {ok:false,reason:`${anchor}: ${k} Top20 üretilemedi`};
   const reel=(calcRecords||[]).map(r=>({sym:r.sym,ret:kh117DayReturn(r,anchor)})).filter(x=>Number.isFinite(x.ret)&&x.ret>-99.5).sort((a,b)=>b.ret-a.ret||a.sym.localeCompare(b.sym)).slice(0,20);if(reel.length<20)return {ok:false,reason:`${anchor}: ReelTop20 için ${reel.length} gerçek getiri`};
-  const realSet=new Set(reel.map(x=>x.sym)),criteria={},summaries={};for(const k of KN_V117_ORDER){const list=(built.scores[k]||[]).slice(0,20).map(x=>{const full=state.recordMap.get(x.sym)||calcRecords.find(r=>r.sym===x.sym),dayReturn=kh117DayReturn(full,anchor);return {sym:x.sym,score:Number(x.score),dayReturn:Number.isFinite(dayReturn)?dayReturn:null,knReturn:null,realHit:realSet.has(x.sym)}});criteria[k]=list;summaries[k]={hitCount:list.filter(x=>x.realHit).length,total:20,realAvg:mean(list.map(x=>x.dayReturn)),knAvg:null};}
-  const trend=KN_V117_TREND.map(k=>({k,...summaries[k]})).sort((a,b)=>b.hitCount-a.hitCount||(b.realAvg??-999)-(a.realAvg??-999)||a.k.localeCompare(b.k));
+  const realSet=new Set(reel.map(x=>x.sym)),criteria={},summaries={};for(const k of KN_V117_ORDER){const list=(built.scores[k]||[]).slice(0,20).map(x=>{const full=state.recordMap.get(x.sym)||calcRecords.find(r=>r.sym===x.sym),dayReturn=kh117DayReturn(full,anchor);return {sym:x.sym,score:Number(x.score),dayReturn:Number.isFinite(dayReturn)?dayReturn:null,knReturn:null,realHit:realSet.has(x.sym)}});criteria[k]=list;summaries[k]={hitCount:list.filter(x=>x.realHit).length,total:20,realAvg:mean(list.filter(x=>x.realHit===true).map(x=>x.dayReturn)),knAvg:null};}
+  const trend=KN_V117_TREND.map(k=>({k,...summaries[k]})).sort((a,b)=>(b.realAvg??-Infinity)-(a.realAvg??-Infinity)||b.hitCount-a.hitCount||a.k.localeCompare(b.k));
   return {ok:true,row:{date:anchor,source:'PIT_SEED_V1',formulaVersion:MODEL_VERSION,formulaBasis:'CANONICAL_FORMULA_BASE_WEIGHTS_NO_FUTURE_CALIBRATION',inputCutoff:anchor,futureDataUsed:false,provisional:false,frozen:true,anchorId:`pit:${anchor}`,archivedAt:nowISO(),reelTop20:reel,criteria,summaries,trend}};
 }
 async function kh117SeedPIT30(){
@@ -909,8 +916,8 @@ function kh117EvaluationRow(source){
   const r=kh117CloneValue(source),targetDate=r._t0?r.date:kh117ExpectedAdjacentSession(r.date,1);r._reelDate=targetDate;
   const reel=targetDate?kh117CurrentReel(targetDate):[],set=new Set(reel.map(x=>x.sym));r.reelTop20=reel;
   r._accuracyStatus=targetDate&&reel.length===20?'OK':'EKSİK';r.summaries=r.summaries||{};
-  for(const k of KN_V117_ORDER){const src=(r.criteria?.[k]||[]).slice(0,20),list=src.map(x=>{const rec=state.recordMap.get(x.sym),rv=targetDate?kh117DayReturn(rec,targetDate):null;return {...x,dayReturn:Number.isFinite(rv)?rv:null,realHit:set.has(x.sym)}});r.criteria[k]=list;r.summaries[k]={...(r.summaries[k]||{}),hitCount:list.filter(x=>x.realHit).length,total:list.length,realAvg:mean(list.map(x=>x.dayReturn))};}
-  r.trend=KN_V117_TREND.map(k=>({k,...r.summaries[k]})).sort((a,b)=>b.hitCount-a.hitCount||(b.realAvg??-999)-(a.realAvg??-999)||a.k.localeCompare(b.k));return r;
+  for(const k of KN_V117_ORDER){const src=(r.criteria?.[k]||[]).slice(0,20),list=src.map(x=>{const rec=state.recordMap.get(x.sym),rv=targetDate?kh117DayReturn(rec,targetDate):null;return {...x,dayReturn:Number.isFinite(rv)?rv:null,realHit:set.has(x.sym)}});r.criteria[k]=list;r.summaries[k]={...(r.summaries[k]||{}),hitCount:list.filter(x=>x.realHit).length,total:list.length,realAvg:mean(list.filter(x=>x.realHit===true).map(x=>x.dayReturn))};}
+  r.trend=KN_V117_TREND.map(k=>({k,...r.summaries[k]})).sort((a,b)=>(b.realAvg??-Infinity)-(a.realAvg??-Infinity)||b.hitCount-a.hitCount||a.k.localeCompare(b.k));return r;
 }
 let KH117_DISPLAY_CACHE={key:null,rows:null};
 function kh117DisplayRows(){
@@ -2064,7 +2071,9 @@ if(!globalThis.AurumUpdateAPI){
       formulaDetached:true,
       archivedAt:row.archivedAt||nowISO(),
       anchorId:String(row.anchorId||`value:${String(row.date).slice(0,10)}`),
-      source:'VALUE_SNAPSHOT',
+      source:row?.manualFill===true?'MANUAL_GAP_FILL':(row.source||'VALUE_SNAPSHOT'),
+      archiveOrigin:row?.manualFill===true?'MANUAL':(row.archiveOrigin||'AUTO'),
+      manualFill:row?.manualFill===true,
       marketTime:row.marketTime||null,
       createdAt:row.createdAt||null,
       generatedAt:row.generatedAt||null,
@@ -2110,10 +2119,10 @@ if(!globalThis.AurumUpdateAPI){
       for(const k of KN_V117_ORDER){
         const src=(row.criteria?.[k]||[]).slice(0,20),prev=row.summaries?.[k]||{};
         criteria[k]=src.map(x=>{const sym=String(x?.sym||'').trim().toUpperCase(),real=verified?realReturnBySym.get(sym):null;return {...x,sym,dayReturn:Number.isFinite(real)?real:null,realHit:verified?realSet.has(sym):null};});
-        const realVals=criteria[k].map(x=>x.dayReturn).filter(Number.isFinite);
+        const realVals=criteria[k].filter(x=>x.realHit===true).map(x=>x.dayReturn).filter(Number.isFinite);
         summaries[k]={...prev,hitCount:verified?criteria[k].filter(x=>x.realHit===true).length:null,total:criteria[k].length||20,realAvg:verified&&realVals.length?mean(realVals):null};
       }
-      const trend=verified?KN_V117_TREND.map(k=>({k,...summaries[k]})).sort((a,b)=>Number(b.hitCount||0)-Number(a.hitCount||0)||(Number(b.realAvg??-999)-Number(a.realAvg??-999))||String(a.k).localeCompare(String(b.k))):[];
+      const trend=verified?KN_V117_TREND.map(k=>({k,...summaries[k]})).sort((a,b)=>Number(b.realAvg??-Infinity)-Number(a.realAvg??-Infinity)||Number(b.hitCount||0)-Number(a.hitCount||0)||String(a.k).localeCompare(String(b.k))):[];
       base[i]={...row,reelTop20:targetReel,reelDate:targetDate,criteria,summaries,trend,evaluationMode:'KN_D_TO_REEL_D_PLUS_1',reelVerified:verified};
     }
     return base;
@@ -6500,7 +6509,27 @@ try{AurumUpdateAPI.state.r225={version:'REV20.25-RELIABILITY-FILL-NEWS',activate
     return out;
   };
   try{marketPage=globalThis.marketPage}catch{}
-  const observer=new MutationObserver(()=>{if(mutating)return;queueMicrotask(()=>{restore();save()})});
+  // Prevent unrelated table/scroll/nav DOM churn from triggering full portal
+  // snapshots. A redraw of the actual market DOM still triggers recovery.
+  const watched='#aurumDataMarketStrip,#aurumFinancePortal';
+  const within=node=>node?.nodeType===1&&
+    (node.matches?.(watched)||node.closest?.(watched));
+  const containsPortal=node=>node?.nodeType===1&&
+    !!node.querySelector?.(watched);
+  const concern=change=>{
+    // A mutation under #content or <body> is not a market mutation merely
+    // because the portal exists somewhere else under that ancestor.
+    if(within(change.target))return true;
+    for(const node of change.addedNodes||[])if(within(node)||containsPortal(node))return true;
+    for(const node of change.removedNodes||[])if(within(node)||containsPortal(node))return true;
+    return false;
+  };
+  let observerPending=false;
+  const observer=new MutationObserver(changes=>{
+    if(mutating||observerPending||!changes.some(concern))return;
+    observerPending=true;
+    queueMicrotask(()=>{observerPending=false;restore();save()});
+  });
   const start=()=>{try{observer.observe(document.body,{childList:true,subtree:true});restore();save()}catch{}};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else queueMicrotask(start);
   globalThis.AurumPersistentMarketUI=Object.freeze({save,restore});
