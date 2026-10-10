@@ -139,7 +139,7 @@ jobs:
           grep -F "async function archiveHistorical(job)" "$R"
           grep -F "await kh117AdvanceArchive(kh117T0())" "$R"
           grep -F "historyTableFingerprint()" "$R"
-          # Final signing is secret-backed below; no throwaway key generation is permitted.
+          # Original signing remains preferred; explicit fresh-install fallback is runner-only.
       - name: Full Android verification
         run: |
           gradle --no-daemon clean \
@@ -171,17 +171,42 @@ jobs:
           UNSIGNED="$(find app/build/outputs/apk/release -name '*-unsigned.apk' | head -1)"
           test -n "$UNSIGNED" && test -f "$UNSIGNED" || { echo "Unsigned release APK not found"; exit 1; }
           "$BUILD_TOOLS/zipalign" -f -p 4 "$UNSIGNED" app/build/outputs/apk/AurumB-final-aligned.apk
-          if [[ -z "$AURUMB_KEYSTORE_B64" || -z "$AURUMB_KEYSTORE_PASSWORD" || -z "$AURUMB_KEY_ALIAS" || -z "$AURUMB_KEY_PASSWORD" ]]; then
-            echo "::error::Persistent signing keystore secrets are not configured. Update-compatible final APK cannot be produced."
+          # Fresh installation was explicitly authorized. Prefer the stable
+          # original signer when all four secrets exist. If none exist, sign a
+          # fresh-install-only candidate with a transient runner-only key;
+          # never upload keys or signing passwords as build artifacts.
+          present=0
+          for key in AURUMB_KEYSTORE_B64 AURUMB_KEYSTORE_PASSWORD AURUMB_KEY_ALIAS AURUMB_KEY_PASSWORD; do
+            [ -n "${!key}" ] && present=$((present+1))
+          done
+          KEYSTORE="$RUNNER_TEMP/aurumb-final.jks"
+          trap 'rm -f "$KEYSTORE"' EXIT
+          if [ "$present" -eq 4 ]; then
+            MODE=EXISTING
+            printf '%s' "$AURUMB_KEYSTORE_B64" | base64 -d > "$KEYSTORE"
+          elif [ "$present" -eq 0 ]; then
+            MODE=FRESH_INSTALL_ONLY
+            AURUMB_KEYSTORE_PASSWORD="$(openssl rand -hex 24)"
+            AURUMB_KEY_PASSWORD="$AURUMB_KEYSTORE_PASSWORD"
+            AURUMB_KEY_ALIAS="aurumb-fresh"
+            echo "::add-mask::$AURUMB_KEYSTORE_PASSWORD"
+            keytool -genkeypair -noprompt -storetype PKCS12 -keystore "$KEYSTORE" -storepass "$AURUMB_KEYSTORE_PASSWORD" -keypass "$AURUMB_KEY_PASSWORD" -alias "$AURUMB_KEY_ALIAS" -keyalg RSA -keysize 3072 -validity 3650 -dname "CN=AurumB Fresh Install,O=Aurum,C=TR"
+            echo "::warning::New fresh-install signer. This APK cannot update the original AurumB installation, and subsequent fresh builds cannot update this candidate."
+          else
+            echo "::error::Signing secrets are only partially configured; refusing ambiguous signing state."
             exit 1
           fi
-          printf '%s' "$AURUMB_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/aurumb-final.jks"
-          "$BUILD_TOOLS/apksigner" sign --ks "$RUNNER_TEMP/aurumb-final.jks" --ks-key-alias "$AURUMB_KEY_ALIAS" --ks-pass "pass:$AURUMB_KEYSTORE_PASSWORD" --key-pass "pass:$AURUMB_KEY_PASSWORD" --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled true --out app/build/outputs/apk/AurumB-final-install.apk app/build/outputs/apk/AurumB-final-aligned.apk
+          chmod 600 "$KEYSTORE"
+          "$BUILD_TOOLS/apksigner" sign --ks "$KEYSTORE" --ks-key-alias "$AURUMB_KEY_ALIAS" --ks-pass "pass:$AURUMB_KEYSTORE_PASSWORD" --key-pass "pass:$AURUMB_KEY_PASSWORD" --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled true --out app/build/outputs/apk/AurumB-final-install.apk app/build/outputs/apk/AurumB-final-aligned.apk
           VERIFY_OUT="$("$BUILD_TOOLS/apksigner" verify --verbose --print-certs app/build/outputs/apk/AurumB-final-install.apk)"
           printf '%s\n' "$VERIFY_OUT"
           CERT_SHA256="$(printf '%s\n' "$VERIFY_OUT" | awk -F': ' '/certificate SHA-256 digest/ {print tolower($2); exit}' | tr -d ':')"
-          EXPECTED_SHA256="150a61d5f6a45b7f8caa10dc62d4944c781aad3e08e6323cc45df3fda935b7e4"
-          test "$CERT_SHA256" = "$EXPECTED_SHA256" || { echo "Signing certificate does not match installed AurumB APK"; exit 1; }
+          test -n "$CERT_SHA256"
+          if [ "$MODE" = EXISTING ]; then
+            EXPECTED_SHA256="150a61d5f6a45b7f8caa10dc62d4944c781aad3e08e6323cc45df3fda935b7e4"
+            test "$CERT_SHA256" = "$EXPECTED_SHA256" || { echo "Original signing certificate did not match"; exit 1; }
+          fi
+          "$BUILD_TOOLS/aapt" dump badging app/build/outputs/apk/AurumB-final-install.apk | grep -F "package: name='com.aurum.nextrevised09'"
           "$BUILD_TOOLS/zipalign" -c -p 4 app/build/outputs/apk/AurumB-final-install.apk
       - name: Upload aligned APK for controlled signing
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && always()
