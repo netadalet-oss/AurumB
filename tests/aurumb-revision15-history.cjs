@@ -59,3 +59,26 @@ for(const days of [1,5,10])assert.ok(ctx.historyPage().includes(days+' Gün Yük
     'no-data PIT cannot mutate existing verified historical records');
   console.log('PASS manual T1-T30 plan; automatic archive precedence; rollback; UI; valid options');
 })().catch(e=>{console.error(e);process.exitCode=1});
+
+/* Requirement 13 + archive parity: ranking must use actual Reel intersection
+ * arithmetic mean rather than hit count; manual history origin must survive
+ * value-only sealing until an official automatic T0 record supersedes it. */
+{
+ const t0=source.match(/^function kh117T0\(\)\{.*$/m)?.[0]||'';
+ const run=source.match(/^function kh117RunRow\(run\)\{.*$/m)?.[0]||'';
+ assert.ok(t0.includes('(b.realAvg??-Infinity)-(a.realAvg??-Infinity)'),
+   'T0 K historical trend must sort first by verified Reel mean');
+ assert.ok(run.includes('(b.realAvg??-Infinity)-(a.realAvg??-Infinity)'),
+   'frozen session trend must sort first by verified Reel mean');
+ assert.ok(source.includes('realAvg:mean(list.filter(x=>x.realHit===true).map(x=>x.dayReturn))'),
+   'only hits in verified Reel Top20 count toward the arithmetic mean');
+ assert.ok(source.includes('const realVals=criteria[k].filter(x=>x.realHit===true)'),
+   'next-session evaluation must ignore non-Reel values');
+ assert.ok(source.includes('manualFill:row?.manualFill===true'),
+   'manual archive provenance must survive value-only serialization');
+ assert.ok(source.includes('if(sameDateIndex>=0&&a.rows[sameDateIndex]?.manualFill===true)'),
+   'official automatic T0 must supersede only a manual placeholder');
+ assert.ok(source.includes('!changes.some(concern)'),
+   'unrelated DOM mutations should not cause market portal redraws');
+ console.log('PASS B PIT source provenance, verified arithmetic mean and scroll observer');
+}
