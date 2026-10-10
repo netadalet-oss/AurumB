@@ -55,11 +55,10 @@
    return important || /(UYGULAMA|SİSTEM|PIPELINE|AYAR|KAYDEDİLDİ|VARSAYILAN|İZİN|PORTAL|ZAMANLAYICI)/.test(u);
  }
  function historyFingerprint(type,message){
+   // Distinct securities, prices and alerts are distinct important events.
+   // Replacing all ticker symbols/digits merged unrelated AL/SAT notices.
    return historyType(type)+'|'+String(message||'')
-     .toLocaleUpperCase('tr-TR')
-     .replace(/\b[A-ZÇĞİÖŞÜ]{2,6}\b/g,'<ITEM>')
-     .replace(/\d{1,4}([.,:]\d{1,4})*/g,'#')
-     .replace(/\s+/g,' ').trim();
+     .toLocaleUpperCase('tr-TR').replace(/\s+/g,' ').trim();
  }
  function pruneHistoryArray(a,now=Date.now()){
    const cutoff=now-7*86400000;
