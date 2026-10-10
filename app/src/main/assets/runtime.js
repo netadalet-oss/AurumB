@@ -536,7 +536,7 @@ function normalizeCalculationRecord(rec){
   rec.deg3Text=threeDayChangeText(rec);
   return rec;
 }
-function calculationGateStatus(){const summary=dataSummary(state.records),fillPct=Number(summary.fillPct||0),ok=fillPct>70,gate={ok,missingSymbols:Number(summary.missingSymbolCount||0),missingColumns:(summary.incompleteColumns||summary.missingColumns||[]).length,rows:Number(summary.loadedSymbols||0),eligibleRows:Number(summary.calculationEligibleRows||0),fillPct,minFillPct:70,reason:ok?null:`Türev hesaplama kapısı: Veriler doluluğu %${fillPct.toFixed(2)} < %70; önceki Kn/K_Tarihsel/S/AL-SAT korunuyor`};return {summary,gate,reason:gate.reason};}
+function calculationGateStatus(){const summary=dataSummary(state.records),fillPct=Number(summary.fillPct||0),ok=fillPct>70,gate={ok,missingSymbols:Number(summary.missingSymbolCount||0),missingColumns:(summary.incompleteColumns||summary.missingColumns||[]).length,rows:Number(summary.loadedSymbols||0),eligibleRows:Number(summary.calculationEligibleRows||0),fillPct,minFillPct:70,reason:ok?null:`Türev hesaplama kapısı: Veriler doluluğu %${fillPct.toFixed(2)} ≤ %70; önceki Kn/K_Tarihsel/S/AL-SAT korunuyor`};return {summary,gate,reason:gate.reason};}
 function calculationRecords(){const status=calculationGateStatus();if(!status.gate.ok)return [];const classification=classifyDataCompleteness(state.records,currentSymbols());
   const out=[];for(const source of state.records||[]){
     const row=classification.bySymbol.get(source.sym);
