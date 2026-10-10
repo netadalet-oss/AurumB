@@ -1266,6 +1266,7 @@ function aurumBackupSettingsModule(){
     '<div class="field"><label for="aurumBackupPassword">Yedekleme parolası (en az 12 karakter; cihazda saklanmaz)</label>'+
     '<input id="aurumBackupPassword" type="password" autocomplete="new-password" minlength="12" placeholder="Güçlü bir parola girin"></div>'+
     '<div class="actions"><button type="button" class="ghost-btn" onclick="AurumLegacyTransfer.inspect()">Veri kapsamını denetle</button>'+
+    '<button type="button" class="ghost-btn" onclick="AurumLegacyTransfer.chooseFolder()">Android 8/9: Yedek klasörü seç</button>'+
     '<button type="button" class="gold-btn" onclick="AurumLegacyTransfer.exportEncrypted()">Şifreli Legacy yedeğini indir</button></div>'+
     '<div class="field"><label for="aurumBackupInput">Şifreli Legacy dosyasını seç</label>'+
     '<input id="aurumBackupInput" type="file" accept=".json,application/json"></div>'+
@@ -7066,6 +7067,13 @@ globalThis.AurumNotifications=Object.freeze({version:'R225.0',open:openJournal,r
     if(state.syncing||state.calculating||state.sync)
       throw new Error('Önce devam eden veri/hesaplama işlemini durdurun');
   }
+  function chooseFolder(){
+    try{
+      const result=prompt('aurum://native?cmd=folder_pick','');
+      if(result!=='PICKING')throw new Error('Klasör seçici açılamadı: '+result);
+      status('Android dışa aktarma klasörünü seçin; sonra şifreli yedeği indirin.',false);
+    }catch(e){status(String(e.message||e),true)}
+  }
   async function exportEncrypted(){
     try{
       checkIdle();const secret=password();
@@ -7082,11 +7090,33 @@ globalThis.AurumNotifications=Object.freeze({version:'R225.0',open:openJournal,r
       const envelope={format:FORMAT,scope:'LEGACY_ONLY',schema:1,iterations:ITERATIONS,
         salt:toBase64(salt),iv:toBase64(iv),sha256:await hexSha(plaintext),
         encryptedData:toBase64(cipher)};
-      const blob=new Blob([JSON.stringify(envelope)],{type:'application/json'});
-      const href=URL.createObjectURL(blob),a=document.createElement('a');
-      a.href=href;a.download='AurumB-Legacy-Sifreli-'+new Date().toISOString().slice(0,10)+'.json';
-      document.body.appendChild(a);a.click();a.remove();
-      setTimeout(()=>URL.revokeObjectURL(href),60000);
+      const serialized=JSON.stringify(envelope);
+      const fileName='AurumB-Legacy-Sifreli-'+new Date().toISOString().slice(0,10)+'.json';
+      // Android WebView does not automatically download a blob URL. Route
+      // encrypted, ASCII-only chunks through the trusted Native prompt bridge.
+      if(location.host==='appassets.androidplatform.net'){
+        const begin=prompt('aurum://native?cmd=backup_export_begin&name='+encodeURIComponent(fileName),'');
+        if(begin!=='OK')throw new Error('Android dosya oluşturma başarısız: '+begin+
+          (begin==='ERR:NO_FOLDER_ANDROID_8_9'?' · Önce yedek klasörü seçin.':''));
+        try{
+          for(let offset=0;offset<serialized.length;offset+=24576){
+            const chunk=serialized.slice(offset,offset+24576);
+            const result=prompt('aurum://native?cmd=backup_export_chunk',chunk);
+            if(result!=='OK')throw new Error('Android yedek yazımı başarısız: '+result);
+            if(offset%(24576*10)===0)await new Promise(done=>setTimeout(done,0));
+          }
+          const finished=prompt('aurum://native?cmd=backup_export_finish','');
+          if(finished!=='OK')throw new Error('Android yedek kaydı tamamlanmadı: '+finished);
+        }catch(error){
+          try{prompt('aurum://native?cmd=backup_export_abort','')}catch{}
+          throw error;
+        }
+      }else{
+        const blob=new Blob([serialized],{type:'application/json'});
+        const href=URL.createObjectURL(blob),a=document.createElement('a');
+        a.href=href;a.download=fileName;document.body.appendChild(a);a.click();a.remove();
+        setTimeout(()=>URL.revokeObjectURL(href),60000);
+      }
       status('Şifreli Legacy yedeği indirme işlemi başlatıldı ('+payload.indexedDb.stores.length+
         ' tablo). Native/Room dahil değil. Dosyayı ve parolayı güvenle saklayın.',false);
       return true;
@@ -7161,6 +7191,6 @@ globalThis.AurumNotifications=Object.freeze({version:'R225.0',open:openJournal,r
       setTimeout(()=>location.reload(),800);return true;
     }catch(e){status('Yedek geri yüklenemedi: '+String(e.message||e),true);return false}
   }
-  globalThis.AurumLegacyTransfer=Object.freeze({inspect,exportEncrypted,restoreEncrypted});
+  globalThis.AurumLegacyTransfer=Object.freeze({inspect,chooseFolder,exportEncrypted,restoreEncrypted});
 })();
 
