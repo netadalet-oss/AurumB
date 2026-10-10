@@ -6679,18 +6679,22 @@ globalThis.AurumNotifications=Object.freeze({version:'R225.0',open:openJournal,r
   if(globalThis.AurumHistoryGapFill)return;
   const counts=new Set([1,5,10]);
   function plan(amount){
-    const size=Math.min(Math.max(0,30-(kh117ArchiveState().rows||[]).length),amount);
-    const existing=new Set((kh117ArchiveState().rows||[]).map(x=>String(x?.date||'')));
+    const archive=kh117ArchiveState(),rows=Array.isArray(archive.rows)?archive.rows:[];
+    const existing=new Set(rows.map(x=>String(x?.date||'')));
     const current=kh117T0();
     if(!current?.date)return {dates:[],records:[],reason:'T0 tarihi henüz yok'};
     const records=calculationRecords();
-    // T1–T30 means the latest thirty verified market-session dates, not
-    // thirty dates with already sufficient financial data. A missing recent
-    // session must NOT cause an older T31 date to be silently filled instead.
+    // T1–T30 is the latest 30 verified trading sessions. Do not reach T31.
     const timeline=(kh117CanonicalMarketCalendar().dates||[])
       .filter(date=>date<current.date).slice(-30).reverse();
-    return {dates:timeline.filter(date=>!existing.has(date)).slice(0,size),
-      records,reason:timeline.length?'': 'K_Tarihsel işlem takvimi henüz doğrulanamadı'};
+    const missing=timeline.filter(date=>!existing.has(date));
+    const capacity=Math.max(0,30-rows.length);
+    // A stale T31 record must not silently disguise a missing T1/T30 date.
+    // Deleting it to make room would violate automatic archive immutability.
+    if(missing.length&&capacity===0)return {dates:[],records,
+      reason:'T1–T30 içinde '+missing.length+' boş tarih var; arşiv 30 kayıtla dolu. Mevcut otomatik satırlar korunarak kapasite açılamıyor. Eski arşivi silmeden inceleyin.'};
+    return {dates:missing.slice(0,Math.min(capacity,amount)),records,
+      reason:timeline.length?'':'K_Tarihsel işlem takvimi henüz doğrulanamadı'};
   }
   async function fill(requested){
     const count=Number(requested);
