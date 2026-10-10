@@ -28,6 +28,8 @@ const ctx={
 vm.runInNewContext(code,ctx,{timeout:5000});
 assert.equal(ctx.AurumHistoryGapFill.available(1),1,'first missing verified date planned');
 assert.ok(ctx.historyPage().includes('AurumHistoryGapFill.fill(10)'), '1/5/10 UI present');
+for(const days of [1,5,10])assert.ok(ctx.historyPage().includes(days+' Gün Yükle'),
+  'Manual history load button '+days+' must be visible by name');
 (async()=>{
   assert.equal(await ctx.AurumHistoryGapFill.fill(1),1);
   assert.deepEqual(state.khArchive.rows.find(r=>r.date==='2026-10-08'),originalAuto,
