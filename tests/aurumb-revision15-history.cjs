@@ -39,5 +39,15 @@ assert.ok(ctx.historyPage().includes('AurumHistoryGapFill.fill(10)'), '1/5/10 UI
   await assert.rejects(ctx.AurumHistoryGapFill.fill(10),/doldurulamadı/);
   assert.deepEqual(state.khArchive,saved,'failed fill rolls back without changing archive');
   await assert.rejects(ctx.AurumHistoryGapFill.fill(4),/Yalnız 1, 5 veya 10/);
+  // A full 30-record archive can include stale T31 data while recent T1-T30
+  // sessions are missing. Never claim there are zero gaps or delete originals.
+  const fullArchive=Array.from({length:30},(_,i)=>({
+    date:'2026-08-'+String(i+1).padStart(2,'0'),archiveOrigin:'AUTO',marker:i
+  }));
+  state.khArchive={rows:structuredClone(fullArchive)};
+  assert.equal(ctx.AurumHistoryGapFill.available(1),0,'immutable full archive has no insertion capacity');
+  await assert.rejects(ctx.AurumHistoryGapFill.fill(1),/arşiv 30 kayıtla dolu/);
+  assert.deepEqual(state.khArchive.rows,fullArchive,
+    'capacity denial preserves every existing automatic record');
   console.log('PASS manual T1-T30 plan; automatic archive precedence; rollback; UI; valid options');
 })().catch(e=>{console.error(e);process.exitCode=1});
