@@ -6807,26 +6807,45 @@ globalThis.AurumNotifications=Object.freeze({version:'R225.0',open:openJournal,r
   }
   // The R61 page-slot cache can retain a renderer's original DOM. Keep
   // the controls visible both on first render and on a reused history slot.
+  // Four compact controls belong BETWEEN the Run strip and the
+  // Restart/Repair/Cancel/Clear strip, including reused R61 page slots.
+  // Inline !important is deliberate: older .actions/button rules forced
+  // one oversized button per line on actual Android WebView devices.
   function gapToolbar(){
     const busy=state.syncing||state.calculating;
-    return '<div class="actions aurum-khist-gap-actions" role="group" aria-label="Yalnız boş T1–T30 günlerini yükle">'+
-      [1,5,10,30].map(n=>'<button type="button" class="ghost-btn" '+
+    const grid='display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;'+
+      'gap:6px!important;width:100%!important;min-width:0!important;max-width:100%!important;'+
+      'box-sizing:border-box!important;margin:7px 0 9px!important;padding:0 2px!important;';
+    const compact='display:block!important;min-width:0!important;max-width:100%!important;'+
+      'width:100%!important;box-sizing:border-box!important;flex:none!important;'+
+      'margin:0!important;padding:0 2px!important;height:38px!important;min-height:38px!important;'+
+      'font-size:clamp(11px,3vw,13px)!important;line-height:1!important;'+
+      'white-space:nowrap!important;text-align:center!important;border-radius:10px!important;';
+    return '<div class="aurum-khist-gap-actions" role="group" '+
+      'aria-label="K_Tarihsel eksik işlem günlerini doldur" style="'+grid+'">'+
+      [1,5,10,30].map(n=>'<button type="button" class="ghost-btn" style="'+compact+'" '+
         (busy?'disabled ':'')+'onclick="AurumHistoryGapFill.fill('+n+
-        ').catch(e=>showAurumNotice(e.message,\'error\',4400))">'+n+' Gün Yükle</button>').join('')+'</div>';
+        ').catch(e=>showAurumNotice(e.message,\'error\',4400))" aria-label="'+n+
+        ' günlük boş tarihleri doldur">'+n+' Gün</button>').join('')+'</div>';
   }
   const prev=globalThis.historyPage||historyPage;
   const historyGapPage=function historyGapPage(){
-    return gapToolbar()+String(prev.apply(this,arguments));
+    const original=String(prev.apply(this,arguments));
+    const mini='<div class="aurum-mini-ops" data-mini-scope="history">';
+    return original.includes(mini)
+      ? original.replace(mini,gapToolbar()+mini)
+      : original+gapToolbar();
   };
   historyPage=historyGapPage;globalThis.historyPage=historyGapPage;
   function ensureHistoryGapControls(){
     try{
       const root=document.getElementById('content');
       if(!root)return;
-      let target=root.querySelector('.aurum-r61-page-slot.page-history');
-      if(!target){if(state.page!=='history')return;target=root}
-      if(!target.querySelector('.aurum-khist-gap-actions'))
-        target.insertAdjacentHTML('afterbegin',gapToolbar());
+      const target=root.querySelector('.aurum-r61-page-slot.page-history')||
+        (state.page==='history'?root:null);
+      if(!target||target.querySelector('.aurum-khist-gap-actions'))return;
+      const mini=target.querySelector('.aurum-mini-ops[data-mini-scope="history"]');
+      if(mini)mini.insertAdjacentHTML('beforebegin',gapToolbar());
     }catch(e){try{console.warn('K_Tarihsel controls:',e)}catch{}}
   }
   if(typeof document!=='undefined'&&typeof MutationObserver==='function'){
