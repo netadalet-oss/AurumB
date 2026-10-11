@@ -6859,6 +6859,8 @@ globalThis.AurumNotifications=Object.freeze({version:'R225.0',open:openJournal,r
   // one oversized button per line on actual Android WebView devices.
   function gapToolbar(){
     const busy=state.syncing||state.calculating;
+    const feedback=typeof fillFeedback==='undefined'?'':String(fillFeedback);
+    const safeFeedback=feedback.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     const grid='display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;'+
       'gap:6px!important;width:100%!important;min-width:0!important;max-width:100%!important;'+
       'box-sizing:border-box!important;margin:7px 0 9px!important;padding:0 2px!important;';
@@ -6874,8 +6876,8 @@ globalThis.AurumNotifications=Object.freeze({version:'R225.0',open:openJournal,r
         ').catch(e=>showAurumNotice(e.message,\'error\',4400))" aria-label="'+n+
         ' günlük boş tarihleri doldur">'+n+' Gün</button>').join('')+'</div>'+
       '<div id="aurumHistoryGapStatus" role="status" aria-live="polite" '+
-      'style="display:'+(fillFeedback?'block':'none')+';font-size:12px;'+
-      'padding:6px 10px;color:#d7c376">'+html(fillFeedback)+'</div>';
+      'style="display:'+(feedback?'block':'none')+';font-size:12px;'+
+      'padding:6px 10px;color:#d7c376">'+safeFeedback+'</div>';
   }
   const prev=globalThis.historyPage||historyPage;
   const historyGapPage=function historyGapPage(){
