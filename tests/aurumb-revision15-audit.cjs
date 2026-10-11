@@ -245,3 +245,18 @@ assert.ok(r.includes('const remaining=last30.filter(d=>!keptAfter.has(d)).length
  console.log('PASS AurumB encrypted Legacy backup UI, safety disclosure and 30-day option');
 }
 
+
+
+// Verified NEXT-session signal/return contract: list means include every
+// observed Kn symbol, not just symbols that intersect the Reel Top20.
+{
+ const runtimeText=r;
+ assert.ok(runtimeText.includes("r._accuracyStatus=verified?'OK':'ERTESİ_SEANS_VERİSİ_BEKLENİYOR'"),
+   'T0 and missing d+1 must not be treated as realized returns');
+ assert.ok(runtimeText.includes('realObservedCount:verified?measured.length:0'),
+   'Kn Reel mean must count all observed symbols, including non-hits');
+ assert.ok(runtimeText.includes('realAvg:verified&&measured.length?mean(measured):null'),
+   'Kn Reel mean must use the full verified list, not just Top20 intersection');
+ assert.ok(runtimeText.includes("Number.isFinite(v.hitCount)&&v.total>0?v.hitCount/v.total:-Infinity"),
+   'Kn Trend sorting must use verified hit ratios');
+}
