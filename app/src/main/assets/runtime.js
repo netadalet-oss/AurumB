@@ -945,7 +945,7 @@ function kh117EvaluationRow(source){
     const measured=list.map(x=>x.dayReturn).filter(Number.isFinite);
     r.summaries[k]={...(r.summaries[k]||{}),
       hitCount:verified?list.filter(x=>x.realHit===true).length:null,
-      total:list.length,realAvg:verified&&measured.length?mean(measured):null,
+      total:list.length,realAvg:verified&&list.length>0&&measured.length===list.length?mean(measured):null,
       realObservedCount:verified?measured.length:0};
   }
   r.trend=verified?KN_V117_TREND.map(k=>({k,...r.summaries[k]}))
@@ -3489,7 +3489,11 @@ try{AurumUpdateAPI.state.cleanREV20={version:'REV20.0-CLEAN',activatedAt:new Dat
       .map(x=>x?.dayReturn??x?.ret??x?.realReturn)
       .filter(x=>x!==null&&x!==undefined&&Number.isFinite(Number(x))&&Number(x)>-99.5)
       .map(Number):[];
-  const reelMean=(r,k)=>{const values=reelValues(r,k);return values.length?mean(values):null;};
+  const reelMean=(r,k)=>{
+    const listed=(r?.criteria?.[k]||[]).slice(0,20),values=reelValues(r,k);
+    // Never publish a partial average as the full list's next-session mean.
+    return listed.length>0&&values.length===listed.length?mean(values):null;
+  };
   function trend(r){
     // K1-K7 are ranked by arithmetic mean of actual Reel Top20
     // intersections (hits/20), never by return size or stale archive order.
@@ -3507,7 +3511,9 @@ try{AurumUpdateAPI.state.cleanREV20={version:'REV20.0-CLEAN',activatedAt:new Dat
       KN_V117_SEAT_ORDER.indexOf(x.k)-KN_V117_SEAT_ORDER.indexOf(y.k));
     const hitCounts=a.map(x=>x.hitMean===null?null:x.hitMean*20).filter(Number.isFinite);
     const returns=a.map(x=>{const v=x?.knAvg??x?.returnAvg??x?.avgReturn;return v===null||v===undefined?null:Number(v)}).filter(Number.isFinite);
-    return `<div class="kh-trend">${a.map(x=>`<span>${html(x.k)}: ${KN_V117_SEAT_ORDER.includes(x.k)?html(pct(x.realAvg)):'—'} · İsabet ${x.hitCount===null||x.hitCount===undefined?'—':Number(x.hitCount)}/${Number(x.total||20)}</span>`).join('')}<footer><small>İsabet ort: ${hitCounts.length?fmt(mean(hitCounts),2)+'/20':'—'}</small><small>Getiri ort: ${returns.length?pct(mean(returns)):'—'}</small><small>${html(stamp(r))}</small></footer></div>`;
+    const reelMeans=KN_V117_SEAT_ORDER.map(k=>reelMean(r,k));
+    const reelTotal=reelMeans.every(v=>v!==null)?mean(reelMeans):null;
+    return `<div class="kh-trend">${a.map(x=>`<span>${html(x.k)}: ${KN_V117_SEAT_ORDER.includes(x.k)?html(pct(x.realAvg)):'—'} · İsabet ${x.hitCount===null||x.hitCount===undefined?'—':Number(x.hitCount)}/${Number(x.total||20)}</span>`).join('')}<footer><small>İsabet ort: ${hitCounts.length?fmt(mean(hitCounts),2)+'/20':'—'}</small><small>Getiri ort: ${returns.length?pct(mean(returns)):'—'}</small><small>Reel ort: ${html(pct(reelTotal))}</small><small>${html(stamp(r))}</small></footer></div>`;
   }
   function reel(r){
     const a=(r?.reelTop20||[]).slice(0,20),reelDate=String(r?.reelDate||r?.date||'—');
