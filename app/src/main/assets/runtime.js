@@ -952,8 +952,7 @@ function kh117EvaluationRow(source){
     .sort((a,b)=>{
       const rate=x=>Number.isFinite(x.hitCount)&&x.total>0?x.hitCount/x.total:-Infinity;
       const ra=rate(a),rb=rate(b);
-      const avg=x=>Number.isFinite(x.realAvg)?x.realAvg:-Infinity;
-      return rb-ra||avg(b)-avg(a)||KN_V117_TREND.indexOf(a.k)-KN_V117_TREND.indexOf(b.k);
+      return rb-ra||KN_V117_TREND.indexOf(a.k)-KN_V117_TREND.indexOf(b.k);
     }):[];
   return r;
 }
@@ -3484,6 +3483,13 @@ try{AurumUpdateAPI.state.cleanREV20={version:'REV20.0-CLEAN',activatedAt:new Dat
   let renderToken=0;
   const pct=v=>kn117Pct(v);
   const stamp=r=>{try{return kn117Time(kh117RowTime(r))}catch{return '—'}};
+  // Same observed next-session closing returns feed the Trend and Kn footer.
+  const reelValues=(r,k)=>r?._accuracyStatus==='OK'
+    ?(r?.criteria?.[k]||[]).slice(0,20)
+      .map(x=>x?.dayReturn??x?.ret??x?.realReturn)
+      .filter(x=>x!==null&&x!==undefined&&Number.isFinite(Number(x))&&Number(x)>-99.5)
+      .map(Number):[];
+  const reelMean=(r,k)=>{const values=reelValues(r,k);return values.length?mean(values):null;};
   function trend(r){
     // K1-K7 are ranked by arithmetic mean of actual Reel Top20
     // intersections (hits/20), never by return size or stale archive order.
@@ -3493,13 +3499,15 @@ try{AurumUpdateAPI.state.cleanREV20={version:'REV20.0-CLEAN',activatedAt:new Dat
       const hits=rows.length&&reel.size?rows.slice(0,20)
         .filter(x=>reel.has(x?.sym)).length:entry.hitCount;
       const total=rows.length||Number(entry.total||20);
-      return {...entry,k,hitCount:hits,total,
-        hitMean:Number.isFinite(Number(hits))&&total>0?Number(hits)/total:null};
+      const verified=r?._accuracyStatus==='OK';
+      return {...entry,k,hitCount:verified?hits:null,total,
+        realAvg:KN_V117_SEAT_ORDER.includes(k)?reelMean(r,k):null,
+        hitMean:verified&&Number.isFinite(Number(hits))&&total>0?Number(hits)/total:null};
     }).sort((x,y)=>(y.hitMean??-1)-(x.hitMean??-1)||
       KN_V117_SEAT_ORDER.indexOf(x.k)-KN_V117_SEAT_ORDER.indexOf(y.k));
     const hitCounts=a.map(x=>x.hitMean===null?null:x.hitMean*20).filter(Number.isFinite);
     const returns=a.map(x=>{const v=x?.knAvg??x?.returnAvg??x?.avgReturn;return v===null||v===undefined?null:Number(v)}).filter(Number.isFinite);
-    return `<div class="kh-trend">${a.map(x=>`<span>${html(x.k)}: ${x.hitCount===null||x.hitCount===undefined?'—':Number(x.hitCount)}/${Number(x.total||20)}</span>`).join('')}<footer><small>İsabet ort: ${hitCounts.length?fmt(mean(hitCounts),2)+'/20':'—'}</small><small>Getiri ort: ${returns.length?pct(mean(returns)):'—'}</small><small>${html(stamp(r))}</small></footer></div>`;
+    return `<div class="kh-trend">${a.map(x=>`<span>${html(x.k)}: ${KN_V117_SEAT_ORDER.includes(x.k)?html(pct(x.realAvg)):'—'} · İsabet ${x.hitCount===null||x.hitCount===undefined?'—':Number(x.hitCount)}/${Number(x.total||20)}</span>`).join('')}<footer><small>İsabet ort: ${hitCounts.length?fmt(mean(hitCounts),2)+'/20':'—'}</small><small>Getiri ort: ${returns.length?pct(mean(returns)):'—'}</small><small>${html(stamp(r))}</small></footer></div>`;
   }
   function reel(r){
     const a=(r?.reelTop20||[]).slice(0,20),reelDate=String(r?.reelDate||r?.date||'—');
@@ -3507,7 +3515,7 @@ try{AurumUpdateAPI.state.cleanREV20={version:'REV20.0-CLEAN',activatedAt:new Dat
   }
   function crit(r,k){
     const a=(r?.criteria?.[k]||[]).slice(0,20),s=r?.summaries?.[k]||{},seatEligible=KN_V117_SEAT_ORDER.includes(k);
-    return `<div class="kh-cell kh-kn">${a.map(x=>`<span class="kh-line${x.realHit?' kh-real-hit':''}"><b>${html(x.sym)}</b><em>(${html(pct(x.dayReturn??x.ret??x.realReturn))} | ${seatEligible?html(pct(x.knReturn??x.returnAvg??x.avgReturn)):'—'})</em></span>`).join('')}<footer><span>${seatEligible?`İsabet: ${s.hitCount===null||s.hitCount===undefined?'—':Number(s.hitCount)}/${a.length||20} · Reel Ort: ${html(pct(s.realAvg))}`:'Analiz/meta tablo · işlem getirisi yok'}</span><span>Kn Ort: ${seatEligible?html(pct(s.knAvg)):'—'} · Kn as-of ${html(r?.date||'—')} · ${html(stamp(r))}</span></footer></div>`;
+    return `<div class="kh-cell kh-kn">${a.map(x=>`<span class="kh-line${x.realHit?' kh-real-hit':''}"><b>${html(x.sym)}</b><em>(${html(pct(x.dayReturn??x.ret??x.realReturn))} | ${seatEligible?html(pct(x.knReturn??x.returnAvg??x.avgReturn)):'—'})</em></span>`).join('')}<footer><span>${seatEligible?`İsabet: ${r?._accuracyStatus==='OK'?a.filter(x=>x.realHit===true).length:'—'}/${a.length||20} · Reel Ort: ${html(pct(reelMean(r,k)))}`:'Analiz/meta tablo · işlem getirisi yok'}</span><span>Kn Ort: ${seatEligible?html(pct(s.knAvg)):'—'} · Kn as-of ${html(r?.date||'—')} · ${html(stamp(r))}</span></footer></div>`;
   }
   function rows(){try{return kh117DisplayRows()}catch(e){console.error('R32 history rows',e);try{return typeof r26SafeRows==='function'?r26SafeRows():kh117Rows()}catch{return []}}}
   function pump(tok,rs,i){
