@@ -6925,7 +6925,7 @@ globalThis.AurumNotifications=Object.freeze({version:'R225.0',open:openJournal,r
     return '<div class="aurum-khist-gap-actions" role="group" '+
       'aria-label="K_Tarihsel eksik işlem günlerini doldur" style="'+grid+'">'+
       [1,5,10,30].map(n=>'<button type="button" class="ghost-btn" style="'+compact+'" '+
-        (busy?'disabled ':'')+'onclick="AurumHistoryGapFill.fill('+n+
+        (busy?'disabled ':'')+'data-aurum-kh-gap="'+n+'" onclick="AurumHistoryGapFill.fill('+n+
         ').catch(e=>showAurumNotice(e.message,\'error\',4400))" aria-label="'+n+
         ' günlük boş tarihleri doldur">'+n+' Gün</button>').join('')+'</div>'+
       '<div id="aurumHistoryGapStatus" role="status" aria-live="polite" '+
@@ -6964,6 +6964,25 @@ globalThis.AurumNotifications=Object.freeze({version:'R225.0',open:openJournal,r
     if(document.readyState==='loading')
       document.addEventListener('DOMContentLoaded',watchHistorySlot,{once:true});
     else queueMicrotask(watchHistorySlot);
+  }
+  // The R61 cached page-slot renderer can replace button nodes without
+  // rerunning their inline handlers. Capture clicks from the stable document
+  // and call the real gap-fill operation once, including newly inserted slots.
+  if(typeof document!=='undefined'&&typeof document.addEventListener==='function'){
+    document.addEventListener('click',event=>{
+      const button=event.target?.closest?.('button[data-aurum-kh-gap]');
+      if(!button||button.disabled)return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      const n=Number(button.getAttribute('data-aurum-kh-gap'));
+      if(!counts.has(n))return;
+      button.disabled=true;
+      fillStatus(n+' Gün · işlem başlatılıyor…');
+      Promise.resolve().then(()=>fill(n)).catch(e=>{
+        fillStatus('Doldurma başarısız: '+String(e?.message||e));
+        showAurumNotice(String(e?.message||e),'error',5000);
+      }).finally(()=>{if(button.isConnected)button.disabled=false;});
+    },true);
   }
   globalThis.AurumHistoryGapFill=Object.freeze({fill,available:n=>plan(n).dates.length});
 })();
