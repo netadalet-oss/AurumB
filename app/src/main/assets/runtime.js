@@ -6807,8 +6807,10 @@ globalThis.AurumNotifications=Object.freeze({version:'R225.0',open:openJournal,r
        reason.includes('doluluğu'))){
       fillStatus(count+' Gün · eksik Veriler kaynağı yenileniyor…');
       const hasLocalRecords=Array.isArray(state.records)&&state.records.length>0;
-      const refreshed=await runManualData(hasLocalRecords?'REPAIR':'GENERAL');
-      if(!refreshed)throw new Error('Veriler kaynağı güncellenemedi. Ağ/sağlayıcı ve veri kalitesi denetimini kontrol edin.');
+      const refreshed=typeof runManualData==='function'
+        ?await runManualData(hasLocalRecords?'REPAIR':'GENERAL'):false;
+      if(!refreshed)throw new Error(reason+
+        ' Veriler kaynağı yenilenemedi; mevcut arşiv korundu. Ağ/sağlayıcı ve veri kalitesini kontrol edin.');
       ({dates,records,reason}=plan(count));
     }
     if(reason)throw new Error(reason);
