@@ -82,3 +82,31 @@ for(const days of [1,5,10,30])assert.ok(ctx.historyPage().includes(days+' Gün')
    'unrelated DOM mutations should not cause market portal redraws');
  console.log('PASS B PIT source provenance, verified arithmetic mean and scroll observer');
 }
+
+
+/* Android locale and T0 truthfulness regressions from 2026-10-11 device evidence. */
+{
+ const start=source.indexOf('function kh117ExpectedAdjacentSession(date,dir=1){');
+ const end=source.indexOf('\n}',start);
+ assert.ok(start>=0&&end>start,'next-session calendar helper must exist');
+ const dateApi=source.slice(start,end+2);
+ const badIntlDate=class extends Date {
+   toLocaleDateString(){return '10/12/2026';}
+ };
+ const calendar={
+   Date:badIntlDate,Map,
+   kh117OfficialSession2026:d=>!['2026-10-10','2026-10-11','2026-10-29'].includes(d)
+ };
+ vm.runInNewContext(dateApi,calendar,{timeout:1000});
+ assert.equal(calendar.kh117ExpectedAdjacentSession('2026-10-09',1),'2026-10-12',
+   'Friday close must match Monday even when WebView returns US-formatted dates');
+ assert.equal(calendar.kh117ExpectedAdjacentSession('2026-10-12',-1),'2026-10-09',
+   'Monday previous real trading session must be Friday');
+ assert.ok(source.includes('e?.currentReturn!=null'),
+   'missing Kn ledger return must never become a fabricated +0.00%');
+ assert.ok(source.includes('const reelTotal=reelMeans.every(v=>v!==null)?mean(reelMeans):null'),
+   'Trend Reel footer must average all verified individual Kn cell means');
+ assert.ok(source.includes('a.length===20?mean(a.map(x=>x.ret??x.dayReturn??x.realReturn)):null'),
+   'unavailable Reel Top20 must never be rendered as +0.00%');
+ console.log('PASS Android deterministic next-session date, T0 missing-value and Trend footer parity');
+}
