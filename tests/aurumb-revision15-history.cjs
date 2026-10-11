@@ -66,12 +66,12 @@ for(const days of [1,5,10,30])assert.ok(ctx.historyPage().includes(days+' Gün')
 {
  const t0=source.match(/^function kh117T0\(\)\{.*$/m)?.[0]||'';
  const run=source.match(/^function kh117RunRow\(run\)\{.*$/m)?.[0]||'';
- assert.ok(t0.includes('(b.realAvg??-Infinity)-(a.realAvg??-Infinity)'),
-   'T0 K historical trend must sort first by verified Reel mean');
- assert.ok(run.includes('(b.realAvg??-Infinity)-(a.realAvg??-Infinity)'),
-   'frozen session trend must sort first by verified Reel mean');
- assert.ok(source.includes('realAvg:mean(list.filter(x=>x.realHit===true).map(x=>x.dayReturn))'),
-   'only hits in verified Reel Top20 count toward the arithmetic mean');
+ assert.ok(t0.includes('(b.hitCount/Math.max(1,b.total))-(a.hitCount/Math.max(1,a.total))'),
+   'T0 K historical trend must sort first by hit average');
+ assert.ok(run.includes('(b.hitCount/Math.max(1,b.total))-(a.hitCount/Math.max(1,a.total))'),
+   'frozen session trend must sort first by hit average');
+ assert.ok(source.includes('realAvg:mean(list.map(x=>x.dayReturn))'),
+   'all observed next-session returns in each K list count toward Reel mean');
  assert.ok(source.includes('const realVals=criteria[k].filter(x=>x.realHit===true)'),
    'next-session evaluation must ignore non-Reel values');
  assert.ok(source.includes('manualFill:row?.manualFill===true'),
