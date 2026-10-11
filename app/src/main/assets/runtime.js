@@ -64,6 +64,14 @@ const OPERATION_SCOPE_STAGE=Object.freeze({data:'Veriler',kn:'Kn',history:'K_Tar
 function operationStage(scope){return OPERATION_SCOPE_STAGE[String(scope||'')]||String(scope||'');}
 function operationBusyStatus(status){return !['IDLE','COMPLETED','FAILED','CANCELLED','DATA_COMPLETED','KN_COMPLETED','K_TARIHSEL_COMPLETED'].includes(String(status||''));}
 function operationView(scope,rt=currentRuntime()){
+  // A manual history gap-fill is not a scheduler job, but it is a real operation.
+  // Render its progress in the same visible strip rather than showing "Hazır".
+  if(scope==='history'&&state.calculating&&state.progress?.stage==='K_Tarihsel boşluk doldurma'){
+    const done=Number(state.progress.done||0),total=Math.max(1,Number(state.progress.total||1));
+    const p=Math.max(0,Math.min(100,Math.round(done*100/total)));
+    return {active:true,busy:true,done,total,p,label:'K_Tarihsel boş tarih yükleme',
+      count:done+'/'+total,validated:done,failed:0,paused:false,jobId:'MANUAL_HISTORY_GAP'};
+  }
   const expected=operationStage(scope),active=String(rt.stage||'')===expected,done=active?Number(rt.done||0):0,total=active?Number(rt.total||0):0,p=active&&total?Math.max(0,Math.min(100,Math.round(100*done/total))):0,pause=pauseState(),paused=active&&pause.requested&&pause.jobId===rt.jobId,busy=active&&operationBusyStatus(rt.status)&&!!rt.jobId;
   const validated=active?Number(rt.validated||0):0,failed=active?Number(rt.failed||0):0;
   let label='Hazır';
@@ -3434,8 +3442,19 @@ try{AurumUpdateAPI.state.cleanREV20={version:'REV20.0-CLEAN',activatedAt:new Dat
   const pct=v=>kn117Pct(v);
   const stamp=r=>{try{return kn117Time(kh117RowTime(r))}catch{return '—'}};
   function trend(r){
-    const a=(r?.trend||[]).filter(x=>KN_V117_SEAT_ORDER.includes(String(x?.k||'')));
-    const hitCounts=a.map(x=>x?.hitCount===null||x?.hitCount===undefined?null:Number(x.hitCount)).filter(Number.isFinite);
+    // K1-K7 are ranked by arithmetic mean of actual Reel Top20
+    // intersections (hits/20), never by return size or stale archive order.
+    const a=KN_V117_SEAT_ORDER.map(k=>{
+      const entry=(r?.trend||[]).find(x=>x?.k===k)||r?.summaries?.[k]||{};
+      const rows=r?.criteria?.[k]||[],reel=new Set((r?.reelTop20||[]).map(x=>x?.sym));
+      const hits=rows.length&&reel.size?rows.slice(0,20)
+        .filter(x=>reel.has(x?.sym)).length:entry.hitCount;
+      const total=rows.length||Number(entry.total||20);
+      return {...entry,k,hitCount:hits,total,
+        hitMean:Number.isFinite(Number(hits))&&total>0?Number(hits)/total:null};
+    }).sort((x,y)=>(y.hitMean??-1)-(x.hitMean??-1)||
+      KN_V117_SEAT_ORDER.indexOf(x.k)-KN_V117_SEAT_ORDER.indexOf(y.k));
+    const hitCounts=a.map(x=>x.hitMean===null?null:x.hitMean*20).filter(Number.isFinite);
     const returns=a.map(x=>{const v=x?.knAvg??x?.returnAvg??x?.avgReturn;return v===null||v===undefined?null:Number(v)}).filter(Number.isFinite);
     return `<div class="kh-trend">${a.map(x=>`<span>${html(x.k)}: ${x.hitCount===null||x.hitCount===undefined?'—':Number(x.hitCount)}/${Number(x.total||20)}</span>`).join('')}<footer><small>İsabet ort: ${hitCounts.length?fmt(mean(hitCounts),2)+'/20':'—'}</small><small>Getiri ort: ${returns.length?pct(mean(returns)):'—'}</small><small>${html(stamp(r))}</small></footer></div>`;
   }
@@ -6749,6 +6768,13 @@ globalThis.AurumNotifications=Object.freeze({version:'R225.0',open:openJournal,r
   'use strict';
   if(globalThis.AurumHistoryGapFill)return;
   const counts=new Set([1,5,10,30]);
+  let fillFeedback='';
+  function fillStatus(text){
+    fillFeedback=String(text||'');
+    if(typeof document==='undefined')return;
+    const el=document.getElementById('aurumHistoryGapStatus');
+    if(el){el.textContent=fillFeedback;el.style.display=fillFeedback?'block':'none';}
+  }
   function plan(amount){
     const archive=kh117ArchiveState(),rows=Array.isArray(archive.rows)?archive.rows:[];
     const existing=new Set(rows.map(x=>String(x?.date||'')));
@@ -6773,10 +6799,26 @@ globalThis.AurumNotifications=Object.freeze({version:'R225.0',open:openJournal,r
     const count=Number(requested);
     if(!counts.has(count))throw new Error('Yalnız 1, 5, 10 veya 30 boş satır seçilebilir');
     if(state.syncing||state.calculating)throw new Error('Devam eden işlem tamamlanmalı');
-    const {dates,records,reason}=plan(count);
+    fillStatus(count+' Gün · doğrulanmış işlem günleri kontrol ediliyor…');
+    let {dates,records,reason}=plan(count);
+    // The button is an explicit user command. Acquire real source data if
+    // no T0 or verified >=70% calculation snapshot is available.
+    if(reason&&(reason==='T0 tarihi henüz yok'||reason.includes('dolulugu')||
+       reason.includes('doluluğu'))){
+      fillStatus(count+' Gün · eksik Veriler kaynağı yenileniyor…');
+      const hasLocalRecords=Array.isArray(state.records)&&state.records.length>0;
+      const refreshed=await runManualData(hasLocalRecords?'REPAIR':'GENERAL');
+      if(!refreshed)throw new Error('Veriler kaynağı güncellenemedi. Ağ/sağlayıcı ve veri kalitesi denetimini kontrol edin.');
+      ({dates,records,reason}=plan(count));
+    }
     if(reason)throw new Error(reason);
-    if(!dates.length){showAurumNotice('T1–T30 içinde doldurulabilecek boş satır yok. Mevcut arşiv korundu.','info',3300);return 0}
+    if(!dates.length){
+      fillStatus('T1–T30 içinde boş işlem günü yok; kayıtlar korunuyor.');
+      showAurumNotice(fillFeedback,'info',3300);return 0;
+    }
     state.calculating=true;state.progress={stage:'K_Tarihsel boşluk doldurma',done:0,total:dates.length,errors:0};
+    fillStatus(count+' Gün · 0/'+dates.length+' hesaplanıyor…');
+    try{updateLiveStatus()}catch{}
     const prior=kh117CloneValue(kh117ArchiveState()),pending=[];
     try{
       for(const date of dates){
@@ -6785,7 +6827,10 @@ globalThis.AurumNotifications=Object.freeze({version:'R225.0',open:openJournal,r
         pending.push({...kh117CloneValue(r.row),source:'MANUAL_GAP_FILL',
           archiveOrigin:'MANUAL',manualFill:true,frozen:true,immutable:true,
           formulaDetached:true,at:nowISO()});
-        state.progress.done=pending.length;await new Promise(resolve=>setTimeout(resolve,0));
+        state.progress.done=pending.length;
+        fillStatus(count+' Gün · '+pending.length+'/'+dates.length+' doğrulandı');
+        try{updateLiveStatus()}catch{}
+        await new Promise(resolve=>setTimeout(resolve,0));
       }
       const current=kh117ArchiveState(),kept=new Set(current.rows.map(x=>x.date));
       const newRows=pending.filter(x=>!kept.has(x.date));
@@ -6799,11 +6844,12 @@ globalThis.AurumNotifications=Object.freeze({version:'R225.0',open:openJournal,r
       const last30=(kh117CanonicalMarketCalendar().dates||[]).filter(d=>d<kh117T0().date).slice(-30);
       const keptAfter=new Set((kh117ArchiveState().rows||[]).map(x=>String(x.date||'')));
       const remaining=last30.filter(d=>!keptAfter.has(d)).length;
+      fillStatus('Tamamlandı: '+newRows.length+' gün eklendi · T1–T30 kalan '+remaining+' gün');
       showAurumNotice('Doldurulan: '+newRows.length+' gün · Kalan: '+remaining+
         ' gün (T1–T30). Otomatik arşiv satırları korunuyor.','success',4200);
       return newRows.length;
-    }catch(e){state.khArchive=prior;throw e}
-    finally{state.calculating=false;state.progress=null;try{renderCurrentPagePreservingView()}catch{}}
+    }catch(e){state.khArchive=prior;fillStatus('Doldurma başarısız: '+String(e?.message||e));throw e}
+    finally{state.calculating=false;state.progress=null;try{updateLiveStatus()}catch{}try{renderCurrentPagePreservingView()}catch{}}
   }
   // The R61 page-slot cache can retain a renderer's original DOM. Keep
   // the controls visible both on first render and on a reused history slot.
@@ -6826,7 +6872,10 @@ globalThis.AurumNotifications=Object.freeze({version:'R225.0',open:openJournal,r
       [1,5,10,30].map(n=>'<button type="button" class="ghost-btn" style="'+compact+'" '+
         (busy?'disabled ':'')+'onclick="AurumHistoryGapFill.fill('+n+
         ').catch(e=>showAurumNotice(e.message,\'error\',4400))" aria-label="'+n+
-        ' günlük boş tarihleri doldur">'+n+' Gün</button>').join('')+'</div>';
+        ' günlük boş tarihleri doldur">'+n+' Gün</button>').join('')+'</div>'+
+      '<div id="aurumHistoryGapStatus" role="status" aria-live="polite" '+
+      'style="display:'+(fillFeedback?'block':'none')+';font-size:12px;'+
+      'padding:6px 10px;color:#d7c376">'+html(fillFeedback)+'</div>';
   }
   const prev=globalThis.historyPage||historyPage;
   const historyGapPage=function historyGapPage(){
