@@ -921,11 +921,41 @@ function kh117MarketStampForDate(date,row=null){
   return `${d} · kaynak zamanı doğrulanamadı`;
 }
 function kh117EvaluationRow(source){
-  const r=kh117CloneValue(source),targetDate=r._t0?r.date:kh117ExpectedAdjacentSession(r.date,1);r._reelDate=targetDate;
-  const reel=targetDate?kh117CurrentReel(targetDate):[],set=new Set(reel.map(x=>x.sym));r.reelTop20=reel;
-  r._accuracyStatus=targetDate&&reel.length===20?'OK':'EKSİK';r.summaries=r.summaries||{};
-  for(const k of KN_V117_ORDER){const src=(r.criteria?.[k]||[]).slice(0,20),list=src.map(x=>{const rec=state.recordMap.get(x.sym),rv=targetDate?kh117DayReturn(rec,targetDate):null;return {...x,dayReturn:Number.isFinite(rv)?rv:null,realHit:set.has(x.sym)}});r.criteria[k]=list;r.summaries[k]={...(r.summaries[k]||{}),hitCount:list.filter(x=>x.realHit).length,total:list.length,realAvg:mean(list.filter(x=>x.realHit===true).map(x=>x.dayReturn))};}
-  r.trend=KN_V117_TREND.map(k=>({k,...r.summaries[k]})).sort((a,b)=>(b.realAvg??-Infinity)-(a.realAvg??-Infinity)||b.hitCount-a.hitCount||a.k.localeCompare(b.k));return r;
+  // The frozen Kn list is a decision made at the anchor close. Realized
+  // return is strictly the NEXT verified BIST session's close / anchor close.
+  // T0 has no future close: never show same-day return as next-day Reel.
+  const r=kh117CloneValue(source);
+  const targetDate=r._t0?null:kh117ExpectedAdjacentSession(r.date,1);
+  r._reelDate=targetDate;
+  const reel=targetDate?kh117CurrentReel(targetDate):[];
+  const verified=!!targetDate&&reel.length===20;
+  const set=new Set(verified?reel.map(x=>x.sym):[]);
+  r.reelTop20=verified?reel:[];
+  r._accuracyStatus=verified?'OK':'ERTESİ_SEANS_VERİSİ_BEKLENİYOR';
+  r.summaries=r.summaries||{};
+  for(const k of KN_V117_ORDER){
+    const src=(r.criteria?.[k]||[]).slice(0,20);
+    const list=src.map(x=>{
+      const rec=state.recordMap.get(x.sym);
+      const rv=verified?kh117DayReturn(rec,targetDate):null;
+      return {...x,dayReturn:Number.isFinite(rv)?rv:null,
+        realHit:verified?set.has(x.sym):null};
+    });
+    r.criteria[k]=list;
+    const measured=list.map(x=>x.dayReturn).filter(Number.isFinite);
+    r.summaries[k]={...(r.summaries[k]||{}),
+      hitCount:verified?list.filter(x=>x.realHit===true).length:null,
+      total:list.length,realAvg:verified&&measured.length?mean(measured):null,
+      realObservedCount:verified?measured.length:0};
+  }
+  r.trend=verified?KN_V117_TREND.map(k=>({k,...r.summaries[k]}))
+    .sort((a,b)=>{
+      const rate=x=>Number.isFinite(x.hitCount)&&x.total>0?x.hitCount/x.total:-Infinity;
+      const ra=rate(a),rb=rate(b);
+      const avg=x=>Number.isFinite(x.realAvg)?x.realAvg:-Infinity;
+      return rb-ra||avg(b)-avg(a)||KN_V117_TREND.indexOf(a.k)-KN_V117_TREND.indexOf(b.k);
+    }):[];
+  return r;
 }
 let KH117_DISPLAY_CACHE={key:null,rows:null};
 function kh117DisplayRows(){
@@ -933,15 +963,28 @@ function kh117DisplayRows(){
   if(KH117_DISPLAY_CACHE.key===key&&Array.isArray(KH117_DISPLAY_CACHE.rows))return KH117_DISPLAY_CACHE.rows;
   const rows=kh117Rows().map(kh117EvaluationRow);KH117_DISPLAY_CACHE={key,rows};return rows;
 }
-function kh117TrendCell(row){const a=(row.trend||[]).filter(x=>KN_V117_TREND.includes(x.k)).slice().sort((x,y)=>{
-  // Display order must use the Reel intersection arithmetic mean; hitCount
-  // is only a deterministic tie-breaker, never the primary ranking metric.
-  const avg=v=>v?.realAvg==null||!Number.isFinite(Number(v.realAvg))?-Infinity:Number(v.realAvg);
-  return avg(y)-avg(x)||(Number(y.hitCount)||0)-(Number(x.hitCount)||0)||
-    KN_V117_TREND.indexOf(x.k)-KN_V117_TREND.indexOf(y.k)
-}),hits=a.map(x=>Number(x.hitCount)).filter(Number.isFinite);return `<div class="kh-trend">${a.map(x=>`<span><b>${html(x.k)}:</b> ${Number(x.hitCount||0)}/${Number(x.total||20)}</span>`).join('')}<footer><small>İsabet ort: ${hits.length?kn117Fmt(mean(hits),2)+'/20':'—'}</small><small>Reel: ${html(row._reelDate||'—')} · ${html(kh117MarketStampForDate(row._reelDate,row))}</small></footer></div>`;}
+function kh117TrendCell(row){
+  const a=(row.trend||[]).filter(x=>KN_V117_TREND.includes(x.k)).slice()
+    .sort((x,y)=>{
+      const rate=v=>Number.isFinite(v.hitCount)&&v.total>0?v.hitCount/v.total:-Infinity;
+      const rv=v=>Number.isFinite(v.realAvg)?v.realAvg:-Infinity;
+      return rate(y)-rate(x)||rv(y)-rv(x)||
+        KN_V117_TREND.indexOf(x.k)-KN_V117_TREND.indexOf(y.k);
+    });
+  if(!a.length)return '<div class="kh-trend">Ertesi seans kapanışı bekleniyor</div>';
+  const rates=a.map(x=>Number.isFinite(x.hitCount)&&x.total>0?100*x.hitCount/x.total:null)
+    .filter(Number.isFinite);
+  return `<div class="kh-trend">${a.map(x=>`<span><b>${html(x.k)}:</b> ${Number(x.hitCount)}/${Number(x.total)}</span>`).join('')}<footer><small>İsabet ort: ${rates.length?kn117Fmt(mean(rates),2)+'%':'—'}</small><small>Reel: ${html(row._reelDate||'—')} · ${html(kh117MarketStampForDate(row._reelDate,row))}</small></footer></div>`;
+}
 function kh117ReelCell(row){const a=(row.reelTop20||[]).slice(0,20);return `<div class="kh-cell kh-real">${a.map(x=>`<span class="kh-line"><b>${html(x.sym)}</b><em>(${html(kn117Pct(x.ret))})</em></span>`).join('')||'<span class="kh-line"><b>VERİ EKSİK</b></span>'}<footer><span>Reel Ort: ${html(kn117Pct(mean(a.map(x=>x.ret))))} · ${html(row._accuracyStatus||'')}</span><span>${html(row._reelDate||'—')} · ${html(kh117MarketStampForDate(row._reelDate,row))}</span></footer></div>`;}
-function kh117CriterionCell(row,k){const a=(row.criteria?.[k]||[]).slice(0,20),ss=row.summaries?.[k]||{};return `<div class="kh-cell kh-kn">${a.map(x=>`<span class="kh-line${x.realHit?' kh-real-hit':''}"><b>${html(x.sym)}</b><em>(${html(kn117Pct(x.dayReturn))} | ${html(kn117Pct(x.knReturn))})</em></span>`).join('')}<footer><span>İsabet: ${Number(ss.hitCount||0)}/${a.length||20} · Reel Ort: ${html(kn117Pct(ss.realAvg))}</span><span>Kn Ort: ${html(kn117Pct(ss.knAvg))} · Kn as-of ${html(row.date||'—')}</span></footer></div>`;}
+function kh117CriterionCell(row,k){
+  const a=(row.criteria?.[k]||[]).slice(0,20),ss=row.summaries?.[k]||{};
+  const observed=a.map(x=>x.dayReturn).filter(Number.isFinite);
+  const verified=row._accuracyStatus==='OK';
+  const realAvg=verified&&observed.length?mean(observed):null;
+  const hits=verified?a.filter(x=>x.realHit===true).length:null;
+  return `<div class="kh-cell kh-kn">${a.map(x=>`<span class="kh-line${x.realHit?' kh-real-hit':''}"><b>${html(x.sym)}</b><em>(${html(kn117Pct(x.dayReturn))} | ${html(kn117Pct(x.knReturn))})</em></span>`).join('')}<footer><span>İsabet: ${hits===null?'—':hits+'/'+a.length} · Reel Ort: ${html(kn117Pct(realAvg))} (${observed.length}/${a.length} kapanış)</span><span>Kn Ort: ${html(kn117Pct(ss.knAvg))} · Kn as-of ${html(row.date||'—')}</span></footer></div>`;
+}
 function kh117Render(){const rows=kh117DisplayRows();return `<div class="section-head"><h2 class="aurum-khist-daily-title">K_Tarihsel günlük karşılaştırma</h2><small>T0 canlı · T1–T30: Kn(d) → Reel(d+1) · fail-closed doğrulama</small></div><div class="table-wrap aurum-drive-table strict-history r51-history"><table><thead><tr><th>Gün</th><th>Kn_Trend</th><th>Reel TopN<br><small>SYM(REEL%)</small></th>${KN_V117_ORDER.map(k=>`<th>${k} TopN<br><small>SYM(REEL% | KN%)</small></th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr><td class="kh-day"><b>${r._label}</b><small>${html(r.date)}<br>${r._t0?'CANLI':'KESİN'}</small></td><td>${kh117TrendCell(r)}</td><td>${kh117ReelCell(r)}</td>${KN_V117_ORDER.map(k=>`<td>${kh117CriterionCell(r,k)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;}
 function kh117RenderDeferred(){const token=++KH117_RENDER_TOKEN,rows=kh117DisplayRows(),head=`<div class="section-head"><h2 class="aurum-khist-daily-title">K_Tarihsel günlük karşılaştırma</h2><small>T0 canlı · T1–T30: Kn(d) → Reel(d+1) · fail-closed doğrulama</small></div><div class="table-wrap aurum-drive-table strict-history r51-history"><table><thead><tr><th>Gün</th><th>Kn_Trend</th><th>Reel TopN<br><small>SYM(REEL%)</small></th>${KN_V117_ORDER.map(k=>`<th>${k} TopN<br><small>SYM(REEL% | KN%)</small></th>`).join('')}</tr></thead><tbody id="kh117Body"></tbody></table></div>`;requestAnimationFrame(()=>kh117PumpRows(token,rows,0));return head;}
 function kh117PumpRows(token,rows,index){if(token!==KH117_RENDER_TOKEN||state.page!=='history')return;const body=document.getElementById('kh117Body');if(!body)return;const end=Math.min(rows.length,index+2),frag=document.createDocumentFragment();for(let i=index;i<end;i++){const r=rows[i],tr=document.createElement('tr');tr.innerHTML=`<td class="kh-day"><b>${r._label}</b><small>${html(r.date)}<br>${r._t0?'CANLI':'KESİN'}</small></td><td>${kh117TrendCell(r)}</td><td>${kh117ReelCell(r)}</td>${KN_V117_ORDER.map(k=>`<td>${kh117CriterionCell(r,k)}</td>`).join('')}`;frag.appendChild(tr);}body.appendChild(frag);if(end<rows.length)requestAnimationFrame(()=>kh117PumpRows(token,rows,end));}
