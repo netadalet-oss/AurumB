@@ -930,11 +930,11 @@ function kh117MarketStampForDate(date,row=null){
   return `${d} · kaynak zamanı doğrulanamadı`;
 }
 function kh117EvaluationRow(source){
-  // The frozen Kn list is a decision made at the anchor close. Realized
-  // return is strictly the NEXT verified BIST session's close / anchor close.
-  // T0 has no future close: never show same-day return as next-day Reel.
+  // T0: compare today's Kn against today's verified Reel TOPN.
+  // T1-T30: compare frozen Kn(d) against the NEXT real BIST session's
+  // Reel TOPN, so T0 and T1 share the same Reel column when adjacent.
   const r=kh117CloneValue(source);
-  const targetDate=r._t0?null:kh117ExpectedAdjacentSession(r.date,1);
+  const targetDate=r._t0?r.date:kh117ExpectedAdjacentSession(r.date,1);
   r._reelDate=targetDate;
   const reel=targetDate?kh117CurrentReel(targetDate):[];
   const verified=!!targetDate&&reel.length===20;
