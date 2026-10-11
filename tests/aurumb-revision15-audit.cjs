@@ -255,7 +255,7 @@ assert.ok(r.includes('const remaining=last30.filter(d=>!keptAfter.has(d)).length
    'T0 and missing d+1 must not be treated as realized returns');
  assert.ok(runtimeText.includes('realObservedCount:verified?measured.length:0'),
    'Kn Reel mean must count all observed symbols, including non-hits');
- assert.ok(runtimeText.includes('realAvg:verified&&measured.length?mean(measured):null'),
+ assert.ok(runtimeText.includes('realAvg:verified&&list.length>0&&measured.length===list.length?mean(measured):null'),
    'Kn Reel mean must use the full verified list, not just Top20 intersection');
  assert.ok(runtimeText.includes("Number.isFinite(v.hitCount)&&v.total>0?v.hitCount/v.total:-Infinity"),
    'Kn Trend sorting must use verified hit ratios');
