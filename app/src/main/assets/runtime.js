@@ -802,7 +802,7 @@ function kh117SeriesDateIndex(rec){
 function kh117PriceForDailyReturn(rec,i,pi){const z=rec?.series||{},raw=z.close||[],adj=z.calcClose||[],fac=z.adjustmentFactor||[],f0=Number(fac[pi]),f1=Number(fac[i]),factorChanged=Number.isFinite(f0)&&Number.isFinite(f1)&&f0>0&&f1>0&&Math.abs(f1-f0)>1e-10;const src=factorChanged?adj:raw,a=Number(src[i]),b=Number(src[pi]);return Number.isFinite(a)&&Number.isFinite(b)&&a>0&&b>0?[a,b]:null;}
 function kh117DayReturn(rec,date){const d=String(date||''),prev=kh117ExpectedAdjacentSession(d,-1);if(!prev)return null;const index=kh117SeriesDateIndex(rec);if(!index)return null;const i=index.get(d),pi=index.get(prev);if(!Number.isInteger(i)||!Number.isInteger(pi))return null;const px=kh117PriceForDailyReturn(rec,i,pi);if(!px)return null;const r=100*(px[0]/px[1]-1);return Number.isFinite(r)&&r>-99.5?r:null;}
 function kh117CurrentReel(date){const d=String(date||''),cal=kh117CanonicalMarketCalendar(),fp=cal.fingerprint;if(KH117_REEL_CACHE.fingerprint!==fp)KH117_REEL_CACHE={fingerprint:fp,byDate:new Map()};if(KH117_REEL_CACHE.byDate.has(d))return KH117_REEL_CACHE.byDate.get(d);const out=(state.records||[]).map(r=>({sym:r.sym,ret:kh117DayReturn(r,d)})).filter(x=>x.sym&&Number.isFinite(x.ret)&&x.ret>-99.5).sort((a,b)=>b.ret-a.ret||String(a.sym).localeCompare(String(b.sym),'tr')).slice(0,20);KH117_REEL_CACHE.byDate.set(d,out);return out;}
-function kh117T0(){const cal=kh117CanonicalMarketCalendar(),date=cal.dates.at(-1)||null,reel=date?kh117CurrentReel(date):[],realSet=new Set(reel.map(x=>x.sym)),criteria={},summaries={};for(const k of KN_V117_ORDER){const list=(state.scores?.[k]||[]).slice(0,20).map(x=>{const r=x.record||state.recordMap.get(x.sym),e=kn117Entry(k,x.sym),dayReturn=kh117DayReturn(r,date)??kn117DayChange(r),knReturn=KN_V117_SEAT_ORDER.includes(k)&&e?.currentReturn!=null&&Number.isFinite(Number(e.currentReturn))&&Number(e.currentReturn)>-99.5?Number(e.currentReturn):null;return {sym:x.sym,score:x.score,dayReturn:Number.isFinite(dayReturn)?dayReturn:null,knReturn,realHit:realSet.has(x.sym)}});criteria[k]=list;summaries[k]={hitCount:list.filter(x=>x.realHit).length,total:list.length,realAvg:mean(list.map(x=>x.dayReturn)),knAvg:KN_V117_SEAT_ORDER.includes(k)?mean(list.map(x=>x.knReturn)):null};}const trend=KN_V117_TREND.map(k=>({k,...summaries[k]})).sort((a,b)=>(b.hitCount/Math.max(1,b.total))-(a.hitCount/Math.max(1,a.total))||KN_V117_TREND.indexOf(a.k)-KN_V117_TREND.indexOf(b.k));return {date,provisional:true,reelTop20:reel,criteria,summaries,trend,marketTime:TABLE_META?.data?.market&&Number.isFinite(Date.parse(TABLE_META.data.market))?TABLE_META.data.market:null};}
+function kh117T0(){const cal=kh117CanonicalMarketCalendar(),date=cal.dates.at(-1)||null,reel=date?kh117CurrentReel(date):[],realSet=new Set(reel.map(x=>x.sym)),criteria={},summaries={},ledger=kn117ReadLedger();for(const k of KN_V117_ORDER){const list=(state.scores?.[k]||[]).slice(0,20).map(x=>{const r=x.record||state.recordMap.get(x.sym),e=ledger.active?.[k]?.[x.sym]||null,dayReturn=kh117DayReturn(r,date)??kn117DayChange(r),knReturn=KN_V117_SEAT_ORDER.includes(k)&&e?.currentReturn!=null&&Number.isFinite(Number(e.currentReturn))&&Number(e.currentReturn)>-99.5?Number(e.currentReturn):null;return {sym:x.sym,score:x.score,dayReturn:Number.isFinite(dayReturn)?dayReturn:null,knReturn,realHit:realSet.has(x.sym)}});criteria[k]=list;summaries[k]={hitCount:list.filter(x=>x.realHit).length,total:list.length,realAvg:mean(list.map(x=>x.dayReturn)),knAvg:KN_V117_SEAT_ORDER.includes(k)?mean(list.map(x=>x.knReturn)):null};}const trend=KN_V117_TREND.map(k=>({k,...summaries[k]})).sort((a,b)=>(b.hitCount/Math.max(1,b.total))-(a.hitCount/Math.max(1,a.total))||KN_V117_TREND.indexOf(a.k)-KN_V117_TREND.indexOf(b.k));return {date,provisional:true,reelTop20:reel,criteria,summaries,trend,marketTime:TABLE_META?.data?.market&&Number.isFinite(Date.parse(TABLE_META.data.market))?TABLE_META.data.market:null};}
 function kh117RunRow(run){const date=String(run.signalTradingDate||run.backfillAnchor||run.createdAt||'').slice(0,10),reel=kh117CurrentReel(date),realSet=new Set(reel.map(x=>x.sym)),criteria={},summaries={};for(const k of KN_V117_ORDER){const list=(run.criteria?.[k]||[]).slice(0,20).map(x=>{const rec=state.recordMap.get(x.sym),dayReturn=kh117DayReturn(rec,date);const maxRet=vFinite(x.maxNetReturn),closeRet=vFinite(x.closeNetReturn),knReturn=KN_V117_SEAT_ORDER.includes(k)?(maxRet!=null&&maxRet>-99.5?maxRet:closeRet!=null&&closeRet>-99.5?closeRet:null):null;return {sym:x.sym,dayReturn:Number.isFinite(dayReturn)?dayReturn:null,knReturn,realHit:realSet.has(x.sym)}});criteria[k]=list;summaries[k]={hitCount:list.filter(x=>x.realHit).length,total:list.length,realAvg:mean(list.map(x=>x.dayReturn)),knAvg:KN_V117_SEAT_ORDER.includes(k)?mean(list.map(x=>x.knReturn)):null};}const trend=KN_V117_TREND.map(k=>({k,...summaries[k]})).sort((a,b)=>(b.hitCount/Math.max(1,b.total))-(a.hitCount/Math.max(1,a.total))||KN_V117_TREND.indexOf(a.k)-KN_V117_TREND.indexOf(b.k));return {date,provisional:false,reelTop20:reel,criteria,summaries,trend,marketTime:run.marketDataAt||run.createdAt||null,createdAt:run.createdAt||null};}
 function kh117CloneValue(x){return JSON.parse(JSON.stringify(x));}
 function kh117LegacyRows(){const t0=kh117T0(),byDate=new Map();for(const run of (state.runs||[]).filter(r=>r?.signalTradingDate).sort((a,b)=>String(b.signalTradingDate).localeCompare(String(a.signalTradingDate)))){const d=String(run.signalTradingDate);if(d===t0.date||byDate.has(d))continue;const row=kh117RunRow(run);if(KN_V117_ORDER.every(k=>(row.criteria[k]||[]).length>=20)){byDate.set(d,kh117CloneValue(row));if(byDate.size>=30)break;}}return [...byDate.values()];}
@@ -831,7 +831,7 @@ async function kh117AdvanceArchive(current){
   const check=kh117ValidateArchive(a,currentDate);if(!check.ok)throw new Error('K_Tarihsel arşiv bütünlüğü doğrulanamadı');a.rows=check.rows;state.khArchive=a;await kh117PersistArchive();return {archive:a,shifted,shiftedDate};
 }
 function kh117Rows(){const t0=kh117T0(),a=kh117ArchiveState(),arch=kh117NormalizeArchiveRows(a.rows?.length?a.rows:kh117LegacyRows(),t0.date).slice(0,30);return [{...t0,_label:'T0',_t0:true},...arch.map((r,i)=>({...kh117CloneValue(r),_label:`T${i+1}`,_t0:false,provisional:false,frozen:true}))];}
-function kh117HistoricalHitAverage(k){const rows=kh117Rows().filter(x=>!x._t0).slice(0,30),hits=rows.map(r=>Number(r?.summaries?.[k]?.hitCount)).filter(Number.isFinite);return {avg:hits.length===30?mean(hits):null,n:hits.length,total:20};}
+function kh117HistoricalHitAverage(k){const rows=kh117Rows().filter(x=>!x._t0).slice(0,30),hits=rows.map(r=>r?.summaries?.[k]?.hitCount).filter(v=>v!==null&&v!==undefined&&Number.isFinite(Number(v))).map(Number);return {avg:hits.length===30?mean(hits):null,n:hits.length,total:20};}
 function kh117SSeatCount(k){return (state.selection||[]).filter(x=>(x.supportingCriteria||[]).includes(k)||(x.contributions||[]).some(c=>c?.k===k)).length;}
 function kh117AnchorDates(calcRecords,currentDate){const counts=new Map();for(const rec of calcRecords||[])for(const d of rec?.series?.date||[])if(d&&d<currentDate)counts.set(d,(counts.get(d)||0)+1);return [...counts.entries()].filter(([,n])=>n>=20).map(([d])=>d).sort((a,b)=>b.localeCompare(a));}
 function kh117TruncateRecordPIT(rec,endIndex){const anchor=rec?.series?.date?.[endIndex];if(!anchor)throw new Error('PIT anchor yok');const b={symbol:rec.sym,providers:['PIT_LOCAL_VERIFIED'],attempts:[],conflicts:[],fundamentals:{},live:null,actions:(rec.actions||[]).filter(x=>String(x.date||'')<=anchor),bars:rec.series.date.slice(0,endIndex+1).map((d,i)=>({date:d,open:rec.series.open?.[i],high:rec.series.high?.[i],low:rec.series.low?.[i],close:rec.series.close?.[i],adjustedClose:rec.series.calcClose?.[i],volume:rec.series.volume?.[i],usdAof:rec.series.usd?.[i],indexAof:rec.series.index?.[i],sources:{open:'PIT_LOCAL_VERIFIED',high:'PIT_LOCAL_VERIFIED',low:'PIT_LOCAL_VERIFIED',close:'PIT_LOCAL_VERIFIED',adjustedClose:'PIT_LOCAL_VERIFIED',volume:'PIT_LOCAL_VERIFIED'}}))};return enrichBundle(b,{bars:[]});}
@@ -3056,7 +3056,7 @@ try{AurumUpdateAPI.state.cleanREV20={version:'REV20.0-CLEAN',activatedAt:new Dat
     return [t0,...arch.map((r,i)=>({...kh117CloneValue(r),_label:`T${i+1}`,_t0:false}))];
   }
   kh117HistoricalHitAverage=function kh117HistoricalHitAverageR26(k){
-    const rows=r26SafeRows().filter(x=>!x._t0).slice(0,30),hits=rows.map(r=>Number(r?.summaries?.[k]?.hitCount)).filter(Number.isFinite);
+    const rows=r26SafeRows().filter(x=>!x._t0).slice(0,30),hits=rows.map(r=>r?.summaries?.[k]?.hitCount).filter(v=>v!==null&&v!==undefined&&Number.isFinite(Number(v))).map(Number);
     return {avg:hits.length?mean(hits):null,n:hits.length,total:20};
   };
   globalThis.kh117HistoricalHitAverage=kh117HistoricalHitAverage;
@@ -7240,8 +7240,21 @@ globalThis.AurumNotifications=Object.freeze({version:'R225.0',open:openJournal,r
       if(inventory.missingRequiredStores.length)
         throw new Error('Zorunlu Legacy tabloları eksik: '+inventory.missingRequiredStores.join(', '));
       status('Tutarlı Legacy görüntüsü alınıyor ve şifreleniyor...',false);
+      const indexedDb=await snapshotDatabase(),storage=snapshotStorage();
+      // Reject an incomplete Legacy snapshot rather than exporting it.
+      const missing=inventory.indexedDbStores.filter(expected=>{
+        const actual=indexedDb.stores.find(x=>x.name===expected.name);
+        return !actual||actual.rows.length!==expected.rows;
+      }).map(x=>x.name);
+      const missingKeys=inventory.localStorageKeys.filter(k=>!Object.prototype.hasOwnProperty.call(storage,k));
+      if(missing.length||missingKeys.length)
+        throw new Error('Yedek kapsamı değişti: '+missing.join(', ')+
+          ' tablo ve '+missingKeys.length+' localStorage anahtarı eksik. Kısmi yedek oluşturulmadı.');
+      const coverage={indexedDbStoreCount:indexedDb.stores.length,
+        indexedDbRowCount:indexedDb.stores.reduce((n,x)=>n+x.rows.length,0),
+        localStorageKeyCount:Object.keys(storage).length,nativeRoomIncluded:false};
       const payload={format:FORMAT,scope:'LEGACY_ONLY',capturedAt:new Date().toISOString(),
-        indexedDb:await snapshotDatabase(),localStorage:snapshotStorage()};
+        coverage,indexedDb,localStorage:storage};
       const plaintext=encoder.encode(JSON.stringify(payload));
       const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12));
       const aes=await key(secret,salt,ITERATIONS);
@@ -7276,8 +7289,9 @@ globalThis.AurumNotifications=Object.freeze({version:'R225.0',open:openJournal,r
         a.href=href;a.download=fileName;document.body.appendChild(a);a.click();a.remove();
         setTimeout(()=>URL.revokeObjectURL(href),60000);
       }
-      status('Şifreli Legacy yedeği indirme işlemi başlatıldı ('+payload.indexedDb.stores.length+
-        ' tablo). Native/Room dahil değil. Dosyayı ve parolayı güvenle saklayın.',false);
+      status('Şifreli Legacy yedeği yazıldı: '+coverage.indexedDbStoreCount+
+        ' tablo, '+coverage.indexedDbRowCount+' kayıt, '+coverage.localStorageKeyCount+
+        ' localStorage anahtarı. Native/Room dahil DEĞİL. Dosyayı doğrulayın.',false);
       return true;
     }catch(e){status('Yedek dışa aktarılamadı: '+String(e.message||e),true);return false}
   }
