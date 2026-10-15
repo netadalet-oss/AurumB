@@ -22,7 +22,7 @@
     const fundAi=typeof globalThis.AurumNativeAI?.request==='function'?'':`<details class="card gold-edge aurum-settings-details"><summary class="aurum-settings-summary"><div><strong>ChatGPT · AI ile Kod İnceleme</strong><small>Resmî ChatGPT sayfası · revizyon talimatını kopyala</small></div><span class="aurum-details-chevron">⌄</span></summary><div class="aurum-settings-details-body"><p>ChatGPT hesabıyla uygulama içi OAuth girişi henüz bulunmuyor. Bu bağlantı, API yetkilendirmesi sağlamaz.</p><a href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">ChatGPT giriş sayfası</a><label class="field"><span>Revizyon talimatı</span><textarea id="aurumGithubR7Prompt" rows="4"></textarea></label><button class="gold-btn" type="button" onclick="AurumR7Github.copyPrompt()">Talimatı Kopyala</button></div></details>`;
     return widthCard+thresholdCard+categoryCards+fundAi;
   }
-  async function saveSettings(){
+  async function saveAdvancedSettings(){
     try{
       const next={...(state.settings||{})};
       for(const el of document.querySelectorAll('[data-r7-setting]')){
@@ -63,5 +63,5 @@
   applyWidth(getWidth());
   if(typeof settingsPage==='function'){const original=settingsPage;settingsPage=function aurumR7GithubSettings(){return settingsHtml()+original.apply(this,arguments)};globalThis.settingsPage=settingsPage;try{globalThis.settingsSub=settingsPage}catch{}}
   if(typeof document!=='undefined'){const root=document.getElementById('content')||document.body;if(root){new MutationObserver(scheduleTag).observe(root,{subtree:true,childList:true});scheduleTag()}}
-  globalThis.AurumR7Github=Object.freeze({getWidth,applyWidth,updateWidth,saveSettings,copyPrompt,tagTimeColumn});
+  globalThis.AurumR7Github=Object.freeze({getWidth,applyWidth,updateWidth,saveSettings:saveAdvancedSettings,copyPrompt,tagTimeColumn});
 })();
