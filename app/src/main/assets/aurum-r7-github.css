@@ -1,0 +1,7 @@
+/* R7 GitHub parity: actual Veriler time column; keep horizontal scrolling. */
+:root{--aurum-r7-time-width:205px}
+#content[data-page="data"] .table-wrap,#content[data-page="data"] #recordsContent{overflow-x:auto!important;-webkit-overflow-scrolling:touch!important}
+#content[data-page="data"] #dataTable{table-layout:auto!important;width:max-content!important;min-width:100%!important}
+#content[data-page="data"] #dataTable .aurum-r7-time-column{box-sizing:border-box!important;min-width:var(--aurum-r7-time-width)!important;width:var(--aurum-r7-time-width)!important;max-width:none!important;white-space:nowrap!important;overflow:visible!important;text-overflow:clip!important;font-variant-numeric:tabular-nums!important}
+#content[data-page="data"] #dataTable .aurum-r7-time-column *{white-space:nowrap!important;overflow:visible!important;text-overflow:clip!important}
+.aurum-settings-details:not([open])>.aurum-settings-details-body{display:none}
