@@ -118,7 +118,7 @@ jobs:
           grep -F "state.selectionDisplaySnapshot=" app/src/main/assets/core.js
           grep -F "state.knDisplaySnapshot=" app/src/main/assets/core.js
           grep -F '"notification" -> {' app/src/main/java/com/aurum/bistterminal8/PipelineService.kt
-          grep -F "const requiredByFill=nextRound===1?fill<100:fill<target" "$R"
+          grep -F "const requiredByFill=nextRound===1?true:fill<target" "$R"
           grep -F "if(age>COHORT_MS)" "$R"
           grep -F '"schedule_status" -> AurumScheduler.statusJson(this)' app/src/main/java/com/aurum/bistterminal8/MainActivity.kt
           grep -F 'fun exactAllowed' app/src/main/java/com/aurum/bistterminal8/AurumScheduler.kt
