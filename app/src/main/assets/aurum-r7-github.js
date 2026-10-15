@@ -54,7 +54,7 @@
   function tagTimeColumn(){
     const root=document.querySelector('#content[data-page="data"]');if(!root)return;
     const table=root.querySelector('#dataTable');if(!table)return;
-    const ths=[...table.querySelectorAll('thead tr:first-child th')];let col=ths.findIndex(th=>/^(verizaman[ıi]|veri\s*zaman[ıi]|veri\s*tarihi|tarih\s*saat)$/i.test(th.textContent.trim().replace(/\s+/g,' ')));
+    const ths=[...table.querySelectorAll('thead tr:first-child th')];let col=ths.findIndex(th=>/veri\s*zaman[ıi]|verizaman[ıi]|veri\s*tarihi|tarih\s*saat/i.test(th.textContent.trim().replace(/\s+/g,' ')));
     if(col<0&&table.classList.contains('fund-table'))col=1;
     if(col<0)return;
     for(const tr of table.querySelectorAll('tr')){const c=tr.children[col];if(c&&c.tagName==='TH'||c&&c.tagName==='TD')c.classList.add('aurum-r7-time-column')}
