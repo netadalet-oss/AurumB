@@ -38,7 +38,7 @@
         if(v.some((n,i)=>!Number.isFinite(n)||n<0||n>100||(i>0&&n>v[i-1])))throw new Error('Eşikler azalan sırada ve 0–100 arasında olmalı');
         next.completionOptionalFillTargets=v;
       }
-      if(typeof getSettings==='function'&&typeof saveSettings==='function'&&typeof saveSettings!=='undefined'){
+      if(typeof saveSettings==='function'){
         // FUND accepts the new settings object; BIST persists state.settings.
         state.settings=next;
         await Promise.resolve(saveSettings(next));
