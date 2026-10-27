@@ -198,7 +198,8 @@ jobs:
           printf '%s\n' "$VERIFY_OUT"
           CERT_SHA256="$(printf '%s\n' "$VERIFY_OUT" | awk -F': ' '/certificate SHA-256 digest/ {print tolower($2); exit}' | tr -d ':')"
           test -n "$CERT_SHA256"
-          EXPECTED_SHA256="150a61d5f6a45b7f8caa10dc62d4944c781aad3e08e6323cc45df3fda935b7e4"
+          # Certificate fingerprint extracted from user-provided installed base.apk (APK Signature Scheme v2).
+          EXPECTED_SHA256="75eb737446685179ac02b4c17eb4b29c4b978933971e82309f2a1886230047a1"
           test "$CERT_SHA256" = "$EXPECTED_SHA256" || { echo "::error::Original signing certificate did not match"; exit 1; }
           "$BUILD_TOOLS/aapt" dump badging app/build/outputs/apk/AurumB-final-install.apk | grep -F "package: name='com.aurum.nextrevised09'"
           "$BUILD_TOOLS/zipalign" -c -p 4 app/build/outputs/apk/AurumB-final-install.apk
