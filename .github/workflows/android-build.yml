@@ -250,10 +250,9 @@ jobs:
           emulator-boot-timeout: 900
           script: |
             set -eu
-            APK="$(find "$GITHUB_WORKSPACE/apk" -type f -name '*.apk' | head -1)"
-            test -n "$APK" && test -s "$APK"
+            test -s "$(find "$GITHUB_WORKSPACE/apk" -type f -name '*.apk' -print -quit)"
             adb wait-for-device
-            adb install -r "$APK"
+            adb install -r "$(find "$GITHUB_WORKSPACE/apk" -type f -name '*.apk' -print -quit)"
             adb logcat -c || true
             adb shell am start -W -n com.aurum.nextrevised09/com.aurum.bistterminal8.MainActivity
             sleep 10
