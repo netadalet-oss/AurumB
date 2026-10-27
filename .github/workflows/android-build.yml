@@ -219,7 +219,7 @@ jobs:
           if-no-files-found: error
 
   emulator-smoke:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     needs: assemble
     runs-on: ubuntu-latest
     timeout-minutes: 35
@@ -230,7 +230,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: AurumB-final-installable-apk
+          name: ${{ github.event_name == 'pull_request' && 'AurumB-gradle-signed-installable' || 'AurumB-final-installable-apk' }}
           path: apk
       - name: Enable Android emulator KVM
         run: |
@@ -249,9 +249,10 @@ jobs:
           emulator-boot-timeout: 900
           script: |
             set -eu
-            test -s "$GITHUB_WORKSPACE/apk/AurumB-final-install.apk"
+            APK="$(find "$GITHUB_WORKSPACE/apk" -type f -name '*.apk' | head -1)"
+            test -n "$APK" && test -s "$APK"
             adb wait-for-device
-            adb install -r "$GITHUB_WORKSPACE/apk/AurumB-final-install.apk"
+            adb install -r "$APK"
             adb logcat -c || true
             adb shell am start -W -n com.aurum.nextrevised09/com.aurum.bistterminal8.MainActivity
             sleep 10
