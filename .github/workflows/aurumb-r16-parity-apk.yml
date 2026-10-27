@@ -1,0 +1,76 @@
+name: AurumB R16 Parity APK
+on:
+  push:
+    branches:
+      - fix/aurumb-transfer-recovery-integrity-20261021
+    paths:
+      - '.github/workflows/aurumb-r16-parity-apk.yml'
+      - 'tools/AurumB_R16_merged_assets_payload.b64'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: aurumb-r16-parity-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  recover-test-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+      - name: Recover exact R16 improvements into real Android sources
+        run: |
+          set -euo pipefail
+          base64 -d tools/AurumB_R16_merged_assets_payload.b64 >/tmp/aurumb-r16-merged.zip
+          unzip -q -o /tmp/aurumb-r16-merged.zip -d .
+          test -s app/src/main/assets/aurum-r9-learning-safety.js
+          test -s app/src/main/assets/aurum-r10-revision.js
+          test -s app/src/main/assets/aurum-r14-settings.js
+          grep -Fq "ROW_COMPLETENESS_AT_OR_BELOW_70" app/src/main/assets/runtime.js
+          grep -Fq "r206SafePriorReference=true" app/src/main/assets/runtime.js
+          grep -Fq "resumeInterruptedManualTransfer" app/src/main/assets/runtime.js
+          grep -Fq "aurum-r14-settings.js" app/src/main/assets/index.html
+          find app/src/main/assets -maxdepth 1 -name '*.js' -print0 | xargs -0 -n1 node --check
+          node --test tools/transfer-integrity.test.mjs
+      - name: Install Android 35
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0"
+      - name: Build R16-preserving debug APK
+        run: gradle --no-daemon :app:assembleDebug --stacktrace
+      - name: Verify build artifact
+        run: |
+          test -s app/build/outputs/apk/debug/app-debug.apk
+          sha256sum app/build/outputs/apk/debug/app-debug.apk > app/build/outputs/apk/debug/SHA256SUMS
+          ls -lh app/build/outputs/apk/debug/app-debug.apk
+      - name: Publish audited merged source to fix branch
+        run: |
+          set -euo pipefail
+          git config user.name "AurumB revision integration"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/assets
+          if ! git diff --cached --quiet; then
+            git commit -m "feat(aurumb): integrate R16 PIT/learning/settings revisions with resilient transfer"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
+      - name: Upload AurumB R16 + recovery APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: AurumB-R16-recovered-debug-apk
+          path: |
+            app/build/outputs/apk/debug/app-debug.apk
+            app/build/outputs/apk/debug/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 30

@@ -1,60 +1,43 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- RECONSTRUCTED_FROM_APK_BINARY_AXML.
-     Values below are decoded from the supplied APK AndroidManifest.xml.
-     AndroidX generated/provider entries are intentionally left to dependencies. -->
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
->
-
-    <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="35" />
-
-    <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
 
     <application
-        android:label="Aurum BIST Rev 20"
-        android:icon="@drawable/ic_launcher"
+        android:allowBackup="false"
         android:usesCleartextTraffic="false"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:label="Aurum BIST Rev 20"
+        android:icon="@drawable/aurum_brand"
         android:theme="@style/AppTheme">
-
-        <activity
-            android:name="com.aurum.bistterminal8.MainActivity"
-            android:exported="true">
+        <activity android:name="com.aurum.bistterminal8.MainActivity" android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
-
-        <activity android:name=".BrowserActivity" android:exported="false" />
+        <activity android:name="com.aurum.bistterminal8.BrowserActivity" android:exported="false"/>
+        <service android:name="com.aurum.bistterminal8.PipelineService" android:exported="false" android:foregroundServiceType="dataSync"/>
+        <service android:name="com.aurum.bistterminal8.TransferKeepaliveService" android:exported="false" android:foregroundServiceType="dataSync"/>
+        <service android:name="com.aurum.bistterminal8.MaintenanceService" android:exported="false" android:foregroundServiceType="dataSync"/>
         <service
-            android:name="com.aurum.bistterminal8.PipelineService"
-            android:exported="false"
-            android:foregroundServiceType="dataSync" />
-
-        <service
-            android:name="com.aurum.bistterminal8.TransferKeepaliveService"
-            android:exported="false"
-            android:foregroundServiceType="dataSync" />
-
-        <service
-            android:name="com.aurum.bistterminal8.MaintenanceService"
-            android:exported="false"
-            android:foregroundServiceType="dataSync" />
-
-        <receiver android:name="com.aurum.bistterminal8.TriggerReceiver" android:exported="false" />
-
+            android:name="androidx.work.impl.foreground.SystemForegroundService"
+            android:foregroundServiceType="dataSync"
+            tools:node="merge"/>
+        <receiver android:name="com.aurum.bistterminal8.TriggerReceiver" android:exported="false"/>
         <receiver android:name="com.aurum.bistterminal8.BootReceiver" android:exported="false">
             <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
-                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
-                <action android:name="android.intent.action.TIME_SET" />
-                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+                <action android:name="android.intent.action.TIME_SET"/>
+                <action android:name="android.intent.action.TIMEZONE_CHANGED"/>
+                <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED"/>
             </intent-filter>
         </receiver>
     </application>

@@ -1,0 +1,109 @@
+name: AurumB Device Smoke
+on:
+  push:
+    branches:
+      - aurumb
+  pull_request:
+    branches:
+      - aurumb
+permissions:
+  contents: read
+concurrency:
+  group: aurumb-device-smoke-v2-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  device-smoke:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        api-level: [26, 35]
+    timeout-minutes: 45
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Install emulator image
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"             "platform-tools"             "emulator"             "platforms;android-35"             "system-images;android-${{ matrix.api-level }};google_apis;x86_64"
+      - name: Create emulator
+        run: |
+          export ANDROID_AVD_HOME="$RUNNER_TEMP/aurumb-avd"
+          echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_ENV"
+          mkdir -p "$ANDROID_AVD_HOME"
+          echo "no" | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd             --force             --name aurumb-ci             --package "system-images;android-${{ matrix.api-level }};google_apis;x86_64"             --path "$ANDROID_AVD_HOME/aurumb-ci.avd"
+          "$ANDROID_HOME/emulator/emulator" -list-avds
+          test -f "$ANDROID_AVD_HOME/aurumb-ci.ini"
+      - name: Prepare emulator acceleration
+        run: |
+          if [ -e /dev/kvm ]; then
+            sudo chmod 666 /dev/kvm
+            echo "KVM available"
+          else
+            echo "KVM unavailable; emulator will use software acceleration"
+          fi
+      - name: Boot emulator
+        run: |
+          ACCEL="auto"
+          if [ ! -e /dev/kvm ]; then ACCEL="off"; fi
+          "$ANDROID_HOME/emulator/emulator"             -avd aurumb-ci             -no-window             -no-audio             -no-boot-anim             -gpu swiftshader_indirect             -no-snapshot             -accel "$ACCEL"             > "$RUNNER_TEMP/aurumb-emulator.log" 2>&1 &
+          if ! timeout 90s "$ANDROID_HOME/platform-tools/adb" wait-for-device; then
+            echo "adb wait-for-device timed out"
+            cat "$RUNNER_TEMP/aurumb-emulator.log" || true
+            exit 1
+          fi
+          for i in $(seq 1 120); do
+            if [ "$("$ANDROID_HOME/platform-tools/adb" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat "$RUNNER_TEMP/aurumb-emulator.log"
+          exit 1
+      - name: Run Android device tests
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            # PR smoke exercises the current WebView host. Existing native UI screenshot
+            # suite runs on the aurumb branch and needs separate UI-parity migration.
+            gradle --no-daemon :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=io.aurum.aurumb.AurumWebViewStabilityTest
+          else
+            gradle --no-daemon :app:connectedDebugAndroidTest
+          fi
+      - name: Capture diagnostics on failure
+        if: failure()
+        run: |
+          timeout 20s "$ANDROID_HOME/platform-tools/adb" logcat -d -t 1200 || true
+          cat "$RUNNER_TEMP/aurumb-emulator.log" || true
+      - name: Verify captured native UI evidence
+        if: github.event_name == 'push'
+        run: |
+          python3 - <<'PY_CAPTURE'
+          from pathlib import Path
+          root=Path("app/build/outputs/connected_android_test_additional_output")
+          screenshots=list(root.rglob("*.png"))
+          layouts=list(root.rglob("*.json"))
+          assert len(screenshots)>=18, f"Missing native screenshots: {len(screenshots)}"
+          assert len(layouts)>=9, f"Missing native layout records: {len(layouts)}"
+          print(f"Native UI evidence: {len(screenshots)} screenshots, {len(layouts)} layout records")
+          PY_CAPTURE
+      - name: Upload device test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: AurumB-device-test-evidence-api${{ matrix.api-level }}
+          path: |
+            app/build/outputs/apk/debug/*.apk
+            app/build/outputs/apk/androidTest/debug/*.apk
+            app/build/outputs/androidTest-results/
+            app/build/reports/androidTests/
+            app/build/outputs/connected_android_test_additional_output/
+          if-no-files-found: warn

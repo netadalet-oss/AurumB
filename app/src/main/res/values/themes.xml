@@ -1,0 +1,12 @@
+<resources>
+    <style name="Theme.Aurum.Base" parent="android:style/Theme.Material.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowActionModeOverlay">true</item>
+        <item name="android:colorAccent">#F0D56D</item>
+        <item name="android:statusBarColor">#00030E</item>
+        <item name="android:navigationBarColor">#000106</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowBackground">#00030E</item>
+    </style>
+    <style name="Theme.Aurum" parent="Theme.Aurum.Base"/>
+</resources>

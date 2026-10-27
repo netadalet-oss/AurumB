@@ -1,0 +1,114 @@
+name: AurumB CI
+on:
+  push:
+    branches:
+      - aurumb
+  pull_request:
+    branches:
+      - aurumb
+permissions:
+  contents: read
+concurrency:
+  group: aurumb-ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Transfer syntax and regression checks
+        run: |
+          node --check app/src/main/assets/runtime.js
+          node --check app/src/main/assets/background-keepalive-only.js
+          node --test tools/transfer-integrity.test.mjs tools/transfer-progress-safe.test.mjs tools/aurumb-webview-freeze.test.mjs
+      - name: Accept Android licenses
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+      - name: Install Android 35
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"             "platform-tools"             "platforms;android-35"             "build-tools;35.0.0"
+      - name: Create source archive
+        run: git archive --format=zip --output=AurumB-source.zip HEAD
+      - name: Upload source archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: AurumB-source
+          path: AurumB-source.zip
+          if-no-files-found: error
+      - name: Diagnostic app compile
+        continue-on-error: true
+        run: |
+          set +e
+          gradle --no-daemon :app:compileDebugKotlin --stacktrace > app-compile.log 2>&1
+          code=$?
+          echo "DIAGNOSTIC_EXIT=$code" >> app-compile.log
+          exit 0
+      - name: Upload diagnostic compile log
+        uses: actions/upload-artifact@v4
+        with:
+          name: AurumB-compile-diagnostic
+          path: app-compile.log
+          if-no-files-found: error
+      - name: Core invariant checks
+        run: gradle --no-daemon :core:domainChecks
+      - name: Unit tests
+        run: gradle --no-daemon :core:test :app:testDebugUnitTest
+      - name: Android lint
+        run: gradle --no-daemon :app:lintDebug
+      - name: Compile instrumentation tests
+        run: gradle --no-daemon :app:assembleDebugAndroidTest
+      - name: Static security checks
+        run: |
+          # Exactly two audited JavaScript interfaces: foreground UI and headless pipeline.
+          # Both render exclusively via appassets, with file/content access disabled.
+          BRIDGE_FILES="$(grep -RIlF 'addJavascriptInterface(' app/src/main/kotlin | sort)"
+          EXPECTED_FILES="$(printf '%s\n' app/src/main/kotlin/com/aurum/bistterminal8/MainActivity.kt app/src/main/kotlin/com/aurum/bistterminal8/PipelineService.kt | sort)"
+          test "$BRIDGE_FILES" = "$EXPECTED_FILES"
+          grep -Fq 'webView.addJavascriptInterface(NativeBridge(), "AurumNativeBridge")' app/src/main/kotlin/com/aurum/bistterminal8/MainActivity.kt
+          grep -Fq 'addJavascriptInterface(BackgroundNativeBridge(), "AurumNativeBridge")' app/src/main/kotlin/com/aurum/bistterminal8/PipelineService.kt
+          for FILE in $BRIDGE_FILES; do
+            grep -Fq 'settings.allowFileAccess = false' "$FILE" || grep -Fq 'webView.settings.allowFileAccess = false' "$FILE"
+            grep -Fq 'settings.allowContentAccess = false' "$FILE" || grep -Fq 'webView.settings.allowContentAccess = false' "$FILE"
+          done
+          ! grep -RIE 'unsafe-eval|[^[:alnum:]_]eval\s*\(' app/src/main/assets src/main 2>/dev/null
+          ! grep -RIE 'sk-[A-Za-z0-9_-]{20,}|authorization:[[:space:]]*bearer[[:space:]]+[A-Za-z0-9._-]+' app/src/main src/main
+          grep -F 'android:usesCleartextTraffic="false"' app/src/main/AndroidManifest.xml
+      - name: Debug APK build
+        run: gradle --no-daemon :app:assembleDebug
+      - name: Release APK build
+        run: gradle --no-daemon :app:assembleRelease
+      - name: Upload release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: AurumB-release-apk
+          path: app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+      - name: Release AAB build
+        run: gradle --no-daemon :app:bundleRelease
+      - name: Upload build and test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: AurumB-validation-evidence
+          path: |
+            app/build/outputs/apk/debug/*.apk
+            app/build/outputs/bundle/release/*.aab
+            app/build/reports/
+            app/build/intermediates/lint_intermediate_text_report/
+            app/build/test-results/
+            core/build/reports/
+            core/build/test-results/
+          if-no-files-found: warn
+
+# build trigger

@@ -1,0 +1,96 @@
+name: AurumB V3 to V4 Upgrade Preservation
+on:
+  pull_request:
+    branches: [aurumb]
+    paths: ["app/**", "core/**", ".github/workflows/aurumb-upgrade-persistence.yml"]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: aurumb-upgrade-data-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  upgrade-proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: 8fb32dd4e32c60f816096a395cb44c5fd134aaa0
+          path: baseline
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Prepare Android SDK
+        run: |
+          test -x "$ANDROID_HOME/platform-tools/adb" || "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platform-tools"
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "emulator" "platforms;android-35" "build-tools;35.0.0" "system-images;android-35;google_apis;x86_64"
+      - name: Build baseline v3 and repaired v4 using the same debug signing certificate
+        run: |
+          set -euo pipefail
+          gradle --no-daemon -p baseline :app:assembleDebug
+          gradle --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest
+          BASE=baseline/app/build/outputs/apk/debug/app-debug.apk
+          NEXT=app/build/outputs/apk/debug/app-debug.apk
+          test -s "$BASE" && test -s "$NEXT" && test -s app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          OLD_CERT="$("$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$BASE" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')"
+          NEW_CERT="$("$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$NEXT" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')"
+          test -n "$OLD_CERT" && test "$OLD_CERT" = "$NEW_CERT"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$BASE" | grep "package: name='io.aurum.next.aurumb' versionCode='3'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$NEXT" | grep "package: name='io.aurum.next.aurumb' versionCode='4'"
+      - name: Start API 35 emulator
+        run: |
+          set -euo pipefail
+          export ANDROID_AVD_HOME="$RUNNER_TEMP/aurumb-upgrade-avd"
+          echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_ENV"
+          mkdir -p "$ANDROID_AVD_HOME"
+          echo no | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd --force --name aurumb-upgrade --package "system-images;android-35;google_apis;x86_64" --path "$ANDROID_AVD_HOME/aurumb-upgrade.avd"
+          ACCEL=auto
+          if [ -e /dev/kvm ]; then sudo chmod 666 /dev/kvm; else ACCEL=off; fi
+          "$ANDROID_HOME/emulator/emulator" -avd aurumb-upgrade -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -accel "$ACCEL" > "$RUNNER_TEMP/aurumb-upgrade-emulator.log" 2>&1 &
+          timeout 120s "$ANDROID_HOME/platform-tools/adb" wait-for-device
+          for i in $(seq 1 120); do
+            if [ "$("$ANDROID_HOME/platform-tools/adb" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; then exit 0; fi
+            sleep 2
+          done
+          exit 1
+      - name: Seed real on-device application stores using v3
+        run: |
+          set -euo pipefail
+          "$ANDROID_HOME/platform-tools/adb" install baseline/app/build/outputs/apk/debug/app-debug.apk
+          "$ANDROID_HOME/platform-tools/adb" install app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          "$ANDROID_HOME/platform-tools/adb" shell am instrument -w -e class 'io.aurum.aurumb.update.UpgradePersistenceTest#seedVersion3' io.aurum.next.aurumb.test/androidx.test.runner.AndroidJUnitRunner | tee seed-proof.log
+          grep -Eq '^OK \(1 test\)' seed-proof.log
+      - name: In-place install v4 and assert no application data loss
+        run: |
+          set -euo pipefail
+          "$ANDROID_HOME/platform-tools/adb" install -r app/build/outputs/apk/debug/app-debug.apk | tee upgrade-install.log
+          grep -Fq Success upgrade-install.log
+          "$ANDROID_HOME/platform-tools/adb" shell am instrument -w -e class 'io.aurum.aurumb.update.UpgradePersistenceTest#verifyVersion4' io.aurum.next.aurumb.test/androidx.test.runner.AndroidJUnitRunner | tee verify-proof.log
+          grep -Eq '^OK \(1 test\)' verify-proof.log
+      - name: Log diagnostics when upgrade fails
+        if: failure()
+        run: |
+          timeout 20s "$ANDROID_HOME/platform-tools/adb" logcat -d -t 1200 > upgrade-logcat.txt || true
+      - name: Upload upgrade-proof logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: AurumB-in-place-upgrade-proof
+          path: |
+            seed-proof.log
+            upgrade-install.log
+            verify-proof.log
+            upgrade-logcat.txt
+          if-no-files-found: warn
+          retention-days: 14
