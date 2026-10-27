@@ -26,6 +26,7 @@ import java.io.OutputStreamWriter
 
 class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
+    private var rendererLost = false
     private var exportFolder: Uri? = null
 
     // The export stream contains only AES-GCM encrypted Legacy JSON.
@@ -126,6 +127,41 @@ class MainActivity : AppCompatActivity() {
             }
         }
         webView.webViewClient = object : WebViewClient() {
+            override fun onRenderProcessGone(
+                view: WebView?,
+                detail: android.webkit.RenderProcessGoneDetail?
+            ): Boolean {
+                rendererLost = true
+                val crashed = detail?.didCrash() == true
+                android.util.Log.e("AurumWebView", "Main renderer gone; crash=$crashed; priority=${detail?.rendererPriorityAtExit()}")
+                getSharedPreferences("aurum_webview_health", MODE_PRIVATE).edit()
+                    .putLong("last_renderer_exit_ms", System.currentTimeMillis())
+                    .putBoolean("last_renderer_crashed", crashed)
+                    .apply()
+                runCatching {
+                    (view?.parent as? android.view.ViewGroup)?.removeView(view)
+                    view?.removeJavascriptInterface("AurumNativeBridge")
+                    view?.destroy()
+                }
+                // Never try to reuse a WebView whose Chromium renderer has died.
+                // IndexedDB/app data are deliberately not cleared.
+                val layout = android.widget.LinearLayout(this@MainActivity).apply {
+                    orientation = android.widget.LinearLayout.VERTICAL
+                    setPadding(32, 48, 32, 32)
+                }
+                val notice = android.widget.TextView(this@MainActivity).apply {
+                    text = "Görüntüleme işlemi kapandı. Yerel veriler silinmedi. Uygulamayı güvenli biçimde yeniden açabilirsiniz."
+                    textSize = 17f
+                }
+                val button = android.widget.Button(this@MainActivity).apply {
+                    text = "Verileri koruyarak yeniden aç"
+                    setOnClickListener { recreate() }
+                }
+                layout.addView(notice)
+                layout.addView(button)
+                setContentView(layout)
+                return true
+            }
             override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?) =
                 request?.url?.let(assetLoader::shouldInterceptRequest)
 
@@ -142,7 +178,7 @@ class MainActivity : AppCompatActivity() {
                 return true
             }
         }
-        if (savedInstanceState == null) {
+        if (savedInstanceState == null || savedInstanceState.getBoolean("aurum.rendererLost", false)) {
             webView.loadUrl("https://appassets.androidplatform.net/assets/index.html")
         } else {
             webView.restoreState(savedInstanceState)
@@ -515,8 +551,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun refreshPublishedLocalState() {
-        if (!::webView.isInitialized) return
+        if (!::webView.isInitialized || rendererLost) return
         runOnUiThread {
+            if (rendererLost) return@runOnUiThread
             webView.evaluateJavascript(
                 "window.AurumPublicationContinuity&&window.AurumPublicationContinuity.reload&&window.AurumPublicationContinuity.reload()",
                 null
@@ -541,7 +578,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
-        webView.saveState(outState)
+        outState.putBoolean("aurum.rendererLost", rendererLost)
+        if (::webView.isInitialized && !rendererLost) webView.saveState(outState)
         super.onSaveInstanceState(outState)
     }
 
@@ -552,8 +590,9 @@ class MainActivity : AppCompatActivity() {
         stopService(android.content.Intent(this, TransferKeepaliveService::class.java))
         dataOperationOwner?.let { OperationLock.release("data", it) }
         dataOperationOwner = null
-        webView.removeJavascriptInterface("AurumNativeBridge")
-        webView.destroy()
+        if (::webView.isInitialized && !rendererLost) {
+            runCatching { webView.removeJavascriptInterface("AurumNativeBridge"); webView.destroy() }
+        }
         super.onDestroy()
     }
 }
