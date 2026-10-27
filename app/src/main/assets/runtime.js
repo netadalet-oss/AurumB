@@ -2488,7 +2488,16 @@ try{AurumUpdateAPI.state.cleanREV20={version:'REV20.0-CLEAN',activatedAt:new Dat
   function adopt(){if(rootReady)return;const c=content();if(!c)return;const page=S.page||'overview',slot=document.createElement('div');slot.className=`aurum-r61-page-slot page-${page}`;slot.style.display='contents';while(c.firstChild)slot.appendChild(c.firstChild);c.appendChild(slot);slots.set(page,slot);rootReady=true;shell(page)}
   function show(page){adopt();for(const [p,s] of slots)s.style.display=p===page?'contents':'none';const slot=makeSlot(page);if(slot)slot.style.display='contents';shell(page);try{updateLiveStatus()}catch{};requestAnimationFrame(()=>{try{window.scrollTo(0,scrollY.get(page)||0)}catch{}})}
   function invalidateAndRenderCurrent(){adopt();const c=content(),page=S.page||'overview';for(const s of slots.values())s.remove();slots.clear();const slot=document.createElement('div');slot.className=`aurum-r61-page-slot page-${page}`;slot.style.display='contents';const fn=pageFns()[page]||overview;slot.innerHTML=fn();c.appendChild(slot);slots.set(page,slot);setupSlot(slot,page);shell(page);try{updateLiveStatus()}catch{};return true}
-  globalThis.render=render=function r61Render(){if(internal)return true;return invalidateAndRenderCurrent()};
+  globalThis.render=render=function r61Render(){
+    if(internal)return true;
+    // Keep the last valid mounted table visible while another snapshot is staging.
+    // Full invalidation is deferred until the operation reaches a terminal state.
+    const rt=currentRuntime(),page=S.page||'overview';
+    if(rootReady&&slots.has(page)&&operationBusyStatus(rt.status)&&Array.isArray(S.records)&&S.records.length){
+      shell(page);try{updateLiveStatus()}catch{};return true;
+    }
+    return invalidateAndRenderCurrent();
+  };
   globalThis.goPage=goPage=function r61Go(page){page=String(page||'overview');if(page===S.page)return true;if(S.page==='settings'&&page!=='settings'&&S.settingsDirty){if(!confirm('Kaydedilmemiş ayar değişiklikleri var. Kaydetmeden çıkarsanız uygulanmayacak. Çıkılsın mı?'))return false;delete S.__schedulerDraft;S.settingsDirty=false}scrollY.set(S.page||'overview',window.scrollY||0);S.page=page;if(page==='criteria'){S.strictActiveKn='K1';try{writeLocal(KN_V117_ACTIVE_KEY,'K1')}catch{}}internal=true;try{show(page)}finally{internal=false}return true};
 
   /* Allow deferred K_Tarihsel population to finish even if the user leaves the tab.
