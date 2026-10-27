@@ -18,7 +18,7 @@ assert.match(runtime, /c\.dataset\.page=page;c\.className=\x60page-\$\{page\}\x6
 assert.match(runtime, /nativeComplete\('',false,'NO_PENDING_SLOT'\)/);
 assert.doesNotMatch(runtime, /nativeComplete\('',true,'NO_PENDING_SLOT'\)/);
 assert.match(runtime, /aurum\.lastDataAttempt\.v1/);
-assert.match(runtime, /lastAttempt\.status==='FAILED'/);
+assert.match(runtime, /lastAttempt\?\.status==='FAILED'/);
 assert.match(runtime, /DATA_FILL_BELOW_70_KEEP_LAST_VALID_SNAPSHOT/);
 assert.match(runtime, /await atomicPublish\(job,universe\)/);
 
