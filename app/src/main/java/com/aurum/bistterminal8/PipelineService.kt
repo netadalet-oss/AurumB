@@ -116,6 +116,26 @@ class PipelineService : Service() {
             }
 
             webViewClient = object : WebViewClient() {
+                override fun onRenderProcessGone(
+                    view: WebView?,
+                    detail: android.webkit.RenderProcessGoneDetail?
+                ): Boolean {
+                    android.util.Log.e("AurumPipeline", "Background renderer gone; didCrash=${detail?.didCrash()}")
+                    watchdogTask?.let { watchdog?.removeCallbacks(it) }
+                    watchdogTask = null
+                    SchedulerLedger.complete(this@PipelineService, jobToken, "FAILED", "WEBVIEW_RENDERER_GONE")
+                    releaseTransferWakeLock()
+                    operationLockOwner?.let { owner ->
+                        operationLockKind?.let { kindKey -> OperationLock.release(kindKey, owner) }
+                    }
+                    operationLockKind = null
+                    operationLockOwner = null
+                    // The failed renderer must be discarded, not reused or silently marked successful.
+                    webView = null
+                    runCatching { view?.destroy() }
+                    stopSelf(startId)
+                    return true
+                }
                 override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest) =
                     loader.shouldInterceptRequest(request.url)
 
