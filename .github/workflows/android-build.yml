@@ -21,6 +21,7 @@ jobs:
           node --check app/src/main/assets/runtime.js
           node --check app/src/main/assets/aurum-r7-github.js
           node tests/r7-parity.cjs
+          node tests/mobile-freeze-regression.cjs
           node --check app/src/main/assets/offline-first.js
           node --check app/src/main/assets/netherlands-news-portal.js
           node --check app/src/main/assets/scheduler-settings.js
