@@ -2,8 +2,8 @@
 'use strict';
 
 const AURUM_RUNTIME_VERSION='3.1.0-r38-economic-purged';
-const AURUM_APP_VERSION_CODE=123;
-const AURUM_APP_VERSION_NAME='2.0.0-r38-separate-economic';
+const AURUM_APP_VERSION_CODE=124;
+const AURUM_APP_VERSION_NAME='2.0.1-r38-stability';
 const AURUM_UPDATE_SCHEMA='aurum-update/v2';
 const AURUM_UPDATE_SLOT_KEY='aurum.runtime.update.slot.v2';
 const AURUM_UPDATE_PENDING_KEY='aurum.runtime.update.pending.v2';
