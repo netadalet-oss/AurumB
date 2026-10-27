@@ -17,13 +17,13 @@ android {
     }
 
     defaultConfig {
-        // Must stay identical to the installed 2026-09-17 APK so Android performs an in-place
-        // update and preserves WebView/IndexedDB/SharedPreferences application data.
+        // Keep package ID and production signing identity unchanged for an in-place
+        // update that preserves WebView/IndexedDB/SharedPreferences application data.
         applicationId 'com.aurum.nextrevised09'
         minSdk 26
         targetSdk 35
-        versionCode 123
-        versionName '2.0.0-r38-separate-economic'
+        versionCode 124
+        versionName '2.0.1-r38-stability'
     }
 
     buildTypes {
