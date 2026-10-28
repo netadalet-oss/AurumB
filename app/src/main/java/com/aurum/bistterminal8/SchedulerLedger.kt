@@ -34,7 +34,8 @@ object SchedulerLedger {
                 .put("receivedAt", Instant.now().toString())
                 .put("status", "RUNNING")
                 .put("attempt", 1)
-            prefs.edit().putString(token, record.toString()).commit()
+            // Do not start a background pipeline without a durable event record.
+            if (!prefs.edit().putString(token, record.toString()).commit()) return null
             return token
         }
     }
