@@ -8,7 +8,7 @@ const known=new Set();
 for(const entry of m.exact){
  assert(!known.has(entry.path),'duplicate file '+entry.path);known.add(entry.path);
  const buf=fs.readFileSync(entry.path);
- const sha=crypto.createHash('sha1').update('blob '+buf.length+'\\0').update(buf).digest('hex');
+ const sha=crypto.createHash('sha1').update('blob '+buf.length+String.fromCharCode(0)).update(buf).digest('hex');
  assert.equal(sha,entry.blob,'unexpected divergence from verified source in '+entry.path);
 }
 assert(!m.exact.some(x=>x.path.endsWith('native-room-sync.js')),'canonical Room bridge must not be mirrored');
