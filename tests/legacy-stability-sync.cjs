@@ -70,4 +70,7 @@ assert(ledger.includes('val persisted = prefs.edit().putString(token, record.toS
 assert(P.includes('if (ok && terminalRecorded && kind == "data")'),'late completion or failed ledger write must not publish');
 assert(!P.includes('if (ok && kind == "data")'),'unverified success must never publish');
 
+assert(P.includes('val ok = uri.getQueryParameter("ok") == "1"'),'only an explicit ok=1 can complete a Legacy B scheduled pipeline');
+assert(R.includes("ok:ok?'1':'0'"),'Legacy B native completion protocol uses explicit 1/0 values');
+
 console.log('AurumB Legacy stability transfer contract OK');
