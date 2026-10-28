@@ -8,7 +8,6 @@ import android.content.Intent
 import android.net.Uri
 import android.os.IBinder
 import android.os.PowerManager
-import android.webkit.JavascriptInterface
 import android.webkit.JsPromptResult
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
@@ -21,8 +20,8 @@ import org.json.JSONObject
  * Headless execution host for scheduled Aurum pipelines.
  *
  * The background WebView must expose the same native market HTTP transport used by MainActivity.
- * Without this bridge native-market-http.js falls back to an unhandled JS prompt and every
- * allow-listed market request is rejected although the same operation works in the foreground.
+ * The prompt bridge handles commands only from the appassets origin; unscoped
+ * JavaScriptInterface callbacks would permit requests from arbitrary iframes.
  */
 class PipelineService : Service() {
     private var webView: WebView? = null
@@ -31,11 +30,8 @@ class PipelineService : Service() {
     private var watchdogTask: Runnable? = null
     private var operationLockKind: String? = null
     private var operationLockOwner: String? = null
+    private var activeToken: String? = null
 
-    private inner class BackgroundNativeBridge {
-        @JavascriptInterface
-        fun call(message: String, body: String): String = handleNative(message, body)
-    }
 
     override fun onCreate() {
         super.onCreate()
@@ -58,6 +54,15 @@ class PipelineService : Service() {
         val jobToken = intent.getStringExtra("jobToken")
             ?: run { stopSelf(startId); return START_NOT_STICKY }
         val kind = intent.getStringExtra("pipelineKind").let { if (it == "market") "market" else "data" }
+        // Scheduled Legacy transfers execute the same ES2020 JavaScript as the UI.
+        // Fail the real scheduler ledger entry before acquiring locks/wakelocks.
+        val chromiumMajor = WebView.getCurrentWebViewPackage()?.versionName?.substringBefore('.')?.toIntOrNull()
+        if (chromiumMajor != null && chromiumMajor < 80) {
+            android.util.Log.e("AurumBLegacyPipeline", "Unsupported Chromium WebView major=$chromiumMajor")
+            SchedulerLedger.complete(this, jobToken, "FAILED", "WEBVIEW_UNSUPPORTED_CHROMIUM")
+            stopSelf(startId)
+            return START_NOT_STICKY
+        }
 
         // Never destroy an already-running background WebView to start another pipeline.
         // Duplicate same-slot alarms are filtered by SchedulerLedger; different overlapping
@@ -72,12 +77,14 @@ class PipelineService : Service() {
         }
         operationLockKind = kind
         operationLockOwner = jobToken
+        activeToken = jobToken
 
         acquireTransferWakeLock()
         watchdogTask?.let { watchdog?.removeCallbacks(it) }
         watchdog = android.os.Handler(mainLooper)
         watchdogTask = Runnable {
             SchedulerLedger.complete(this, jobToken, "FAILED", "PIPELINE_TIMEOUT")
+            activeToken = null
             operationLockOwner?.let { owner -> operationLockKind?.let { kindKey -> OperationLock.release(kindKey, owner) } }
             operationLockKind = null
             operationLockOwner = null
@@ -97,8 +104,6 @@ class PipelineService : Service() {
             settings.allowContentAccess = false
             settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
 
-            // native-bridge.js prefers this interface and only falls back to window.prompt.
-            addJavascriptInterface(BackgroundNativeBridge(), "AurumNativeBridge")
             webChromeClient = object : WebChromeClient() {
                 override fun onJsPrompt(
                     view: WebView?,
@@ -108,7 +113,12 @@ class PipelineService : Service() {
                     result: JsPromptResult?
                 ): Boolean {
                     if (message?.startsWith("aurum://native?") == true) {
-                        result?.confirm(handleNative(message, defaultValue.orEmpty()))
+                        val source = runCatching { Uri.parse(url.orEmpty()) }.getOrNull()
+                        val trusted = source?.scheme == "https" &&
+                            source.host == "appassets.androidplatform.net" &&
+                            source.path?.startsWith("/assets/") == true &&
+                            view?.url?.startsWith("https://appassets.androidplatform.net/assets/") == true
+                        result?.confirm(if (trusted) handleNative(message, defaultValue.orEmpty()) else "ERR:UNTRUSTED_ORIGIN")
                         return true
                     }
                     return super.onJsPrompt(view, url, message, defaultValue, result)
@@ -116,22 +126,42 @@ class PipelineService : Service() {
             }
 
             webViewClient = object : WebViewClient() {
+                override fun onRenderProcessGone(view: WebView?, detail: android.webkit.RenderProcessGoneDetail?): Boolean {
+                    android.util.Log.e("AurumBLegacyPipeline","Background Chromium terminated (crash=${detail?.didCrash()})")
+                    SchedulerLedger.complete(this@PipelineService,jobToken,"FAILED","WEBVIEW_RENDERER_GONE")
+                    activeToken = null
+                    watchdogTask?.let { watchdog?.removeCallbacks(it) }
+                    watchdogTask=null
+                    releaseTransferWakeLock()
+                    operationLockOwner?.let { owner -> operationLockKind?.let { kindKey -> OperationLock.release(kindKey,owner) } }
+                    operationLockKind=null
+                    operationLockOwner=null
+                    webView=null
+                    runCatching { view?.destroy() }
+                    stopSelf(startId)
+                    return true
+                }
                 override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest) =
                     loader.shouldInterceptRequest(request.url)
 
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                     val uri = request.url
                     if (uri.scheme == "aurum" && uri.host == "complete") {
-                        val ok = uri.getQueryParameter("ok") != "0"
+                        // Completion is an app-owned top-level navigation, not an iframe event.
+                        if (!request.isForMainFrame) return true
+                        val ok = uri.getQueryParameter("ok") == "1"
                         val detail = uri.getQueryParameter("detail").orEmpty()
                         watchdogTask?.let { watchdog?.removeCallbacks(it) }
-                        SchedulerLedger.complete(
+                        val terminalRecorded = SchedulerLedger.complete(
                             this@PipelineService,
                             jobToken,
                             if (ok) "COMPLETED" else "FAILED",
                             detail
                         )
-                        if (ok && kind == "data") {
+                        activeToken = null
+                        // A late WebView success cannot publish after TIMEOUT/FAILED,
+                        // or if the terminal ledger write could not be persisted.
+                        if (ok && terminalRecorded && kind == "data") {
                             PublicationBus.publish()
                         }
                         releaseTransferWakeLock()
@@ -252,7 +282,6 @@ class PipelineService : Service() {
         webView?.apply {
             stopLoading()
             loadUrl("about:blank")
-            removeJavascriptInterface("AurumNativeBridge")
             removeAllViews()
             destroy()
         }
@@ -260,6 +289,10 @@ class PipelineService : Service() {
     }
 
     override fun onDestroy() {
+        // An orphaned service must never leave the durable scheduler ledger RUNNING.
+        // SchedulerLedger.complete preserves an earlier terminal result.
+        activeToken?.let { SchedulerLedger.complete(this,it,"FAILED","SERVICE_DESTROYED_BEFORE_COMPLETION") }
+        activeToken = null
         watchdogTask?.let { watchdog?.removeCallbacks(it) }
         watchdogTask = null
         watchdog = null

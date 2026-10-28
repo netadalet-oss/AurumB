@@ -165,6 +165,8 @@ object AurumScheduler {
 
     fun scheduleNextForTime(context: Context, time: String, after: Instant, kind: String = "data") {
         if (!valid(time) || !enabled(context, kind)) return
+        // A stale alarm delivery must not re-register a slot removed by the user.
+        if (time !in configuredTimes(context, kind)) return
 
         var target = ZonedDateTime.of(
             after.atZone(zone).toLocalDate(),

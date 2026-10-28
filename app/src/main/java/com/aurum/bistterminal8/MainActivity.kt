@@ -8,13 +8,15 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.net.Uri
 import android.os.Bundle
-import android.webkit.JavascriptInterface
 import android.webkit.JsPromptResult
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.EditText
+import android.widget.TextView
+import android.widget.Button
+import android.widget.LinearLayout
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -26,6 +28,7 @@ import java.io.OutputStreamWriter
 
 class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
+    private var rendererLost = false
     private var exportFolder: Uri? = null
 
     // The export stream contains only AES-GCM encrypted Legacy JSON.
@@ -55,7 +58,7 @@ class MainActivity : AppCompatActivity() {
             exportFolder = uri
             getSharedPreferences("aurum_export_folder", MODE_PRIVATE).edit()
                 .putString("uri", uri.toString()).apply()
-            if (::webView.isInitialized) webView.evaluateJavascript("window.refreshExportFolderStatus?.()", null)
+            if (::webView.isInitialized && !rendererLost && webView.parent != null) webView.evaluateJavascript("window.refreshExportFolderStatus?.()", null)
         }
     }
 
@@ -65,10 +68,6 @@ class MainActivity : AppCompatActivity() {
             .build()
     }
 
-    inner class NativeBridge {
-        @JavascriptInterface
-        fun call(message: String, body: String): String = handleNative(message, body)
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -77,6 +76,24 @@ class MainActivity : AppCompatActivity() {
         WebView.setWebContentsDebuggingEnabled((applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0)
         exportFolder = getSharedPreferences("aurum_export_folder", MODE_PRIVATE)
             .getString("uri", null)?.let(Uri::parse)
+        // This Legacy WebView bundle requires ES2020; an obsolete embedded Chromium
+        // must not open a blank JS app or be mistaken for a failed market refresh.
+        val webViewMajor = WebView.getCurrentWebViewPackage()?.versionName?.substringBefore('.')?.toIntOrNull()
+        if (webViewMajor != null && webViewMajor < 80) {
+            setContentView(LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(36, 48, 36, 48)
+                addView(TextView(this@MainActivity).apply {
+                    text = "Android System WebView veya Chrome sürümü çok eski. AurumB Legacy verileri silinmedi. WebView/Chrome'u güncelleyip yeniden açın."
+                    textSize = 17f
+                })
+                addView(Button(this@MainActivity).apply {
+                    text = "Kapat"
+                    setOnClickListener { finish() }
+                })
+            })
+            return
+        }
         webView = WebView(this)
         setContentView(webView)
         webView.settings.javaScriptEnabled = true
@@ -88,7 +105,6 @@ class MainActivity : AppCompatActivity() {
         webView.isFocusable = true
         webView.isFocusableInTouchMode = true
         webView.descendantFocusability = android.view.ViewGroup.FOCUS_AFTER_DESCENDANTS
-        webView.addJavascriptInterface(NativeBridge(), "AurumNativeBridge")
         webView.webChromeClient = object : WebChromeClient() {
             override fun onShowFileChooser(
                 view: WebView?, filePathCallback: android.webkit.ValueCallback<Array<Uri>>?,
@@ -126,6 +142,25 @@ class MainActivity : AppCompatActivity() {
             }
         }
         webView.webViewClient = object : WebViewClient() {
+            override fun onRenderProcessGone(view: WebView?, detail: android.webkit.RenderProcessGoneDetail?): Boolean {
+                rendererLost = true
+                android.util.Log.e("AurumBLegacy", "WebView renderer terminated (crash=${detail?.didCrash()})")
+                runCatching { (view?.parent as? android.view.ViewGroup)?.removeView(view) }
+                runCatching { view?.destroy() }
+                setContentView(LinearLayout(this@MainActivity).apply {
+                    orientation=LinearLayout.VERTICAL
+                    setPadding(36,48,36,48)
+                    addView(TextView(this@MainActivity).apply {
+                        text="Legacy WebView işlemi kapandı. Kayıtlar silinmedi. Yeniden açarak son doğrulanmış verilere ulaşabilirsiniz."
+                        textSize=17f
+                    })
+                    addView(Button(this@MainActivity).apply {
+                        text="Kayıtları koruyarak yeniden aç"
+                        setOnClickListener { recreate() }
+                    })
+                })
+                return true
+            }
             override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?) =
                 request?.url?.let(assetLoader::shouldInterceptRequest)
 
@@ -150,7 +185,7 @@ class MainActivity : AppCompatActivity() {
         webView.requestFocus()
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                if (webView.canGoBack()) webView.goBack() else finish()
+                if (::webView.isInitialized && !rendererLost && webView.parent != null && webView.canGoBack()) webView.goBack() else finish()
             }
         })
     }
@@ -315,6 +350,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun resolveJs(function: String, id: String, payload: String) {
         runOnUiThread {
+            if (!::webView.isInitialized || rendererLost || webView.parent == null) return@runOnUiThread
             webView.evaluateJavascript(function + "(" + JSONObject.quote(id) + "," +
                 JSONObject.quote(payload) + ")", null)
         }
@@ -487,7 +523,8 @@ class MainActivity : AppCompatActivity() {
                 val value = input.text.toString().trim()
                 if (value.isNotEmpty()) {
                     SecureSecretStore.put(this, value)
-                    webView.evaluateJavascript("window.AurumNativeAIKeySaved&&window.AurumNativeAIKeySaved(true)", null)
+                    if (::webView.isInitialized && !rendererLost && webView.parent != null)
+                        webView.evaluateJavascript("window.AurumNativeAIKeySaved&&window.AurumNativeAIKeySaved(true)", null)
                 }
             }.setNegativeButton(android.R.string.cancel, null).show()
     }
@@ -515,8 +552,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun refreshPublishedLocalState() {
-        if (!::webView.isInitialized) return
+        if (!::webView.isInitialized || rendererLost || webView.parent == null) return
         runOnUiThread {
+            if (rendererLost) return@runOnUiThread
             webView.evaluateJavascript(
                 "window.AurumPublicationContinuity&&window.AurumPublicationContinuity.reload&&window.AurumPublicationContinuity.reload()",
                 null
@@ -541,7 +579,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
-        webView.saveState(outState)
+        if (::webView.isInitialized && !rendererLost && webView.parent != null) webView.saveState(outState)
         super.onSaveInstanceState(outState)
     }
 
@@ -552,8 +590,10 @@ class MainActivity : AppCompatActivity() {
         stopService(android.content.Intent(this, TransferKeepaliveService::class.java))
         dataOperationOwner?.let { OperationLock.release("data", it) }
         dataOperationOwner = null
-        webView.removeJavascriptInterface("AurumNativeBridge")
-        webView.destroy()
+        if (::webView.isInitialized && !rendererLost && webView.parent != null) {
+            webView.removeJavascriptInterface("AurumNativeBridge")
+            webView.destroy()
+        }
         super.onDestroy()
     }
 }
