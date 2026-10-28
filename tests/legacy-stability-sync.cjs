@@ -19,6 +19,7 @@ assert(!fs.existsSync('app/build.gradle.kts'),'Do not introduce Android canonica
 
 const ledger=read('app/src/main/java/com/aurum/bistterminal8/SchedulerLedger.kt');
 assert(ledger.includes('if (prefs.contains(token)) return null'),'one native execution per scheduled alarm identity');
+assert(ledger.includes('if (!prefs.edit().putString(token, record.toString()).commit()) return null'),'never run a scheduled job without durable ledger storage');
 assert(ledger.includes('private fun reconcileLocked('),'stale RUNNING jobs are terminally reconciled');
 assert(ledger.includes('STALE_RUNNING_RECONCILED'),'stale scheduler status must be inspectable');
 assert(ledger.includes('if (record.optString("status") in terminal) return'),'a finished job must never be overwritten by callbacks');
