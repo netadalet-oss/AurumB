@@ -58,7 +58,9 @@ object SchedulerLedger {
                 .put("status", status)
                 .put("lastError", detail.takeIf { status != "COMPLETED" })
                 .put("detail", detail)
-            prefs.edit().putString(token, record.toString()).apply()
+            if (!prefs.edit().putString(token, record.toString()).commit()) {
+                android.util.Log.e("AurumBSchedulerLedger", "Scheduler terminal result was not persisted")
+            }
         }
     }
 
@@ -79,7 +81,9 @@ object SchedulerLedger {
                 changed = true
             }
         }
-        if (changed) e.apply()
+        if (changed && !e.commit()) {
+            android.util.Log.e("AurumBSchedulerLedger", "Stale scheduler result was not persisted")
+        }
     }
 
     fun latest(context: Context): JSONObject {
