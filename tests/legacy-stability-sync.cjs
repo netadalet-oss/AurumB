@@ -74,4 +74,11 @@ assert(P.includes('val ok = uri.getQueryParameter("ok") == "1"'),'only an explic
 assert(R.includes("ok:ok?'1':'0'"),'Legacy B native completion protocol uses explicit 1/0 values');
 
 assert(P.includes('if (!request.isForMainFrame) return true'),'subframe must not terminate a scheduled Legacy B job');
+
+const scheduler=read('app/src/main/java/com/aurum/bistterminal8/AurumScheduler.kt');
+assert(receiver.includes('if (!AurumScheduler.enabled(context, kind)) return'),'disabled Legacy B slot cannot run from a stale alarm');
+assert(receiver.includes('if (slotTime !in AurumScheduler.configuredTimes(context, kind)) return'),'removed Legacy B slot cannot start a pipeline');
+assert(scheduler.includes('if (time !in configuredTimes(context, kind)) return'),'removed Legacy B slot cannot rearm from a late broadcast');
+assert(receiver.includes('android.util.Log.e("AurumBMaintenance", "Maintenance start rejected", it)'),'OS rejection of weekly maintenance must be contained');
+
 console.log('AurumB Legacy stability transfer contract OK');
