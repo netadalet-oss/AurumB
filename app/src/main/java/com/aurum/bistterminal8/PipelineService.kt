@@ -149,7 +149,7 @@ class PipelineService : Service() {
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                     val uri = request.url
                     if (uri.scheme == "aurum" && uri.host == "complete") {
-                        val ok = uri.getQueryParameter("ok") != "0"
+                        val ok = uri.getQueryParameter("ok") == "1"
                         val detail = uri.getQueryParameter("detail").orEmpty()
                         watchdogTask?.let { watchdog?.removeCallbacks(it) }
                         val terminalRecorded = SchedulerLedger.complete(
