@@ -163,6 +163,17 @@ jobs:
             :app:lintDebug \
             --stacktrace
           test -f app/build/outputs/apk/release/app-release-unsigned.apk
+      - name: Independently verify signed debug APK and v124 Legacy identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          BUILD_TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          APK="$(find app/build/outputs/apk/debug -type f -name '*.apk' | head -1)"
+          test -s "$APK"
+          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$APK"
+          "$BUILD_TOOLS/aapt" dump badging "$APK" |
+            grep -F "package: name='com.aurum.nextrevised09' versionCode='124' versionName='2.0.1-r39-legacy-upgrades'"
+          "$BUILD_TOOLS/zipalign" -c -p 4 "$APK"
       - name: Validate packaged APK K_Tarihsel controls and immutable archive
         run: node tests/aurumb-packaged-apk-history.cjs
       - name: Upload Gradle-signed installable APK
@@ -221,7 +232,6 @@ jobs:
           if-no-files-found: error
 
   emulator-smoke:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: assemble
     runs-on: ubuntu-latest
     timeout-minutes: 35
@@ -232,7 +242,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: AurumB-final-installable-apk
+          name: ${{ github.event_name == 'pull_request' && 'AurumB-gradle-signed-installable' || 'AurumB-final-installable-apk' }}
           path: apk
       - name: Enable Android emulator KVM
         run: |
@@ -251,9 +261,10 @@ jobs:
           emulator-boot-timeout: 900
           script: |
             set -eu
-            test -s "$GITHUB_WORKSPACE/apk/AurumB-final-install.apk"
+            APK="$(find "$GITHUB_WORKSPACE/apk" -type f -name '*.apk' | head -1)"
+            test -s "$APK"
             adb wait-for-device
-            adb install -r "$GITHUB_WORKSPACE/apk/AurumB-final-install.apk"
+            adb install -r "$APK"
             adb logcat -c || true
             adb shell am start -W -n com.aurum.nextrevised09/com.aurum.bistterminal8.MainActivity
             sleep 10
