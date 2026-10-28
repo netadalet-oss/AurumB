@@ -11,7 +11,7 @@ for(const [src,needle,desc] of [
  [A,'WebView.getCurrentWebViewPackage()','check Legacy Chromium before UI JS'],
  [A,'AurumB Legacy verileri silinmedi','non-destructive compatibility notice'],
  [G,"applicationId 'com.aurum.nextrevised09'",'unchanged Legacy package'],
- [G,'versionCode 123','unchanged Legacy installer version']
+ [G,'versionCode 124','incremented Legacy update version']
 ])assert(src.includes(needle),desc);
 assert(!R.includes('const V141225_PAGE_SIZE=200;'));
 assert(!R.includes("nativeComplete('',true,'NO_PENDING_SLOT')"));
