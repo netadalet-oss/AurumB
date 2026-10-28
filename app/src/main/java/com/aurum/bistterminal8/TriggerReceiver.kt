@@ -10,15 +10,21 @@ class TriggerReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == AurumScheduler.ACTION_MAINTENANCE) {
             AurumScheduler.scheduleWeeklyMaintenance(context)
-            ContextCompat.startForegroundService(
-                context,
-                Intent(context, MaintenanceService::class.java)
-            )
+            runCatching {
+                ContextCompat.startForegroundService(
+                    context,
+                    Intent(context, MaintenanceService::class.java)
+                )
+            }.onFailure { android.util.Log.e("AurumBMaintenance", "Maintenance start rejected", it) }
             return
         }
         val slotTime = intent.getStringExtra("slotTime") ?: return
         if (!AurumScheduler.valid(slotTime)) return
         val kind = intent.getStringExtra("pipelineKind").let { if (it == "market") "market" else "data" }
+        // A previously queued PendingIntent must not revive a deleted or
+        // disabled schedule after the user edits its configured slots.
+        if (!AurumScheduler.enabled(context, kind)) return
+        if (slotTime !in AurumScheduler.configuredTimes(context, kind)) return
         val epoch = intent.getLongExtra("epoch", 0L).takeIf { it > 0L } ?: System.currentTimeMillis()
 
         // One-shot alarms are always re-armed, including duplicate deliveries.
