@@ -1,0 +1,26 @@
+
+/* R7: actual Veriler grid, including the 484-column BIST drive table.
+   The previous R2 selector was unrelated to the live BIST header (VeriZamani).
+   R7 keeps other column widths unchanged and exposes real horizontal scrolling. */
+#content[data-page="data"] #recordsContent .aurum-v141225 {overflow-x:auto!important;overflow-y:visible!important;}
+#content[data-page="data"] #dataTable {table-layout:auto!important;width:max-content!important;min-width:100%!important;}
+#content[data-page="data"] #dataTable th.aurum-r7-time-column,
+#content[data-page="data"] #dataTable td.aurum-r7-time-column,
+#content[data-page="data"] #dataTable th:nth-child(2):is(.aurum-r7-time-column),
+#content[data-page="data"] #dataTable td:nth-child(2):is(.aurum-r7-time-column){
+  box-sizing:border-box!important;min-width:var(--aurum-r7-time-width,205px)!important;
+  width:var(--aurum-r7-time-width,205px)!important;
+  max-width:none!important;white-space:nowrap!important;overflow:visible!important;
+  text-overflow:clip!important;font-variant-numeric:tabular-nums!important;
+}
+#content[data-page="data"] #dataTable .aurum-r7-time-column *{white-space:nowrap!important;overflow:visible!important;text-overflow:clip!important;}
+#content[data-page="data"] .table-wrap {overflow-x:auto!important;-webkit-overflow-scrolling:touch!important;}
+/* The same time column in the FUND grid is inserted after the Fon column on all bands. */
+#content[data-page="data"] #dataTable.fund-table th:nth-child(2),
+#content[data-page="data"] #dataTable.fund-table td:nth-child(2){
+ box-sizing:border-box!important;min-width:var(--aurum-r7-time-width,205px)!important;
+ width:var(--aurum-r7-time-width,205px)!important;max-width:none!important;
+ white-space:nowrap!important;overflow:visible!important;text-overflow:clip!important;
+ font-variant-numeric:tabular-nums!important;}
+#content[data-page="data"] #dataTable.fund-table{table-layout:auto!important;width:max-content!important;min-width:100%!important;}
+.aurum-r7-time-controls .field input{width:100%;}
