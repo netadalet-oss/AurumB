@@ -26,3 +26,13 @@ Native database schema/migrations, Java–Kotlin native API equivalence, UI sour
 - The **24** commits inventoried above are only the most recent targeted time window; **do not mistake them for the full sync scope**. Ancestor commits can be shared across both canonical branches and need change-domain deduplication.
 - A full one-to-one port requires a versioned feature/API matrix, individual acceptance tests for all non-equivalent behavior and a Legacy-only upgrade proof. Current draft PR is **partial**; never merge or call it full parity until these prerequisites are met.
 - Preserve independent Legacy `applicationId`, existing native host paths and signing chain. Android cleanroom-native `Room` classes are not a drop-in Legacy dependency.
+
+
+## Verified repaired-source web asset tree comparison
+
+- Source: `netadalet-oss/Aurum` repair branch at `d66f77f1ff3749bf76ef3e20e8ba9865f38c7f23`.
+- Target: independent `AurumB` Legacy repository, keeping `com.aurum.nextrevised09`, the original Groovy/Kotlin source layout and data contracts.
+- Canonical repaired Android source has **31 asset blobs**. Independent Git tree comparison on this PR: **30 exact SHA-1 blob matches** with Legacy; `app/src/main/assets/runtime.js` differs intentionally for Legacy UI/native ABI adapters. No canonical asset is missing.
+- This compares immutable Git *blob identity*, not runtime behavior of independent native architectures.
+- A bytewise match of web assets does **not** establish equivalence of native Room migrations, backup/restore, alarm handling, production signing, or 1,000+ reachable historical commits.
+- Current PR is staged; no Legacy `main` merge or Legacy release APK was performed.
