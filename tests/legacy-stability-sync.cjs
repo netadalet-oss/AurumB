@@ -16,4 +16,12 @@ for(const [src,needle,desc] of [
 assert(!R.includes('const V141225_PAGE_SIZE=200;'));
 assert(!R.includes("nativeComplete('',true,'NO_PENDING_SLOT')"));
 assert(!fs.existsSync('app/build.gradle.kts'),'Do not introduce Android canonical build tree');
+
+const ledger=read('app/src/main/java/com/aurum/bistterminal8/SchedulerLedger.kt');
+assert(ledger.includes('if (prefs.contains(token)) return null'),'one native execution per scheduled alarm identity');
+assert(ledger.includes('private fun reconcileLocked('),'stale RUNNING jobs are terminally reconciled');
+assert(ledger.includes('STALE_RUNNING_RECONCILED'),'stale scheduler status must be inspectable');
+assert(ledger.includes('if (record.optString("status") in terminal) return'),'a finished job must never be overwritten by callbacks');
+assert(P.includes('activeToken?.let { SchedulerLedger.complete(this,it,"FAILED","SERVICE_DESTROYED_BEFORE_COMPLETION") }'),'service termination cannot strand a running scheduled job');
+
 console.log('AurumB Legacy stability transfer contract OK');
