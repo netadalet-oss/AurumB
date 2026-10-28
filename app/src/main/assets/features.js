@@ -373,17 +373,48 @@
     return {rows,weights:ew};
   }
   function executionRiskFor(r,base){
-    if(Number.isFinite(num(base?.executionRisk)))return cap(num(base.executionRisk),0,1);const maxPart=Math.max(.01,num(state?.settings?.maxParticipationPct)||1),q=Number.isFinite(num(r?.quality))?num(r.quality)/100:.5;
-    return cap(.31*cap((num(r?.estimatedCostPct)||0)/2,0,1)+.18*cap((num(r?.participationPct)||0)/maxPart,0,1)+.18*(r?.limitUpRisk?1:0)+.13*cap((num(r?.upperWickPct)||0)/6,0,1)+.08*(1-q),0,1);
+    /* R9: No stale risk label may override current market/ATR/cost evidence. */
+    const maxPart=Math.max(.01,num(state?.settings?.maxParticipationPct)||1);
+    const quality=Number.isFinite(num(r?.quality))?cap(num(r.quality)/100,0,1):.5;
+    const cost=Number.isFinite(num(r?.estimatedCostPct))?Math.max(0,num(r.estimatedCostPct)):null;
+    const atr=Number.isFinite(num(r?.atrPct))?Math.max(0,num(r.atrPct)):null;
+    const participation=num(r?.participationPct);
+    const regime=String(r?.marketRegime||state?.k12Context?.market?.regime||'').toUpperCase();
+    const operational=cap(.34*cap((cost??0)/1.5,0,1)+.20*cap((participation??0)/maxPart,0,1)+.18*(r?.limitUpRisk?1:0)+.12*cap((num(r?.upperWickPct)||0)/6,0,1)+.16*(1-quality),0,1);
+    const volatility=atr==null?0:cap((atr-1.5)/8,0,1);
+    const stressed=cap(.52*volatility+.24*(regime==='BEAR'?1:regime==='VOLATILE'?.75:0)+.24*cap((cost??0)/1.5,0,1),0,1);
+    const old=Number.isFinite(num(base?.executionRisk))?cap(num(base.executionRisk),0,1):0;
+    return cap(Math.max(.6*old,operational,stressed),0,1);
   }
   function buildS(eligible,scores,weights,oldBySym,options={},market=null){
     const fusion=fusionRows(eligible,scores,weights),fm=new Map(fusion.rows.map((x,i)=>[x.sym,{...x,rank:i+1}])),rankMaps={};for(const k of EXPERTS)rankMaps[k]=new Map((scores?.[k]||[]).map((x,i)=>[x.sym,{rank:i+1,row:x}]));const k10m=new Map((scores?.K10||[]).map((x,i)=>[x.sym,{rank:i+1,row:x}])),k12m=new Map((scores?.K12||[]).map((x,i)=>[x.sym,{rank:i+1,row:x}])),bySym=new Map();
+    const forwardRuns=typeof effectiveLearningRuns==='function'?effectiveLearningRuns():[];
+    const validDates=new Set(forwardRuns.map(x=>String(x.signalTradingDate||'').slice(0,10)).filter(Boolean));
+    const verifiedBrier=forwardRuns.map(x=>x.metrics?.brier).filter(x=>x!==null&&x!==undefined&&Number.isFinite(Number(x))).map(Number);
+    const baselineBrier=forwardRuns.map(x=>x.metrics?.baseDualRate).filter(x=>x!==null&&x!==undefined&&Number.isFinite(Number(x))).map(Number).map(p=>p*(1-p));
+    const meanOf=a=>a.length?a.reduce((sum,v)=>sum+v,0)/a.length:null;
+    const brierReady=validDates.size>=60&&verifiedBrier.length>=30&&baselineBrier.length>=30&&meanOf(verifiedBrier)<=meanOf(baselineBrier);
     for(const r of eligible){
       const old=oldBySym?.get?.(r.sym)||{},kn=fm.get(r.sym)?.score??0,k12=k12m.get(r.sym),meta=num(k12?.row?.score)??50,baseScore=kn,er=executionRiskFor(r,old),final=cap(baseScore-12*er),contrib=[];
       for(const k of EXPERTS){const z=rankMaps[k].get(r.sym);if(z)contrib.push({k,rank:z.rank,score:num(z.row.score),weight:fusion.weights[k]||0});}
       let probability=null,observations=0;if(options.calibrate!==false&&typeof calibratedProbability==='function'){try{const latest=eligible.map(x=>x.latestDate).filter(Boolean).sort().at(-1),ctx=typeof marketContext==='function'?marketContext(new Date(),latest):{window:'MIDDAY'},cal=calibratedProbability(final,r.marketRegime,ctx.window);if(Number.isFinite(num(cal?.prob))){probability=num(cal.prob);observations=num(cal.observations)||0;}}catch{}}
-      if(!Number.isFinite(probability))probability=Math.max(.02,Math.min(.35,.025+.28/(1+Math.exp(-(final-76)/7))));const k10=k10m.get(r.sym),warnings=[...(old.warnings||r.warnings||[])];
-      bySym.set(r.sym,{...old,...r,totalScore:final,sBaseBeforeExecution:baseScore,sKnFusionScore:kn,sK12MetaScore:meta,sKnShare:S_KN_SHARE,sK12Share:S_K12_SHARE,sRankConsensus:fm.get(r.sym)?.rankConsensus??null,sScoreConsensus:fm.get(r.sym)?.scoreConsensus??null,targetProbability:probability,confidenceObservations:observations,contributions:contrib,supportingCriteria:contrib.filter(x=>x.rank<=topN()).map(x=>x.k),executionRisk:er,riskLevel:er>.62?'Yüksek':er>.34?'Orta':'Düşük',warnings,k10RewardScore:num(k10?.row?.score),k10RewardPenalty:num(k10?.row?.rewardPenalty),k10RewardRank:k10?.rank||null,k10EvidenceCount:k10?.row?.evidenceCount||0,k10LastOutcomeDate:k10?.row?.lastOutcomeDate||null,k12ContextScore:meta,k12ContextRank:k12?.rank||null,k12MarketCharacterScore:num(k12?.row?.marketCharacterScore),k12MarketCompatibility:num(k12?.row?.marketCompatibility),k12RegimeFit:num(k12?.row?.regimeFit),k12CharacterConfidence:num(k12?.row?.characterConfidence),marketCharacter:market||state?.k12Context?.market||null,sFusionMethod:'R36_K1_K7_ONLY_FUSION',sDirectExperts:[...EXPERTS],k10DirectSeat:false,k12DirectSeat:false});
+       if(!Number.isFinite(probability))probability=Math.max(.02,Math.min(.35,.025+.28/(1+Math.exp(-(final-76)/7))));
+       const k10=k10m.get(r.sym),support=contrib.filter(x=>x.rank<=topN()).map(x=>x.k);
+       const atr=num(r?.atrPct),cost=num(r?.estimatedCostPct),qual=num(r?.quality),part=num(r?.participationPct),regime=String(r?.marketRegime||market?.regime||'').toUpperCase();
+       const staleSync=state?.lastSuccessfulSync?Date.now()-Date.parse(state.lastSuccessfulSync)>36*3600000:false;
+       const rules=[
+         {name:'BEAR yüksek ATR',test:regime==='BEAR'&&Number.isFinite(atr)&&atr>=3.5},
+         {name:'Yüksek oynaklık (ATR)',test:Number.isFinite(atr)&&atr>=5},
+         {name:'Yüksek işlem maliyeti',test:Number.isFinite(cost)&&cost>=.75},
+         {name:'Destekleyen K1–K7 kriteri yok',test:support.length===0},
+         {name:'Düşük veri kalitesi',test:Number.isFinite(qual)&&qual<70},
+         {name:'Katılım/likidite sınırı',test:Number.isFinite(part)&&part>(num(state?.settings?.maxParticipationPct)||2)},
+         {name:'Eski son başarılı veri aktarımı',test:staleSync}
+       ];
+       const warnings=[...new Set([...(old.warnings||r.warnings||[]),...rules.filter(x=>x.test).map(x=>x.name)])];
+       const calibrated=observations>=30&&brierReady; /* held-out Brier no worse than base rate */
+       bySym.set(r.sym,{...old,...r,totalScore:final,sBaseBeforeExecution:baseScore,sKnFusionScore:kn,sK12MetaScore:meta,sKnShare:S_KN_SHARE,sK12Share:S_K12_SHARE,sRankConsensus:fm.get(r.sym)?.rankConsensus??null,sScoreConsensus:fm.get(r.sym)?.scoreConsensus??null,targetProbability:probability,probabilitySource:calibrated?'EMPIRICAL_BLEND':'PRIOR_ONLY_UNCALIBRATED',probabilityCalibrated:calibrated,confidenceObservations:observations,contributions:contrib,supportingCriteria:support,executionRisk:er,riskLevel:er>=.60?'Yüksek':er>=.34?'Orta':'Düşük',warnings,warningRulesEvaluated:rules.length,warningRulesTriggered:rules.filter(x=>x.test).length,warningProvenance:rules.map(x=>({rule:x.name,triggered:x.test})),k10RewardScore:num(k10?.row?.score),k10RewardPenalty:num(k10?.row?.rewardPenalty),k10RewardRank:k10?.rank||null,k10EvidenceCount:k10?.row?.evidenceCount||0,k10LastOutcomeDate:k10?.row?.lastOutcomeDate||null,k12ContextScore:meta,k12ContextRank:k12?.rank||null,k12MarketCharacterScore:num(k12?.row?.marketCharacterScore),k12MarketCompatibility:num(k12?.row?.marketCompatibility),k12RegimeFit:num(k12?.row?.regimeFit),k12CharacterConfidence:num(k12?.row?.characterConfidence),marketCharacter:market||state?.k12Context?.market||null,sFusionMethod:'R36_K1_K7_ONLY_FUSION',sDirectExperts:[...EXPERTS],k10DirectSeat:false,k12DirectSeat:false});
+
     }
     const ranked=[...bySym.values()].sort((a,b)=>b.totalScore-a.totalScore||String(a.sym).localeCompare(String(b.sym))),selection=typeof constructAdaptivePortfolio==='function'?constructAdaptivePortfolio(ranked):ranked.slice(0,topN());return {bySym,selection,expertWeights:fusion.weights,fusionRows:fusion.rows};
   }
