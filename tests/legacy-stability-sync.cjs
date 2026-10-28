@@ -54,4 +54,9 @@ assert(mainActivity.includes('!rendererLost && webView.parent != null && webView
 assert(mainActivity.includes('!rendererLost && webView.parent != null) webView.saveState(outState)'),'do not persist destroyed renderer state');
 assert(mainActivity.includes('if (::webView.isInitialized && !rendererLost && webView.parent != null)'),'AI-key callback guarded by renderer availability');
 
+
+const receiver=fs.readFileSync('app/src/main/java/com/aurum/bistterminal8/TriggerReceiver.kt','utf8');
+assert(receiver.includes('runCatching { ContextCompat.startForegroundService(context, service) }'),'OS background start rejection must be contained');
+assert(receiver.includes('SchedulerLedger.complete(context, jobToken, "FAILED"'),'OS-rejected alarm must produce terminal failed status');
+
 console.log('AurumB Legacy stability transfer contract OK');
