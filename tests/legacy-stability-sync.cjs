@@ -47,4 +47,11 @@ for(const page of [0,1,5,26,999]){
 tableLogic.set(0);assert.equal(tableLogic.visible().length,20);
 tableLogic.set(999);assert.equal(tableLogic.visible().length,18); // 484 mod 18 = 16 metrics + 2 pinned
 
+
+const mainActivity=fs.readFileSync('app/src/main/java/com/aurum/bistterminal8/MainActivity.kt','utf8');
+assert(mainActivity.includes('rendererLost || webView.parent == null) return@runOnUiThread'),'late NativeMarketHttp/AI callbacks must not evaluate on a lost renderer');
+assert(mainActivity.includes('!rendererLost && webView.parent != null && webView.canGoBack()'),'back stack must not access destroyed WebView');
+assert(mainActivity.includes('!rendererLost && webView.parent != null) webView.saveState(outState)'),'do not persist destroyed renderer state');
+assert(mainActivity.includes('if (::webView.isInitialized && !rendererLost && webView.parent != null)'),'AI-key callback guarded by renderer availability');
+
 console.log('AurumB Legacy stability transfer contract OK');
