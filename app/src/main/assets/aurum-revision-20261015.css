@@ -1,0 +1,6 @@
+/* Actual data-table TIME column — preserve full date and time in long date-time values. */
+.aurum-drive-table:not(.strict-history) table th:nth-child(2),
+.aurum-drive-table:not(.strict-history) table td:nth-child(2){min-width:180px!important;width:180px!important;max-width:none!important;white-space:nowrap!important;overflow:visible!important;text-overflow:clip!important;overflow-wrap:normal!important}
+.aurum-drive-table:not(.strict-history) table td:nth-child(2) *{white-space:nowrap!important;overflow:visible!important;text-overflow:clip!important}
+#aurumFullSettings .field input,#aurumFullSettings .field select{max-width:100%;min-width:0}
+#aurumAiPatchPrompt{width:100%;min-height:90px}
