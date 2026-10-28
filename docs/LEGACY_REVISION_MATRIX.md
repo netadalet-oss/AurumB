@@ -47,3 +47,10 @@ Status terminology: `STAGED_STATIC` = corresponding code and static/test asserti
 - Signed-release workflow fails closed unless historical Legacy update key and certificate identity are provided; no newly generated fresh-install signer can be accepted as a v123 update. Real installed-app certificate comparison and data-retention tests are **pending**.
 - Do not confuse a debug-signed APK or an unsigned release candidate with a certified data-preserving update.
 - PR CI is being extended to independently verify debug package identity and run API 26/35 emulator smoke. A successful build does not prove migration from the user's installed v123 APK.
+
+
+### Historical installer signer discrepancy (confirmed from existing GitHub artifact)
+
+- Legacy B `main` [run 38171870225](https://github.com/netadalet-oss/AurumB/actions/runs/38171870225), 11 October 2026, produced `AurumB-final-install.apk` (v123) with signing-block certificate SHA-256 `42fa52b67f3e272803e7f9963f5be5b4f9f2e744535ec10cc1b7e995001b8a4d`.
+- Its CI log explicitly emitted **"New fresh-install signer"** and used `MODE=FRESH_INSTALL_ONLY`; this certificate does **not** match the workflow's separately pinned candidate original update certificate `150a61d5f6a45b7f8caa10dc62d4944c781aad3e08e6323cc45df3fda935b7e4`.
+- Therefore **neither certificate may be assumed to identify the user's installed package**. If v123 was installed from that 11 October ephemeral-key artifact, its exact matching private key is needed for a data-preserving update. Never silently replace the pinned expected certificate with this other artifact certificate; obtain the installed-app signer and original private key from the authorized owner.
