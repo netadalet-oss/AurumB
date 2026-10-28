@@ -8,7 +8,6 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.net.Uri
 import android.os.Bundle
-import android.webkit.JavascriptInterface
 import android.webkit.JsPromptResult
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
@@ -69,10 +68,6 @@ class MainActivity : AppCompatActivity() {
             .build()
     }
 
-    inner class NativeBridge {
-        @JavascriptInterface
-        fun call(message: String, body: String): String = handleNative(message, body)
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -110,7 +105,6 @@ class MainActivity : AppCompatActivity() {
         webView.isFocusable = true
         webView.isFocusableInTouchMode = true
         webView.descendantFocusability = android.view.ViewGroup.FOCUS_AFTER_DESCENDANTS
-        webView.addJavascriptInterface(NativeBridge(), "AurumNativeBridge")
         webView.webChromeClient = object : WebChromeClient() {
             override fun onShowFileChooser(
                 view: WebView?, filePathCallback: android.webkit.ValueCallback<Array<Uri>>?,
