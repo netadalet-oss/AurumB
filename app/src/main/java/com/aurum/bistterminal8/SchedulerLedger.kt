@@ -44,23 +44,23 @@ object SchedulerLedger {
     fun begin(context: Context, epoch: Long, time: String): String =
         acquire(context, epoch, time, "data") ?: token(epoch, time, "data")
 
-    fun complete(context: Context, token: String, status: String, detail: String) {
-        if (token.isBlank()) return
+    fun complete(context: Context, token: String, status: String, detail: String): Boolean {
+        if (token.isBlank()) return false
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         synchronized(this) {
-            val record = runCatching { JSONObject(prefs.getString(token, "{}") ?: "{}") }
-                .getOrElse { JSONObject() }
+            val stored = prefs.getString(token, null) ?: return false
+            val record = runCatching { JSONObject(stored) }.getOrNull() ?: return false
             // Renderer, watchdog and onDestroy callbacks can race. The first
             // terminal outcome is authoritative, especially a verified success.
-            if (record.optString("status") in terminal) return
+            if (record.optString("status") in terminal) return false
             record.put("jobToken", token)
                 .put("completedAt", Instant.now().toString())
                 .put("status", status)
                 .put("lastError", detail.takeIf { status != "COMPLETED" })
                 .put("detail", detail)
-            if (!prefs.edit().putString(token, record.toString()).commit()) {
-                android.util.Log.e("AurumBSchedulerLedger", "Scheduler terminal result was not persisted")
-            }
+            val persisted = prefs.edit().putString(token, record.toString()).commit()
+            if (!persisted) android.util.Log.e("AurumBSchedulerLedger", "Scheduler terminal result was not persisted")
+            return persisted
         }
     }
 
