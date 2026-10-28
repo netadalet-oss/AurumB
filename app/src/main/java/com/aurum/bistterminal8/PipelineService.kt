@@ -8,7 +8,6 @@ import android.content.Intent
 import android.net.Uri
 import android.os.IBinder
 import android.os.PowerManager
-import android.webkit.JavascriptInterface
 import android.webkit.JsPromptResult
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
@@ -33,10 +32,6 @@ class PipelineService : Service() {
     private var operationLockOwner: String? = null
     private var activeToken: String? = null
 
-    private inner class BackgroundNativeBridge {
-        @JavascriptInterface
-        fun call(message: String, body: String): String = handleNative(message, body)
-    }
 
     override fun onCreate() {
         super.onCreate()
@@ -109,8 +104,6 @@ class PipelineService : Service() {
             settings.allowContentAccess = false
             settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
 
-            // native-bridge.js prefers this interface and only falls back to window.prompt.
-            addJavascriptInterface(BackgroundNativeBridge(), "AurumNativeBridge")
             webChromeClient = object : WebChromeClient() {
                 override fun onJsPrompt(
                     view: WebView?,
@@ -120,7 +113,12 @@ class PipelineService : Service() {
                     result: JsPromptResult?
                 ): Boolean {
                     if (message?.startsWith("aurum://native?") == true) {
-                        result?.confirm(handleNative(message, defaultValue.orEmpty()))
+                        val source = runCatching { Uri.parse(url.orEmpty()) }.getOrNull()
+                        val trusted = source?.scheme == "https" &&
+                            source.host == "appassets.androidplatform.net" &&
+                            source.path?.startsWith("/assets/") == true &&
+                            view?.url?.startsWith("https://appassets.androidplatform.net/assets/") == true
+                        result?.confirm(if (trusted) handleNative(message, defaultValue.orEmpty()) else "ERR:UNTRUSTED_ORIGIN")
                         return true
                     }
                     return super.onJsPrompt(view, url, message, defaultValue, result)
@@ -284,7 +282,6 @@ class PipelineService : Service() {
         webView?.apply {
             stopLoading()
             loadUrl("about:blank")
-            removeJavascriptInterface("AurumNativeBridge")
             removeAllViews()
             destroy()
         }
