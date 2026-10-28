@@ -152,14 +152,16 @@ class PipelineService : Service() {
                         val ok = uri.getQueryParameter("ok") != "0"
                         val detail = uri.getQueryParameter("detail").orEmpty()
                         watchdogTask?.let { watchdog?.removeCallbacks(it) }
-                        SchedulerLedger.complete(
+                        val terminalRecorded = SchedulerLedger.complete(
                             this@PipelineService,
                             jobToken,
                             if (ok) "COMPLETED" else "FAILED",
                             detail
                         )
                         activeToken = null
-                        if (ok && kind == "data") {
+                        // A late WebView success cannot publish after TIMEOUT/FAILED,
+                        // or if the terminal ledger write could not be persisted.
+                        if (ok && terminalRecorded && kind == "data") {
                             PublicationBus.publish()
                         }
                         releaseTransferWakeLock()
