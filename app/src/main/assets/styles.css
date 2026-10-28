@@ -1013,6 +1013,46 @@ input[type="range"][id^="aurumScaleVal_"]{height:3px;accent-color:currentColor;v
 
 /* AURUMB_MARKET_EXACT_PRESENTATION_END */
 
+/* 2026-10-10 — AL/SAT entry/exit time: visual only, no financial data write. */
+.aurum-qbs-grid .qbs-row[role="button"]{cursor:pointer;touch-action:manipulation}
+.aurum-qbs-grid .qbs-row[role="button"]:focus-visible{
+  outline:1px solid rgba(189,172,108,.56);outline-offset:2px;border-radius:4px
+}
+.aurum-qbs-grid .qbs-event-time{
+  display:block!important;font-size:clamp(7px,1.68vw,8px)!important;
+  line-height:1.3!important;margin:3px 0 0!important;
+  letter-spacing:.015em!important;font-weight:300!important;
+  color:rgba(183,194,215,.55)!important;white-space:nowrap!important;
+  font-variant-numeric:tabular-nums!important
+}
+
+/* Schedule report remains compact when a profile contains many time slots. */
+#aurumDualSchedulerSettings .aurum-scheduler-report-grid{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;align-items:start
+}
+#aurumDualSchedulerSettings .aurum-scheduler-group{
+  min-width:0;padding:6px;border:1px solid rgba(212,175,55,.16);
+  border-radius:8px;background:rgba(1,9,31,.34)
+}
+#aurumDualSchedulerSettings .aurum-scheduler-group-head{
+  display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:5px
+}
+#aurumDualSchedulerSettings .aurum-scheduler-group-head strong{font-size:.69rem;color:var(--gold2)}
+#aurumDualSchedulerSettings .aurum-scheduler-group-head small{font-size:.55rem;color:var(--muted)}
+#aurumDualSchedulerSettings .aurum-scheduler-group-slots{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px
+}
+#aurumDualSchedulerSettings .aurum-scheduler-extra{margin-top:6px}
+#aurumDualSchedulerSettings .aurum-scheduler-extra summary{
+  cursor:pointer;font-size:.6rem;color:var(--gold2);text-align:center;padding:5px;
+  border-top:1px solid rgba(212,175,55,.12)
+}
+#aurumDualSchedulerSettings .aurum-scheduler-extra[open] .aurum-scheduler-group-slots{margin-top:5px}
+@media(max-width:430px){
+ #aurumDualSchedulerSettings .aurum-scheduler-report-grid{grid-template-columns:1fr}
+}
+
+
 /* 2026-10-10: Four K_Tarihsel manual buttons, always one responsive row. */
 .aurum-khist-gap-actions{
   display:grid!important;
