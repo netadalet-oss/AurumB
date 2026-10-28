@@ -19,3 +19,10 @@ The canonical branch contains **24 source commits** dated on/after 11 Oct 2026 i
 
 ## Not certified
 Native database schema/migrations, Java–Kotlin native API equivalence, UI source archives, production signing and existing-data upgrade remain unverified. A full per-commit functional mapping must be completed before declaring every revision mirrored.
+
+
+## Complete reachable-history size and scope
+- GitHub chronological commit walk of the canonical `Aurum/aurumb` branch yields **1338 reachable commits** from its most recent revision back to 2026-10-01T17:55:06Z. The canonical repository was created later than the independent Legacy repository, so this is the **available** canonical history, not proof of history before the source repository existed.
+- The **24** commits inventoried above are only the most recent targeted time window; **do not mistake them for the full sync scope**. Ancestor commits can be shared across both canonical branches and need change-domain deduplication.
+- A full one-to-one port requires a versioned feature/API matrix, individual acceptance tests for all non-equivalent behavior and a Legacy-only upgrade proof. Current draft PR is **partial**; never merge or call it full parity until these prerequisites are met.
+- Preserve independent Legacy `applicationId`, existing native host paths and signing chain. Android cleanroom-native `Room` classes are not a drop-in Legacy dependency.
