@@ -1,0 +1,162 @@
+{
+  "schema": "legacy-web-revision-parity-v1",
+  "mode": "Legacy architecture; immutable shared web assets only",
+  "sourceBranch": "aurumb",
+  "verifiedSourceHead": "fix/aurumb-webview-freeze-20261027",
+  "exact": [
+    {
+      "path": "app/src/main/assets/aurum-icon.svg",
+      "blob": "c033219afcad60ef344744d67c2634cd954c47d4",
+      "size": 1772
+    },
+    {
+      "path": "app/src/main/assets/aurum-r10-revision.js",
+      "blob": "42dff2e9aeaa7f8eb6311b13c767256f0dc874eb",
+      "size": 3795
+    },
+    {
+      "path": "app/src/main/assets/aurum-r14-settings.js",
+      "blob": "8a813da88f83b710c79e9478c915506d3edb1939",
+      "size": 2193
+    },
+    {
+      "path": "app/src/main/assets/aurum-r7-data-time.css",
+      "blob": "1c1fa480c01052a9068712fc8b50f0c1b90d8d5f",
+      "size": 2026
+    },
+    {
+      "path": "app/src/main/assets/aurum-r9-learning-safety.js",
+      "blob": "bb7f2d1d2ecb45eb707e032b31f406ac0682fea6",
+      "size": 12929
+    },
+    {
+      "path": "app/src/main/assets/aurum-revision-20261015.css",
+      "blob": "d0345f73cbf1c51376cf8edc94a6af042c3f9fd2",
+      "size": 700
+    },
+    {
+      "path": "app/src/main/assets/aurum-revision-20261015.js",
+      "blob": "d7a383e901b5501390af23803c5a96ddec6f95fc",
+      "size": 9196
+    },
+    {
+      "path": "app/src/main/assets/background-keepalive-only.js",
+      "blob": "f94d1a7d4e841f86a9a68ed53dc8ad6f2bb69d62",
+      "size": 1076
+    },
+    {
+      "path": "app/src/main/assets/core.js",
+      "blob": "e187a9e6086cac1e28ee7c09bee8e7a0936dbf70",
+      "size": 301923
+    },
+    {
+      "path": "app/src/main/assets/fast-background-transfer.js",
+      "blob": "2da6e0b8f349c3489aaee46e4404e6eae9d6bcb3",
+      "size": 1578
+    },
+    {
+      "path": "app/src/main/assets/features.js",
+      "blob": "6c91d89f40601821ee88641fd09eb494ab2da165",
+      "size": 65583
+    },
+    {
+      "path": "app/src/main/assets/final-hardening.js",
+      "blob": "ab1665f2ad549cfb0a440544f5a57c30f86dc6ad",
+      "size": 19334
+    },
+    {
+      "path": "app/src/main/assets/index.html",
+      "blob": "be255a375dc073ca519d5a7ea3373324abd905b3",
+      "size": 4386
+    },
+    {
+      "path": "app/src/main/assets/manifest.webmanifest",
+      "blob": "9d9e00208a440bd1d8806b17cc4c0e3b8084fd61",
+      "size": 222
+    },
+    {
+      "path": "app/src/main/assets/market-display-fix2.js",
+      "blob": "0fb5c8c49bbeb9cc923e00a1c4c7f61d7f56fa68",
+      "size": 3701
+    },
+    {
+      "path": "app/src/main/assets/market-indicators-revision.js",
+      "blob": "c4b761b3f3a5393b6893c5ee72fe98574aa05080",
+      "size": 12481
+    },
+    {
+      "path": "app/src/main/assets/market-percent-portal-patch.js",
+      "blob": "8470f061dc9b1798a5de8a6e2991e1dea1fbd494",
+      "size": 2876
+    },
+    {
+      "path": "app/src/main/assets/market-rebuilt.js",
+      "blob": "1bf44da0510b064c9b3a40ec74faeeb560e6563f",
+      "size": 9371
+    },
+    {
+      "path": "app/src/main/assets/native-bridge.js",
+      "blob": "6e021fdfc33a9b2c0e87b2089c7e33f9d8886161",
+      "size": 872
+    },
+    {
+      "path": "app/src/main/assets/native-market-http.js",
+      "blob": "de6de8a3ef3887d8d80ec751431b101e5178798c",
+      "size": 3291
+    },
+    {
+      "path": "app/src/main/assets/native-secure-ai.js",
+      "blob": "59781e67f829426e927a13c53f8765f66cf65ee3",
+      "size": 1988
+    },
+    {
+      "path": "app/src/main/assets/netherlands-news-portal.js",
+      "blob": "f2e5f364cfbf4e01d33d925b56c13420a7b65578",
+      "size": 9024
+    },
+    {
+      "path": "app/src/main/assets/offline-first.js",
+      "blob": "5da74d58d07a55f6ab1d4c013c54362f1a5f64b1",
+      "size": 5831
+    },
+    {
+      "path": "app/src/main/assets/rev20-final-rules.js",
+      "blob": "7b805085d4368ba493eb9d6002d5ae4f8e1375ad",
+      "size": 6659
+    },
+    {
+      "path": "app/src/main/assets/rev20-final-stability.js",
+      "blob": "f8d0ac297a15e898527d48f266d19912a92bb878",
+      "size": 4615
+    },
+    {
+      "path": "app/src/main/assets/rev20-user-contract.js",
+      "blob": "8b51551a3ac65f0319e47333a17d19445c44ec9d",
+      "size": 5774
+    },
+    {
+      "path": "app/src/main/assets/safe-transfer-acceleration.js",
+      "blob": "2b3f65f6911824673d8463702b4e3ccceb21619a",
+      "size": 1304
+    },
+    {
+      "path": "app/src/main/assets/scheduler-settings.js",
+      "blob": "d7d8b18bb4b467e26b2dcd90e849e8a4b5e43944",
+      "size": 26725
+    },
+    {
+      "path": "app/src/main/assets/styles.css",
+      "blob": "272919ed54ec3a9de852e5f6d7678d695b60d88c",
+      "size": 135313
+    },
+    {
+      "path": "app/src/main/assets/trigger-contract.js",
+      "blob": "bcee0012b402f592da06c3cd5af97cb942de6853",
+      "size": 4317
+    }
+  ],
+  "adapted": [
+    "app/src/main/assets/runtime.js"
+  ],
+  "omitted": []
+}
