@@ -4,7 +4,7 @@ const read=f=>fs.readFileSync(f,'utf8'),R=read('app/src/main/assets/runtime.js')
 for(const [src,needle,desc] of [
  [R,'const V141225_PAGE_SIZE=24;','24 Legacy rows'],[R,'const V141225_COLUMN_PAGE_SIZE=18;','18 Legacy data columns'],
  [R,'function v141225ColumnPager(){','column pager'],[R,'globalThis.changeV141225ColumnPage=function','column navigation'],
- [R,"aurum.legacy.lastDataAttempt.v1",'separate attempt status'],[R,"nativeComplete('',false,'NO_PENDING_SLOT')",'scheduler failure'],
+ [R,"aurum.lastDataAttempt.v1",'separate attempt status'],[R,"nativeComplete('',false,'NO_PENDING_SLOT')",'scheduler failure'],
  [R,'nav.dataset.aurumNavBound','tabs bound before IndexedDB'],[A,'onRenderProcessGone','Legacy foreground renderer'],
  [P,'WEBVIEW_RENDERER_GONE','Legacy background renderer'],[G,"applicationId 'com.aurum.nextrevised09'",'unchanged Legacy package'],
  [G,'versionCode 123','unchanged Legacy installer version']
