@@ -15,6 +15,9 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.EditText
+import android.widget.TextView
+import android.widget.Button
+import android.widget.LinearLayout
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -26,6 +29,7 @@ import java.io.OutputStreamWriter
 
 class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
+    private var rendererLost = false
     private var exportFolder: Uri? = null
 
     // The export stream contains only AES-GCM encrypted Legacy JSON.
@@ -126,6 +130,25 @@ class MainActivity : AppCompatActivity() {
             }
         }
         webView.webViewClient = object : WebViewClient() {
+            override fun onRenderProcessGone(view: WebView?, detail: android.webkit.RenderProcessGoneDetail?): Boolean {
+                rendererLost = true
+                android.util.Log.e("AurumBLegacy", "WebView renderer terminated (crash=${detail?.didCrash()})")
+                runCatching { (view?.parent as? android.view.ViewGroup)?.removeView(view) }
+                runCatching { view?.destroy() }
+                setContentView(LinearLayout(this@MainActivity).apply {
+                    orientation=LinearLayout.VERTICAL
+                    setPadding(36,48,36,48)
+                    addView(TextView(this@MainActivity).apply {
+                        text="Legacy WebView işlemi kapandı. Kayıtlar silinmedi. Yeniden açarak son doğrulanmış verilere ulaşabilirsiniz."
+                        textSize=17f
+                    })
+                    addView(Button(this@MainActivity).apply {
+                        text="Kayıtları koruyarak yeniden aç"
+                        setOnClickListener { recreate() }
+                    })
+                })
+                return true
+            }
             override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?) =
                 request?.url?.let(assetLoader::shouldInterceptRequest)
 
@@ -515,8 +538,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun refreshPublishedLocalState() {
-        if (!::webView.isInitialized) return
+        if (!::webView.isInitialized || rendererLost) return
         runOnUiThread {
+            if (rendererLost) return@runOnUiThread
             webView.evaluateJavascript(
                 "window.AurumPublicationContinuity&&window.AurumPublicationContinuity.reload&&window.AurumPublicationContinuity.reload()",
                 null
@@ -541,7 +565,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
-        webView.saveState(outState)
+        if (::webView.isInitialized && !rendererLost) webView.saveState(outState)
         super.onSaveInstanceState(outState)
     }
 
@@ -552,8 +576,10 @@ class MainActivity : AppCompatActivity() {
         stopService(android.content.Intent(this, TransferKeepaliveService::class.java))
         dataOperationOwner?.let { OperationLock.release("data", it) }
         dataOperationOwner = null
-        webView.removeJavascriptInterface("AurumNativeBridge")
-        webView.destroy()
+        if (::webView.isInitialized && !rendererLost) {
+            webView.removeJavascriptInterface("AurumNativeBridge")
+            webView.destroy()
+        }
         super.onDestroy()
     }
 }
