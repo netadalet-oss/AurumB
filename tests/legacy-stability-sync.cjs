@@ -45,6 +45,6 @@ for(const page of [0,1,5,26,999]){
  assert.equal(visible[1],'VeriZamani','verified market timestamp must remain pinned');
 }
 tableLogic.set(0);assert.equal(tableLogic.visible().length,20);
-tableLogic.set(999);assert.equal(tableLogic.visible().length,20);
+tableLogic.set(999);assert.equal(tableLogic.visible().length,18); // 484 mod 18 = 16 metrics + 2 pinned
 
 console.log('AurumB Legacy stability transfer contract OK');
