@@ -32,6 +32,7 @@ jobs:
           node tests/aurumb-revision15-audit.cjs
           node tests/legacy-stability-sync.cjs
           node tests/legacy-architecture-safety.cjs
+          node tests/legacy-web-parity.cjs
       - name: Test manual T1–T30 archive preservation
         run: node tests/aurumb-revision15-history.cjs
       - name: Verify Legacy backup coverage inventory without modifying data
