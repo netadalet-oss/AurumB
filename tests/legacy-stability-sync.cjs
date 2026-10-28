@@ -73,4 +73,5 @@ assert(!P.includes('if (ok && kind == "data")'),'unverified success must never p
 assert(P.includes('val ok = uri.getQueryParameter("ok") == "1"'),'only an explicit ok=1 can complete a Legacy B scheduled pipeline');
 assert(R.includes("ok:ok?'1':'0'"),'Legacy B native completion protocol uses explicit 1/0 values');
 
+assert(P.includes('if (!request.isForMainFrame) return true'),'subframe must not terminate a scheduled Legacy B job');
 console.log('AurumB Legacy stability transfer contract OK');
