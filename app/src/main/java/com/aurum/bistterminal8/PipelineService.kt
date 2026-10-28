@@ -31,6 +31,7 @@ class PipelineService : Service() {
     private var watchdogTask: Runnable? = null
     private var operationLockKind: String? = null
     private var operationLockOwner: String? = null
+    private var activeToken: String? = null
 
     private inner class BackgroundNativeBridge {
         @JavascriptInterface
@@ -81,12 +82,14 @@ class PipelineService : Service() {
         }
         operationLockKind = kind
         operationLockOwner = jobToken
+        activeToken = jobToken
 
         acquireTransferWakeLock()
         watchdogTask?.let { watchdog?.removeCallbacks(it) }
         watchdog = android.os.Handler(mainLooper)
         watchdogTask = Runnable {
             SchedulerLedger.complete(this, jobToken, "FAILED", "PIPELINE_TIMEOUT")
+            activeToken = null
             operationLockOwner?.let { owner -> operationLockKind?.let { kindKey -> OperationLock.release(kindKey, owner) } }
             operationLockKind = null
             operationLockOwner = null
@@ -128,6 +131,7 @@ class PipelineService : Service() {
                 override fun onRenderProcessGone(view: WebView?, detail: android.webkit.RenderProcessGoneDetail?): Boolean {
                     android.util.Log.e("AurumBLegacyPipeline","Background Chromium terminated (crash=${detail?.didCrash()})")
                     SchedulerLedger.complete(this@PipelineService,jobToken,"FAILED","WEBVIEW_RENDERER_GONE")
+                    activeToken = null
                     watchdogTask?.let { watchdog?.removeCallbacks(it) }
                     watchdogTask=null
                     releaseTransferWakeLock()
@@ -154,6 +158,7 @@ class PipelineService : Service() {
                             if (ok) "COMPLETED" else "FAILED",
                             detail
                         )
+                        activeToken = null
                         if (ok && kind == "data") {
                             PublicationBus.publish()
                         }
@@ -283,6 +288,10 @@ class PipelineService : Service() {
     }
 
     override fun onDestroy() {
+        // An orphaned service must never leave the durable scheduler ledger RUNNING.
+        // SchedulerLedger.complete preserves an earlier terminal result.
+        activeToken?.let { SchedulerLedger.complete(this,it,"FAILED","SERVICE_DESTROYED_BEFORE_COMPLETION") }
+        activeToken = null
         watchdogTask?.let { watchdog?.removeCallbacks(it) }
         watchdogTask = null
         watchdog = null
