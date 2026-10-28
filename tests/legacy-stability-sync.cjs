@@ -60,4 +60,7 @@ const receiver=fs.readFileSync('app/src/main/java/com/aurum/bistterminal8/Trigge
 assert(receiver.includes('runCatching { ContextCompat.startForegroundService(context, service) }'),'OS background start rejection must be contained');
 assert(receiver.includes('SchedulerLedger.complete(context, jobToken, "FAILED"'),'OS-rejected alarm must produce terminal failed status');
 
+assert(ledger.includes('if (!prefs.edit().putString(token, record.toString()).commit())'),'Legacy B terminal scheduler outcome must be synchronously persisted');
+assert(ledger.includes('if (changed && !e.commit())'),'Legacy B stale scheduler reconciliation must be synchronously persisted');
+
 console.log('AurumB Legacy stability transfer contract OK');
