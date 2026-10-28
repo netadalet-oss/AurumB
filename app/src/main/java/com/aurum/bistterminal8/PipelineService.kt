@@ -20,8 +20,8 @@ import org.json.JSONObject
  * Headless execution host for scheduled Aurum pipelines.
  *
  * The background WebView must expose the same native market HTTP transport used by MainActivity.
- * Without this bridge native-market-http.js falls back to an unhandled JS prompt and every
- * allow-listed market request is rejected although the same operation works in the foreground.
+ * The prompt bridge handles commands only from the appassets origin; unscoped
+ * JavaScriptInterface callbacks would permit requests from arbitrary iframes.
  */
 class PipelineService : Service() {
     private var webView: WebView? = null
