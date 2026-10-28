@@ -6,7 +6,11 @@ for(const [src,needle,desc] of [
  [R,'function v141225ColumnPager(){','column pager'],[R,'globalThis.changeV141225ColumnPage=function','column navigation'],
  [R,"aurum.lastDataAttempt.v1",'separate attempt status'],[R,"nativeComplete('',false,'NO_PENDING_SLOT')",'scheduler failure'],
  [R,'nav.dataset.aurumNavBound','tabs bound before IndexedDB'],[A,'onRenderProcessGone','Legacy foreground renderer'],
- [P,'WEBVIEW_RENDERER_GONE','Legacy background renderer'],[G,"applicationId 'com.aurum.nextrevised09'",'unchanged Legacy package'],
+ [P,'WEBVIEW_RENDERER_GONE','Legacy background renderer'],
+ [P,'WEBVIEW_UNSUPPORTED_CHROMIUM','fail incompatible scheduled runtime'],
+ [A,'WebView.getCurrentWebViewPackage()','check Legacy Chromium before UI JS'],
+ [A,'AurumB Legacy verileri silinmedi','non-destructive compatibility notice'],
+ [G,"applicationId 'com.aurum.nextrevised09'",'unchanged Legacy package'],
  [G,'versionCode 123','unchanged Legacy installer version']
 ])assert(src.includes(needle),desc);
 assert(!R.includes('const V141225_PAGE_SIZE=200;'));
