@@ -15,6 +15,7 @@ for(const [src,needle,desc] of [
 ])assert(src.includes(needle),desc);
 assert(!R.includes('const V141225_PAGE_SIZE=200;'));
 assert(!R.includes("nativeComplete('',true,'NO_PENDING_SLOT')"));
+assert(R.includes('if(liveOperation?.jobId&&operationBusyStatus(liveOperation.status))return false;'),'foreground publication reload must not replace active transfer data');
 assert(!fs.existsSync('app/build.gradle.kts'),'Do not introduce Android canonical build tree');
 
 const ledger=read('app/src/main/java/com/aurum/bistterminal8/SchedulerLedger.kt');
