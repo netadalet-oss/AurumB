@@ -58,6 +58,15 @@ class PipelineService : Service() {
         val jobToken = intent.getStringExtra("jobToken")
             ?: run { stopSelf(startId); return START_NOT_STICKY }
         val kind = intent.getStringExtra("pipelineKind").let { if (it == "market") "market" else "data" }
+        // Scheduled Legacy transfers execute the same ES2020 JavaScript as the UI.
+        // Fail the real scheduler ledger entry before acquiring locks/wakelocks.
+        val chromiumMajor = WebView.getCurrentWebViewPackage()?.versionName?.substringBefore('.')?.toIntOrNull()
+        if (chromiumMajor != null && chromiumMajor < 80) {
+            android.util.Log.e("AurumBLegacyPipeline", "Unsupported Chromium WebView major=$chromiumMajor")
+            SchedulerLedger.complete(this, jobToken, "FAILED", "WEBVIEW_UNSUPPORTED_CHROMIUM")
+            stopSelf(startId)
+            return START_NOT_STICKY
+        }
 
         // Never destroy an already-running background WebView to start another pipeline.
         // Duplicate same-slot alarms are filtered by SchedulerLedger; different overlapping
