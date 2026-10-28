@@ -25,4 +25,26 @@ assert(ledger.includes('STALE_RUNNING_RECONCILED'),'stale scheduler status must 
 assert(ledger.includes('if (record.optString("status") in terminal) return'),'a finished job must never be overwritten by callbacks');
 assert(P.includes('activeToken?.let { SchedulerLedger.complete(this,it,"FAILED","SERVICE_DESTROYED_BEFORE_COMPLETION") }'),'service termination cannot strand a running scheduled job');
 
+
+// Behavioral regression: the real Legacy renderer must keep the identity/time
+// fields visible across every column group, even for the full 484-column model.
+const srcStart=R.indexOf('function v141225VisibleHeaders(){');
+const srcEnd=R.indexOf('function v141225ColumnPager(){',srcStart);
+assert(srcStart>=0&&srcEnd>srcStart,'extractable Legacy column paging function');
+const headers=['Hisse','VeriZamani',...Array.from({length:484},(_,i)=>'metric_'+i)];
+const tableLogic=new Function('headers',`
+ let V141225_COLUMN_PAGE_INDEX=0;
+ const V141225_COLUMN_PAGE_SIZE=18,V141225_ALL_HEADERS=headers;
+ ${R.slice(srcStart,srcEnd)}
+ return {visible:()=>v141225VisibleHeaders(),set:(n)=>{V141225_COLUMN_PAGE_INDEX=n}};
+`)(headers);
+for(const page of [0,1,5,26,999]){
+ tableLogic.set(page);const visible=tableLogic.visible();
+ assert(visible.length<=20,'wide table must not mount all columns');
+ assert.equal(visible[0],'Hisse','stock code must remain pinned');
+ assert.equal(visible[1],'VeriZamani','verified market timestamp must remain pinned');
+}
+tableLogic.set(0);assert.equal(tableLogic.visible().length,20);
+tableLogic.set(999);assert.equal(tableLogic.visible().length,20);
+
 console.log('AurumB Legacy stability transfer contract OK');
