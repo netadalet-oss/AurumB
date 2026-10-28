@@ -191,7 +191,7 @@ class MainActivity : AppCompatActivity() {
         webView.requestFocus()
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                if (webView.canGoBack()) webView.goBack() else finish()
+                if (::webView.isInitialized && !rendererLost && webView.parent != null && webView.canGoBack()) webView.goBack() else finish()
             }
         })
     }
@@ -356,6 +356,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun resolveJs(function: String, id: String, payload: String) {
         runOnUiThread {
+            if (!::webView.isInitialized || rendererLost || webView.parent == null) return@runOnUiThread
             webView.evaluateJavascript(function + "(" + JSONObject.quote(id) + "," +
                 JSONObject.quote(payload) + ")", null)
         }
@@ -528,7 +529,8 @@ class MainActivity : AppCompatActivity() {
                 val value = input.text.toString().trim()
                 if (value.isNotEmpty()) {
                     SecureSecretStore.put(this, value)
-                    webView.evaluateJavascript("window.AurumNativeAIKeySaved&&window.AurumNativeAIKeySaved(true)", null)
+                    if (::webView.isInitialized && !rendererLost && webView.parent != null)
+                        webView.evaluateJavascript("window.AurumNativeAIKeySaved&&window.AurumNativeAIKeySaved(true)", null)
                 }
             }.setNegativeButton(android.R.string.cancel, null).show()
     }
@@ -583,7 +585,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
-        if (::webView.isInitialized && !rendererLost) webView.saveState(outState)
+        if (::webView.isInitialized && !rendererLost && webView.parent != null) webView.saveState(outState)
         super.onSaveInstanceState(outState)
     }
 
@@ -594,7 +596,7 @@ class MainActivity : AppCompatActivity() {
         stopService(android.content.Intent(this, TransferKeepaliveService::class.java))
         dataOperationOwner?.let { OperationLock.release("data", it) }
         dataOperationOwner = null
-        if (::webView.isInitialized && !rendererLost) {
+        if (::webView.isInitialized && !rendererLost && webView.parent != null) {
             webView.removeJavascriptInterface("AurumNativeBridge")
             webView.destroy()
         }
