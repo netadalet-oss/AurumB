@@ -4,7 +4,7 @@ const fs=require('node:fs'),path=require('node:path');
 const read=p=>fs.readFileSync(p,'utf8'), root='app/src/main/assets';
 const gradle=read('app/build.gradle'),html=read(root+'/index.html');
 assert(gradle.includes("applicationId 'com.aurum.nextrevised09'"),'Legacy applicationId must be unchanged');
-assert(/versionCode\s+123\b/.test(gradle),'Legacy versionCode must remain 123');
+assert(/versionCode\s+124\b/.test(gradle),'Legacy versionCode must remain 124');
 assert(!fs.existsSync('app/build.gradle.kts'),'must not replace Groovy with cleanroom Kotlin Gradle');
 assert(!fs.existsSync('app/src/main/kotlin/io/aurum'),'must not inject canonical cleanroom Room/host');
 assert(fs.existsSync('app/src/main/java/com/aurum/bistterminal8/MainActivity.kt'),'Legacy native host path must remain');
