@@ -6943,6 +6943,10 @@ globalThis.AurumNotifications=Object.freeze({version:'R225.0',open:openJournal,r
 
   async function reloadPublishedState(){
     if(BACKGROUND_SYNC||reloading||!state.db)return false;
+    // Do not tear down a verified Legacy data table during an in-flight transfer.
+    // Its own terminal publish/repaint will update the visible snapshot.
+    const liveOperation=currentRuntime();
+    if(liveOperation?.jobId&&operationBusyStatus(liveOperation.status))return false;
     reloading=true;
     try{
       const [recordRows,activeRow,knRow,sRow]=await Promise.all([
