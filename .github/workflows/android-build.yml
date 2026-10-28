@@ -91,7 +91,8 @@ jobs:
           const fs=require('fs');const s=fs.readFileSync('app/src/main/assets/runtime.js','utf8');const a=s.indexOf('async function recoverOrphanStagingRecords(){'),b=s.indexOf('\nasync function atomicPublish(job,universe){',a);const body=s.slice(a,b);if(/objectStore\(['\"]records['\"]\)|dbPut\(['\"]records['\"]/.test(body)){throw new Error('orphan staging must not write active records')}
           NODE
           grep -F "R221_SMART_MAX_ROUNDS=5" "$R"
-          grep -F "R225_FILL_TARGETS=Object.freeze([100,95,90,80,70])" "$R"
+          grep -F "R225_OPTIONAL_FILL_TARGETS=Object.freeze([95,90,80,70])" "$R"
+          grep -F "const requiredByFill=nextRound===1?true:fill<target" "$R"
           grep -F "for(let round=1;round<=5;round++)" "$R"
           grep -F "ATOMIC_PUBLISH_ONLY_IF_FRESH_CANDIDATE_FILL_GTE_70" "$R"
           grep -F "if(source?.calculationEligible===false||!row?.eligible)continue" "$R"
@@ -117,7 +118,7 @@ jobs:
           grep -F "state.selectionDisplaySnapshot=" app/src/main/assets/core.js
           grep -F "state.knDisplaySnapshot=" app/src/main/assets/core.js
           grep -F '"notification" -> {' app/src/main/java/com/aurum/bistterminal8/PipelineService.kt
-          grep -F "const requiredByFill=nextRound===1?fill<100:fill<target" "$R"
+          grep -F "const requiredByFill=nextRound===1?true:fill<target" "$R"
           grep -F "if(age>COHORT_MS)" "$R"
           grep -F '"schedule_status" -> AurumScheduler.statusJson(this)' app/src/main/java/com/aurum/bistterminal8/MainActivity.kt
           grep -F 'fun exactAllowed' app/src/main/java/com/aurum/bistterminal8/AurumScheduler.kt
