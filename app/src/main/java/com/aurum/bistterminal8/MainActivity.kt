@@ -59,7 +59,7 @@ class MainActivity : AppCompatActivity() {
             exportFolder = uri
             getSharedPreferences("aurum_export_folder", MODE_PRIVATE).edit()
                 .putString("uri", uri.toString()).apply()
-            if (::webView.isInitialized) webView.evaluateJavascript("window.refreshExportFolderStatus?.()", null)
+            if (::webView.isInitialized && !rendererLost && webView.parent != null) webView.evaluateJavascript("window.refreshExportFolderStatus?.()", null)
         }
     }
 
@@ -81,6 +81,24 @@ class MainActivity : AppCompatActivity() {
         WebView.setWebContentsDebuggingEnabled((applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0)
         exportFolder = getSharedPreferences("aurum_export_folder", MODE_PRIVATE)
             .getString("uri", null)?.let(Uri::parse)
+        // This Legacy WebView bundle requires ES2020; an obsolete embedded Chromium
+        // must not open a blank JS app or be mistaken for a failed market refresh.
+        val webViewMajor = WebView.getCurrentWebViewPackage()?.versionName?.substringBefore('.')?.toIntOrNull()
+        if (webViewMajor != null && webViewMajor < 80) {
+            setContentView(LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(36, 48, 36, 48)
+                addView(TextView(this@MainActivity).apply {
+                    text = "Android System WebView veya Chrome sürümü çok eski. AurumB Legacy verileri silinmedi. WebView/Chrome'u güncelleyip yeniden açın."
+                    textSize = 17f
+                })
+                addView(Button(this@MainActivity).apply {
+                    text = "Kapat"
+                    setOnClickListener { finish() }
+                })
+            })
+            return
+        }
         webView = WebView(this)
         setContentView(webView)
         webView.settings.javaScriptEnabled = true
@@ -538,7 +556,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun refreshPublishedLocalState() {
-        if (!::webView.isInitialized || rendererLost) return
+        if (!::webView.isInitialized || rendererLost || webView.parent == null) return
         runOnUiThread {
             if (rendererLost) return@runOnUiThread
             webView.evaluateJavascript(
