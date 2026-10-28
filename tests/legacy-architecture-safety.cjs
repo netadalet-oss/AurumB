@@ -24,7 +24,10 @@ for(const [,source] of html.matchAll(/<link\s+rel="stylesheet"\s+href="([^"]+)"/
 }
 const act=read('app/src/main/java/com/aurum/bistterminal8/MainActivity.kt');
 const pipeline=read('app/src/main/java/com/aurum/bistterminal8/PipelineService.kt');
-assert(act.includes('addJavascriptInterface('),'Legacy native JS bridge must still be present');
+assert(!act.includes('addJavascriptInterface('),'unscoped JavaScriptInterface must not expose native commands to iframes');
+assert(!pipeline.includes('addJavascriptInterface('),'headless bridge must not expose native commands to iframes');
+assert(act.includes('ERR:UNTRUSTED_ORIGIN') && pipeline.includes('ERR:UNTRUSTED_ORIGIN'),'native prompts must verify caller origin');
+assert(act.includes('source.path?.startsWith("/assets/")') && pipeline.includes('source.path?.startsWith("/assets/")'),'only appassets assets may request native commands');
 assert(act.includes('WebView.getCurrentWebViewPackage()'),'obsolete Chromium must be detected');
 assert(act.includes('onRenderProcessGone'),'foreground renderer failure must remain handled');
 assert(pipeline.includes('WEBVIEW_RENDERER_GONE'),'background renderer death must be terminal');
