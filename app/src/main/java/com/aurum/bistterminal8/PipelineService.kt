@@ -116,6 +116,20 @@ class PipelineService : Service() {
             }
 
             webViewClient = object : WebViewClient() {
+                override fun onRenderProcessGone(view: WebView?, detail: android.webkit.RenderProcessGoneDetail?): Boolean {
+                    android.util.Log.e("AurumBLegacyPipeline","Background Chromium terminated (crash=${detail?.didCrash()})")
+                    SchedulerLedger.complete(this@PipelineService,jobToken,"FAILED","WEBVIEW_RENDERER_GONE")
+                    watchdogTask?.let { watchdog?.removeCallbacks(it) }
+                    watchdogTask=null
+                    releaseTransferWakeLock()
+                    operationLockOwner?.let { owner -> operationLockKind?.let { kindKey -> OperationLock.release(kindKey,owner) } }
+                    operationLockKind=null
+                    operationLockOwner=null
+                    webView=null
+                    runCatching { view?.destroy() }
+                    stopSelf(startId)
+                    return true
+                }
                 override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest) =
                     loader.shouldInterceptRequest(request.url)
 
