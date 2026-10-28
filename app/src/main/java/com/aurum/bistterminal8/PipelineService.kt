@@ -149,6 +149,8 @@ class PipelineService : Service() {
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                     val uri = request.url
                     if (uri.scheme == "aurum" && uri.host == "complete") {
+                        // Completion is an app-owned top-level navigation, not an iframe event.
+                        if (!request.isForMainFrame) return true
                         val ok = uri.getQueryParameter("ok") == "1"
                         val detail = uri.getQueryParameter("detail").orEmpty()
                         watchdogTask?.let { watchdog?.removeCallbacks(it) }
