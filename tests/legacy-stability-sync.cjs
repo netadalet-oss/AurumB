@@ -63,4 +63,11 @@ assert(receiver.includes('SchedulerLedger.complete(context, jobToken, "FAILED"')
 assert(ledger.includes('if (!prefs.edit().putString(token, record.toString()).commit())'),'Legacy B terminal scheduler outcome must be synchronously persisted');
 assert(ledger.includes('if (changed && !e.commit())'),'Legacy B stale scheduler reconciliation must be synchronously persisted');
 
+assert(ledger.includes('fun complete(context: Context, token: String, status: String, detail: String): Boolean'),'Legacy B terminal transition must return durable outcome');
+assert(ledger.includes('val stored = prefs.getString(token, null) ?: return false'),'unknown slot must not be manufactured');
+assert(ledger.includes('if (record.optString("status") in terminal) return false'),'replayed terminal callback must be rejected');
+assert(ledger.includes('val persisted = prefs.edit().putString(token, record.toString()).commit()'),'terminal write must return actual commit outcome');
+assert(P.includes('if (ok && terminalRecorded && kind == "data")'),'late completion or failed ledger write must not publish');
+assert(!P.includes('if (ok && kind == "data")'),'unverified success must never publish');
+
 console.log('AurumB Legacy stability transfer contract OK');
