@@ -6,6 +6,7 @@ import java.time.Instant
 
 object SchedulerLedger {
     private const val PREFS = "aurum_scheduler_ledger"
+    private val terminal = setOf("COMPLETED", "FAILED", "CANCELLED", "TIMEOUT")
 
     /**
      * Atomically acquires one scheduled slot. A duplicate delivery for the same pipeline/epoch/slot
@@ -16,11 +17,10 @@ object SchedulerLedger {
         val token = token(epoch, time, normalizedKind)
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         synchronized(this) {
-            val previous = prefs.getString(token, null)
-            if (previous != null) {
-                val status = runCatching { JSONObject(previous).optString("status") }.getOrDefault("")
-                if (status in setOf("RUNNING", "COMPLETED")) return null
-            }
+            // An event identity can run only once; delayed/replayed exact alarms
+            // must never execute a failed slot twice without a NEW scheduled epoch.
+            reconcileLocked(prefs)
+            if (prefs.contains(token)) return null
             val record = JSONObject()
                 .put("eventId", token)
                 .put("eventTime", Instant.ofEpochMilli(epoch).toString())
@@ -30,6 +30,8 @@ object SchedulerLedger {
                 .put("pipelineKind", normalizedKind)
                 .put("calendarType", "BIST")
                 .put("startedAt", Instant.now().toString())
+                .put("scheduledEpoch", epoch)
+                .put("receivedAt", Instant.now().toString())
                 .put("status", "RUNNING")
                 .put("attempt", 1)
             prefs.edit().putString(token, record.toString()).commit()
@@ -47,6 +49,9 @@ object SchedulerLedger {
         synchronized(this) {
             val record = runCatching { JSONObject(prefs.getString(token, "{}") ?: "{}") }
                 .getOrElse { JSONObject() }
+            // Renderer, watchdog and onDestroy callbacks can race. The first
+            // terminal outcome is authoritative, especially a verified success.
+            if (record.optString("status") in terminal) return
             record.put("jobToken", token)
                 .put("completedAt", Instant.now().toString())
                 .put("status", status)
@@ -56,8 +61,29 @@ object SchedulerLedger {
         }
     }
 
+    private fun reconcileLocked(prefs: android.content.SharedPreferences) {
+        val cutoff = Instant.now().minusSeconds(2 * 60 * 60 + 5 * 60)
+        val e = prefs.edit()
+        var changed = false
+        prefs.all.forEach { (key, value) ->
+            val record = runCatching { JSONObject(value as String) }.getOrNull() ?: return@forEach
+            if (record.optString("status") != "RUNNING") return@forEach
+            val started = runCatching { Instant.parse(record.optString("startedAt")) }.getOrNull()
+            if (started != null && started.isBefore(cutoff)) {
+                record.put("status", "TIMEOUT")
+                    .put("detail", "STALE_RUNNING_RECONCILED")
+                    .put("lastError", "STALE_RUNNING_RECONCILED")
+                    .put("completedAt", Instant.now().toString())
+                e.putString(key, record.toString())
+                changed = true
+            }
+        }
+        if (changed) e.apply()
+    }
+
     fun latest(context: Context): JSONObject {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        synchronized(this) { reconcileLocked(prefs) }
         val rows = prefs.all.values.mapNotNull { runCatching { JSONObject(it as String) }.getOrNull() }
         return rows.maxByOrNull { it.optString("startedAt") } ?: JSONObject()
     }
