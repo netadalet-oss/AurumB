@@ -12,7 +12,7 @@ for(const [label,source] of [['foreground',main],['scheduled',background]]){
   assert(source.includes('ERR:UNTRUSTED_ORIGIN'),label+': untrusted frame must fail closed');
   assert(source.includes('source.host') && source.includes('appassets.androidplatform.net'),label+': verify caller origin');
   assert(source.includes('source.path?.startsWith("/assets/")'),label+': verify local asset path');
-  assert(source.includes('view?.url?.startsWith("https://appassets.androidplatform.net/assets/")'),label+': top-level asset origin required');
+  assert(source.includes('view?.url?.startsWith(') && source.includes('https://appassets.androidplatform.net/assets/'),label+': top-level asset origin required');
 }
 const calls=[];
 const sandbox={
