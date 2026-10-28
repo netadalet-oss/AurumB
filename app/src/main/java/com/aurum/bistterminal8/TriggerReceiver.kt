@@ -37,6 +37,8 @@ class TriggerReceiver : BroadcastReceiver() {
             .putExtra("epoch", epoch)
             .putExtra("jobToken", jobToken)
             .putExtra("pipelineKind", kind)
-        ContextCompat.startForegroundService(context, service)
+        runCatching { ContextCompat.startForegroundService(context, service) }
+            .onFailure { SchedulerLedger.complete(context, jobToken, "FAILED",
+                "SERVICE_START: " + (it.message ?: it.javaClass.simpleName)) }
     }
 }
